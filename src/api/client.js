@@ -1,16 +1,17 @@
 import axios from 'axios';
 
-const apiClient = axios.create({
+const client = axios.create({
   baseURL: import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080/api',
-  withCredentials: true, // ⚠️ CRITICAL: Send cookies with every request
+  withCredentials: true, // Send cookies (JSESSIONID) with requests
   headers: {
     'Content-Type': 'application/json',
   },
 });
 
-// CSRF Token Interceptor - Extract XSRF-TOKEN from cookies and add to headers
-apiClient.interceptors.request.use(
+// Request interceptor: Attach CSRF token from cookie to request header
+client.interceptors.request.use(
   (config) => {
+    // Read XSRF-TOKEN from cookie
     const csrfToken = document.cookie
       .split('; ')
       .find((row) => row.startsWith('XSRF-TOKEN='))
@@ -22,19 +23,21 @@ apiClient.interceptors.request.use(
 
     return config;
   },
-  (error) => Promise.reject(error)
+  (error) => {
+    return Promise.reject(error);
+  }
 );
 
-// Response Interceptor for error handling
-apiClient.interceptors.response.use(
+// Response interceptor: Handle 401 (Unauthorized)
+client.interceptors.response.use(
   (response) => response,
   (error) => {
     if (error.response?.status === 401) {
-      // Unauthorized - could redirect to login
-      console.warn('Unauthorized request:', error.config.url);
+      // Redirect to login page on unauthorized
+      window.location.href = '/login';
     }
     return Promise.reject(error);
   }
 );
 
-export default apiClient;
+export default client;
