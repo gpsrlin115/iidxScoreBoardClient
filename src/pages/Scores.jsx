@@ -17,7 +17,7 @@ import { FullPageSpinner } from '../components/common/Spinner';
  * → "단방향 데이터 흐름(Unidirectional Data Flow)"이라고 합니다.
  */
 const Scores = () => {
-  const { pagination, setPage } = useScoresStore();
+  const { setPage } = useScoresStore();
   const { scores, totalElements, totalPages, currentPage, isLoading, error } = useScores();
 
   return (

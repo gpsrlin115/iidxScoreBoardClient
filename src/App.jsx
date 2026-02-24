@@ -6,6 +6,7 @@ import { authApi } from './api/auth';
 import ProtectedRoute from './components/guards/ProtectedRoute';
 import ProtectedLayout from './components/layout/ProtectedLayout';
 import Login from './pages/Login';
+import Scores from './pages/Scores';
 
 /**
  * 🎓 학습 포인트: 중첩 라우트 (Nested Routes) 패턴
@@ -86,7 +87,7 @@ function App() {
         >
           <Route path="/" element={<PlaceholderPage title="대시보드" />} />
           <Route path="/dashboard" element={<Navigate to="/" replace />} />
-          <Route path="/scores" element={<PlaceholderPage title="스코어 목록" />} />
+          <Route path="/scores" element={<Scores />} />
           <Route path="/tier-table/:level" element={<PlaceholderPage title="서열표" />} />
           <Route path="/tier-table" element={<Navigate to="/tier-table/12" replace />} />
           <Route path="/import/*" element={<PlaceholderPage title="데이터 가져오기" />} />
