@@ -37,6 +37,19 @@ export const authApi = {
   },
 
   /**
+   * 회원가입 요청
+   *
+   * 🎓 API 스펙에 아직 없지만 백엔드 AuthService에 signup() 메서드가 있습니다.
+   * 프론트엔드에서 미리 구현해두면 백엔드 엔드포인트가 추가될 때 바로 연동됩니다.
+   *
+   * @param {{ username: string, email: string, password: string }} data
+   */
+  signup: async ({ username, email, password }) => {
+    const response = await apiClient.post('/auth/signup', { username, email, password });
+    return response.data;
+  },
+
+  /**
    * 로그아웃 요청
    *
    * 🎓 클라이언트에서 직접 쿠키를 지우지 않나요?
