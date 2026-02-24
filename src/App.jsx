@@ -4,129 +4,97 @@ import { Toaster } from 'react-hot-toast';
 import { useAuthStore } from './store/authStore';
 import { authApi } from './api/auth';
 import ProtectedRoute from './components/guards/ProtectedRoute';
+import ProtectedLayout from './components/layout/ProtectedLayout';
 import Login from './pages/Login';
 
 /**
- * 🎓 학습 포인트: 페이지 컴포넌트를 lazy import하는 이유
+ * 🎓 학습 포인트: 중첩 라우트 (Nested Routes) 패턴
  *
- * 현재는 placeholder로 인라인 컴포넌트를 사용합니다.
- * 실제 페이지 컴포넌트가 만들어지면 아래처럼 import합니다:
- *   const Login = lazy(() => import('./pages/Login'));
+ * 이전 방식 (Wrapper 패턴):
+ *   <Route path="/" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
+ *   <Route path="/scores" element={<ProtectedRoute><Scores /></ProtectedRoute>} />
+ *   → 각 라우트마다 ProtectedRoute와 Header를 반복해야 함
  *
- * lazy import = "이 컴포넌트가 필요할 때만 코드를 불러온다"
- * → 앱 초기 로딩 속도가 빨라집니다 (Code Splitting)
- *
- * 지금은 개발 편의를 위해 인라인으로 작성합니다.
+ * 개선된 방식 (Layout 라우트 + Outlet):
+ *   <Route element={<ProtectedRoute><ProtectedLayout /></ProtectedRoute>}>
+ *     <Route path="/" element={<Dashboard />} />      ← Outlet에 렌더링
+ *     <Route path="/scores" element={<Scores />} />   ← Outlet에 렌더링
+ *   </Route>
+ *   → 부모 라우트가 한 번에 인증 + 레이아웃을 처리
+ *   → 자식 라우트는 순수한 콘텐츠만 담당
  */
 
-// ─── 임시 placeholder 컴포넌트 (나중에 별도 파일로 교체) ───
+// 임시 placeholder (차후 실제 페이지로 교체)
 const PlaceholderPage = ({ title }) => (
-  <div className="flex items-center justify-center min-h-screen bg-bg-darker">
-    <h1 className="text-3xl font-bold text-text-light">{title} 페이지 (개발 중)</h1>
+  <div className="flex items-center justify-center min-h-[60vh]">
+    <div className="text-center">
+      <h1 className="text-3xl font-bold text-white mb-2">{title}</h1>
+      <p className="text-slate-400 text-sm">개발 중입니다...</p>
+    </div>
   </div>
 );
 
 function App() {
-
   /**
-   * 🎓 학습 포인트: useEffect란?
-   *
-   * useEffect는 컴포넌트가 화면에 나타난 후(마운트 후) 실행되는 코드를 담습니다.
-   * 두 번째 인자인 빈 배열 []은 "앱 시작 시 딱 한 번만 실행"을 의미합니다.
-   *
-   * 여기서 하는 일: 세션 복원 (Session Restoration)
-   * 1. 앱이 시작됨
-   * 2. /api/users/me 호출 → 쿠키에 유효한 세션이 있으면 사용자 정보 반환
-   * 3. user를 Store에 저장 → 로그인 상태로 인식
-   * 4. 쿠키가 없거나 만료됐으면 → 에러 발생 → user는 null 유지 (로그아웃 상태)
-   *
-   * 🎓 lint 경고 "missing dependencies" 해결책
-   * useAuthStore.getState()는 리렌더링 없이 현재 스토어를 바로 읽습니다.
-   * 세션 복원은 마운트 시 "딱 한 번"만 실행하면 되므로
-   * 의존성 배열에 함수를 넣지 않아도 안전합니다.
+   * 앱 마운트 시 세션 복원
+   * → 새로고침 후에도 로그인 상태를 유지합니다
    */
   useEffect(() => {
     const restoreSession = async () => {
       try {
         const user = await authApi.getCurrentUser();
-        // getState()로 직접 액션을 호출 → 의존성 배열 경고 없이 안전
         useAuthStore.getState().setUser(user);
       } catch {
-        // 401 등 에러 발생 = 로그인 안 된 상태 → 아무것도 하지 않음 (user: null 유지)
+        // 비로그인 상태 → user: null 유지
       } finally {
         useAuthStore.getState().setLoading(false);
       }
     };
-
     restoreSession();
-  }, []); // 빈 배열: 앱 시작 시 딱 한 번만 실행
-
+  }, []);
 
   return (
-    /**
-     * 🎓 Toaster 컴포넌트란?
-     * react-hot-toast 라이브러리의 뷰 컴포넌트입니다.
-     * 앱 최상단에 한 번만 두면, 어디서든 toast.success() 등을 호출할 수 있습니다.
-     * position="top-right": 화면 우측 상단에 알림이 표시됩니다.
-     */
     <Router>
       <Toaster
         position="top-right"
         toastOptions={{
-          style: {
-            background: '#1e293b',
-            color: '#f1f5f9',
-          },
+          style: { background: '#1e293b', color: '#f1f5f9' },
         }}
       />
+
       <Routes>
-        {/* ── 공개 라우트 (로그인 없이 접근 가능) ── */}
+        {/* ───────────────────────────────────────────────
+         * 공개 라우트 (로그인 없이 접근 가능)
+         * ─────────────────────────────────────────────── */}
         <Route path="/login" element={<Login />} />
         <Route path="/signup" element={<PlaceholderPage title="회원가입" />} />
 
-        {/* ── 보호된 라우트 (로그인 필요) ── */}
-        {/**
-         * 🎓 ProtectedRoute로 감싸면 어떻게 되나요?
-         * - 로그인 O → <PlaceholderPage> 렌더링
-         * - 로그인 X → /login으로 리다이렉트
-         */}
-        <Route path="/" element={
-          <ProtectedRoute>
-            <PlaceholderPage title="대시보드" />
-          </ProtectedRoute>
-        } />
-        <Route path="/dashboard" element={
-          <ProtectedRoute>
-            <Navigate to="/" replace />
-          </ProtectedRoute>
-        } />
-        <Route path="/scores" element={
-          <ProtectedRoute>
-            <PlaceholderPage title="스코어 목록" />
-          </ProtectedRoute>
-        } />
-        <Route path="/tier-table/:level" element={
-          <ProtectedRoute>
-            <PlaceholderPage title="서열표" />
-          </ProtectedRoute>
-        } />
-        <Route path="/import/*" element={
-          <ProtectedRoute>
-            <PlaceholderPage title="데이터 가져오기" />
-          </ProtectedRoute>
-        } />
-        <Route path="/profile/*" element={
-          <ProtectedRoute>
-            <PlaceholderPage title="프로필" />
-          </ProtectedRoute>
-        } />
-        <Route path="/admin/tier-table" element={
-          <ProtectedRoute>
-            <PlaceholderPage title="서열표 관리 (Admin)" />
-          </ProtectedRoute>
-        } />
+        {/* ───────────────────────────────────────────────
+         * 보호된 라우트 (로그인 필요)
+         *
+         * 🎓 이 구조를 읽는 법:
+         * 1. ProtectedRoute: 로그인 확인 → 안 되면 /login으로
+         * 2. ProtectedLayout: Header + Outlet 레이아웃
+         * 3. 자식 Route들: Outlet 위치에 렌더링
+         * ─────────────────────────────────────────────── */}
+        <Route
+          element={
+            <ProtectedRoute>
+              <ProtectedLayout />
+            </ProtectedRoute>
+          }
+        >
+          <Route path="/" element={<PlaceholderPage title="대시보드" />} />
+          <Route path="/dashboard" element={<Navigate to="/" replace />} />
+          <Route path="/scores" element={<PlaceholderPage title="스코어 목록" />} />
+          <Route path="/tier-table/:level" element={<PlaceholderPage title="서열표" />} />
+          <Route path="/tier-table" element={<Navigate to="/tier-table/12" replace />} />
+          <Route path="/import/*" element={<PlaceholderPage title="데이터 가져오기" />} />
+          <Route path="/profile/*" element={<PlaceholderPage title="프로필" />} />
+          <Route path="/admin/tier-table" element={<PlaceholderPage title="서열표 관리 (Admin)" />} />
+        </Route>
 
-        {/* ── 404: 정의되지 않은 경로는 홈으로 ── */}
+        {/* 404: 정의되지 않은 경로는 홈으로 */}
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </Router>
