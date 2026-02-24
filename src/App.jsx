@@ -7,6 +7,7 @@ import ProtectedRoute from './components/guards/ProtectedRoute';
 import ProtectedLayout from './components/layout/ProtectedLayout';
 import Login from './pages/Login';
 import Scores from './pages/Scores';
+import CsvUpload from './pages/CsvUpload';
 
 /**
  * 🎓 학습 포인트: 중첩 라우트 (Nested Routes) 패턴
@@ -90,7 +91,8 @@ function App() {
           <Route path="/scores" element={<Scores />} />
           <Route path="/tier-table/:level" element={<PlaceholderPage title="서열표" />} />
           <Route path="/tier-table" element={<Navigate to="/tier-table/12" replace />} />
-          <Route path="/import/*" element={<PlaceholderPage title="데이터 가져오기" />} />
+          <Route path="/import" element={<Navigate to="/import/csv" replace />} />
+          <Route path="/import/csv" element={<CsvUpload />} />
           <Route path="/profile/*" element={<PlaceholderPage title="프로필" />} />
           <Route path="/admin/tier-table" element={<PlaceholderPage title="서열표 관리 (Admin)" />} />
         </Route>
