@@ -33,7 +33,7 @@ const CLEAR_TYPE_LABEL = {
   HARD_CLEAR:    'HARD',
   CLEAR:         'CLR',
   EASY_CLEAR:    'EASY',
-  ASSIST_CLEAR:  'ASS',
+  ASSIST_CLEAR:  'AC',
   FAILED:        'FAIL',
 };
 
