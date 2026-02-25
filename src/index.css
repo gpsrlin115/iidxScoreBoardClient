@@ -1,1 +1,74 @@
 @import "tailwindcss";
+
+@theme {
+  --color-primary-50: var(--color-primary-50);
+  --color-primary-500: var(--color-primary-500);
+  --color-primary-700: var(--color-primary-700);
+  --color-primary-900: var(--color-primary-900);
+  --color-accent-500: var(--color-accent-500);
+  --color-accent-700: var(--color-accent-700);
+  --color-bg-dark: var(--color-bg-dark);
+  --color-bg-darker: var(--color-bg-darker);
+  --color-text-light: var(--color-text-light);
+}
+
+@layer base {
+  :root {
+    /* Primary (Electric Blue) */
+    --color-primary-50: #e0f2fe;
+    --color-primary-500: #0ea5e9;
+    --color-primary-700: #0369a1;
+    --color-primary-900: #0c4a6e;
+
+    /* Accent (Neon Pink) */
+    --color-accent-500: #ec4899;
+    --color-accent-700: #be185d;
+
+    /* Clear Type Colors */
+    --color-failed: #6b7280;
+    --color-assist: #a855f7;
+    --color-easy: #22c55e;
+    --color-clear: #3b82f6;
+    --color-hard: #ffffff;
+    --color-exhard: #fbbf24;
+    --color-fullcombo: linear-gradient(90deg, #fde047, #ffffff, #fde047);
+
+    /* DJ Level Colors */
+    --color-dj-aaa: #fbbf24;
+    --color-dj-aa: #d1d5db;
+    --color-dj-a: #cd7f32;
+
+    /* Dark Theme */
+    --color-bg-dark: #0f172a;
+    --color-bg-darker: #020617;
+    --color-text-light: #f1f5f9;
+  }
+
+  body {
+    @apply bg-bg-darker text-text-light font-sans antialiased;
+  }
+}
+
+@layer components {
+  .heading-1 {
+    @apply text-4xl font-bold;
+  }
+  .heading-2 {
+    @apply text-3xl font-semibold;
+  }
+  .heading-3 {
+    @apply text-2xl font-semibold;
+  }
+  .body-large {
+    @apply text-lg;
+  }
+  .body-normal {
+    @apply text-base;
+  }
+  .body-small {
+    @apply text-sm;
+  }
+  .score-text {
+    @apply font-mono text-2xl font-bold;
+  }
+}
