@@ -8,6 +8,7 @@ import ProtectedLayout from './components/layout/ProtectedLayout';
 import Login from './pages/Login';
 import Scores from './pages/Scores';
 import CsvUpload from './pages/CsvUpload';
+import Signup from './pages/Signup';
 
 /**
  * 🎓 학습 포인트: 중첩 라우트 (Nested Routes) 패턴
@@ -69,7 +70,7 @@ function App() {
          * 공개 라우트 (로그인 없이 접근 가능)
          * ─────────────────────────────────────────────── */}
         <Route path="/login" element={<Login />} />
-        <Route path="/signup" element={<PlaceholderPage title="회원가입" />} />
+        <Route path="/signup" element={<Signup />} />
 
         {/* ───────────────────────────────────────────────
          * 보호된 라우트 (로그인 필요)
