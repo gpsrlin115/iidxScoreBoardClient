@@ -9,6 +9,7 @@ import Login from './pages/Login';
 import Scores from './pages/Scores';
 import CsvUpload from './pages/CsvUpload';
 import Signup from './pages/Signup';
+import Dashboard from './pages/Dashboard';
 
 /**
  * 🎓 학습 포인트: 중첩 라우트 (Nested Routes) 패턴
@@ -87,7 +88,7 @@ function App() {
             </ProtectedRoute>
           }
         >
-          <Route path="/" element={<PlaceholderPage title="대시보드" />} />
+          <Route path="/" element={<Dashboard />} />
           <Route path="/dashboard" element={<Navigate to="/" replace />} />
           <Route path="/scores" element={<Scores />} />
           <Route path="/tier-table/:level" element={<PlaceholderPage title="서열표" />} />
