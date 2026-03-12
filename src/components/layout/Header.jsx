@@ -20,7 +20,7 @@ import { authApi } from '../../api/auth';
 const NAV_ITEMS = [
   { to: '/',           label: '대시보드',  Icon: FiHome },
   { to: '/scores',     label: '스코어',    Icon: FiList },
-  { to: '/tier-table/12', label: '서열표', Icon: RiTableLine },
+  { to: '/tier-table', label: '서열표', Icon: RiTableLine },
   { to: '/import/csv', label: '가져오기',  Icon: FiUpload },
 ];
 
