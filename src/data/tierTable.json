@@ -1,0 +1,38 @@
+{
+  "12": {
+    "SP": {
+      "S+": ["Verflucht", "冥", "卑弥呼", "Kagachi"],
+      "S": ["DIAVOLO", "Despair", "ΕΛΠΙΣ"],
+      "A+": ["532nm", "Sigmund", "AA"],
+      "A": ["Go Beyond!!", "Thor's Hammer"],
+      "B+": ["ZETA", "Blastix Riotz", "MENDES"],
+      "B": ["CHRONO DIVER -NORNIR-", "Just a Game"],
+      "C": ["Plan 8", "Beastie Starter"],
+      "D": ["Cookie Bouquets", "Timepiece phase II"],
+      "E": ["Session 9 -Chronicles-", "Cosmic Cat"],
+      "F": ["rainbow rainbow", "V"]
+    },
+    "DP": {
+      "S+": ["Verflucht", "冥", "卑弥呼"],
+      "S": ["DIAVOLO"],
+      "A": ["quell ~the seventh slave~"]
+    }
+  },
+  "11": {
+    "SP": {
+      "S+": ["B4U(BEMANI FOR YOU MIX)", "SABER WING"],
+      "S": ["gradiusic cyber"],
+      "A": ["smooooch・∀・", "Evans"]
+    },
+    "DP": {
+      "S": ["smooooch・∀・"]
+    }
+  },
+  "10": {
+    "SP": {
+      "S": ["I'm so Happy", "snow storm"],
+      "A": ["starmine"]
+    },
+    "DP": {}
+  }
+}
