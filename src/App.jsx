@@ -11,6 +11,7 @@ import CsvUpload from './pages/CsvUpload';
 import Signup from './pages/Signup';
 import Dashboard from './pages/Dashboard';
 import TierTable from './pages/TierTable';
+import AdminTierTable from './pages/AdminTierTable';
 
 /**
  * 🎓 학습 포인트: 중첩 라우트 (Nested Routes) 패턴
@@ -97,7 +98,7 @@ function App() {
           <Route path="/import" element={<Navigate to="/import/csv" replace />} />
           <Route path="/import/csv" element={<CsvUpload />} />
           <Route path="/profile/*" element={<PlaceholderPage title="프로필" />} />
-          <Route path="/admin/tier-table" element={<PlaceholderPage title="서열표 관리 (Admin)" />} />
+          <Route path="/admin/tier-table" element={<AdminTierTable />} />
         </Route>
 
         {/* 404: 정의되지 않은 경로는 홈으로 */}
