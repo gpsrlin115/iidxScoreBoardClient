@@ -12,6 +12,18 @@ export const tierApi = {
     // Simulate slight network delay to mock real API behavior
     await new Promise(resolve => setTimeout(resolve, 300));
 
+    // 1. Check if we have modified data in localStorage
+    const storageKey = `tierData_${level}_${playStyle}`;
+    const storedData = localStorage.getItem(storageKey);
+    if (storedData) {
+      try {
+        return JSON.parse(storedData);
+      } catch (e) {
+        console.error('Failed to parse tier data from localStorage', e);
+      }
+    }
+
+    // 2. Fall back to static JSON
     const levelData = tierTableData[String(level)];
     if (!levelData) {
       return null;
@@ -31,11 +43,12 @@ export const tierApi = {
     await new Promise(resolve => setTimeout(resolve, 500));
     
     // In a real app, this would POST/PUT to backend.
-    // Here we just mock a successful save.
     console.log(`[MOCK API] Saving Tier Data for Lv.${level} ${playStyle}:`, newTierData);
     
-    // For local simulation, we can't overwrite the JSON file directly from browser safely,
-    // so we return success and let the store keep the temporary state.
+    // Save to localStorage so changes persist across page reloads in the browser
+    const storageKey = `tierData_${level}_${playStyle}`;
+    localStorage.setItem(storageKey, JSON.stringify(newTierData));
+    
     return { success: true };
   },
 
