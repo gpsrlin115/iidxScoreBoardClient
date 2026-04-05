@@ -157,12 +157,10 @@ const Login = () => {
           </form>
 
           <p className="text-center text-slate-500 text-sm mt-6">
-            계정이 없으신가요?{' '}
-            {/**
-             * 🎓 Link 컴포넌트
-             * <a href="/signup"> 대신 React Router의 <Link>를 사용합니다.
-             * 이유: Link는 페이지 전체를 새로고침하지 않고 이동합니다 (SPA 방식).
-             */}
+            <Link to="/find-account" className="text-slate-400 hover:text-white transition">
+              아이디 / 비밀번호 찾기
+            </Link>
+            <span className="mx-3 text-slate-600">|</span>
             <Link to="/signup" className="text-primary-500 hover:text-primary-400 transition">
               회원가입
             </Link>
