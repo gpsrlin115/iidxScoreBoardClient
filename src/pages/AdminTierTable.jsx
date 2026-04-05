@@ -12,6 +12,8 @@ import { sortableKeyboardCoordinates, arrayMove } from '@dnd-kit/sortable';
 import useAdminTierStore from '../store/adminTierStore';
 import DroppableTierRow from '../components/admin/DroppableTierRow';
 import SortableSongTile from '../components/admin/SortableSongTile';
+import UnassignedPool from '../components/admin/UnassignedPool';
+import AdminBootstrapUpload from '../components/admin/AdminBootstrapUpload';
 import { default as FullPageSpinner } from '../components/common/Spinner';
 
 const AdminTierTable = () => {
@@ -27,7 +29,8 @@ const AdminTierTable = () => {
     setPlayStyle,
     fetchDataForEdit,
     updateDraftState,
-    saveChanges
+    saveChanges,
+    publishChanges
   } = useAdminTierStore();
 
   const [activeId, setActiveId] = useState(null);
@@ -193,6 +196,9 @@ const AdminTierTable = () => {
         </div>
         
         <div className="flex flex-wrap items-center gap-3">
+          {/* Admin Database Bootstrap */}
+          <AdminBootstrapUpload playStyle={selectedPlayStyle} />
+
           {/* PlayStyle Toggle */}
           <div className="flex bg-gray-900 p-1 rounded-lg border border-gray-700 shadow-inner">
             {['SP', 'DP'].map(style => (
@@ -227,18 +233,27 @@ const AdminTierTable = () => {
             ))}
           </div>
 
-          {/* Save Button */}
-          <button
-            onClick={saveChanges}
-            disabled={!hasChanges || isSaving}
-            className={`px-6 py-2 rounded-lg font-bold shadow-md transition-all flex items-center gap-2 ${
-              hasChanges 
-                ? 'bg-green-600 hover:bg-green-500 text-white animate-[pulse_2s_infinite]' 
-                : 'bg-gray-700 text-gray-400 cursor-not-allowed'
-            }`}
-          >
-            {isSaving ? 'Saving...' : 'Save Changes'}
-          </button>
+          {/* Action Buttons */}
+          <div className="flex gap-2">
+            <button
+              onClick={saveChanges}
+              disabled={!hasChanges || isSaving}
+              className={`px-4 py-2 rounded-lg font-bold shadow-md transition-all flex items-center gap-2 ${
+                hasChanges 
+                  ? 'bg-green-600 hover:bg-green-500 text-white animate-[pulse_2s_infinite]' 
+                  : 'bg-gray-700 text-gray-400 cursor-not-allowed'
+              }`}
+            >
+              {isSaving ? 'Saving...' : 'Save Draft'}
+            </button>
+            <button
+              onClick={publishChanges}
+              disabled={isSaving}
+              className="px-4 py-2 rounded-lg font-bold shadow-md transition-all bg-accent-600 hover:bg-accent-500 text-white"
+            >
+              Publish
+            </button>
+          </div>
         </div>
       </div>
 
@@ -256,14 +271,7 @@ const AdminTierTable = () => {
           onDragCancel={handleDragCancel}
         >
           {/* Unassigned Pool */}
-          <div className="bg-gray-850 p-4 rounded-xl border border-gray-700 shadow-lg mb-6">
-            <DroppableTierRow 
-              id="unassigned" 
-              title="Unassigned Pool" 
-              items={unassignedSongs} 
-              isPool={true} 
-            />
-          </div>
+          <UnassignedPool unassignedSongs={unassignedSongs} />
 
           {/* Tier Rows */}
           <div className="bg-gray-850 p-6 rounded-xl border border-gray-700 shadow-xl">

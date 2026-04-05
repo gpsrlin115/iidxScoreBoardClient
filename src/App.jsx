@@ -5,6 +5,7 @@ import { useAuthStore } from './store/authStore';
 import { authApi } from './api/auth';
 import ProtectedRoute from './components/guards/ProtectedRoute';
 import ProtectedLayout from './components/layout/ProtectedLayout';
+import GlobalLoadingOverlay from './components/common/GlobalLoadingOverlay';
 import Login from './pages/Login';
 import Scores from './pages/Scores';
 import CsvUpload from './pages/CsvUpload';
@@ -61,6 +62,9 @@ function App() {
 
   return (
     <Router>
+      {/* 전역 로딩 오버레이 — isLoading이 true일 때만 렌더링됩니다 */}
+      <GlobalLoadingOverlay />
+
       <Toaster
         position="top-right"
         toastOptions={{
