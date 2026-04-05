@@ -24,30 +24,65 @@ export const tierApi = {
   },
 
   /**
-   * Save (Update) tier table data (Admin Only)
-   * @param {number} level 
-   * @param {string} playStyle 
-   * @param {Object} newTierData - Updated tier object
+   * Fetch tier table draft (Admin Only)
    */
-  saveTierData: async (level, playStyle, newTierData) => {
+  getAdminTierDraft: async (level, playStyle) => {
     try {
-      // Send as JSON string to the backend
-      const response = await apiClient.post(`/tiers/${level}/${playStyle}`, newTierData);
+      const response = await apiClient.get('/admin/tier-table/draft', {
+        params: { level, playStyle }
+      });
+      const data = response.data;
+      return typeof data === 'string' ? JSON.parse(data) : data;
+    } catch (error) {
+      console.error(`Failed to fetch draft for Lv.${level} ${playStyle}`, error);
+      return null;
+    }
+  },
+
+  /**
+   * Save (Update) tier table draft (Admin Only)
+   */
+  saveAdminTierDraft: async (level, playStyle, tierData) => {
+    try {
+      const payload = {
+        level,
+        playStyle,
+        tierDataJson: JSON.stringify(tierData)
+      };
+      const response = await apiClient.post('/admin/tier-table/draft', payload);
       return response.data;
     } catch (error) {
-      console.error(`Failed to save tier data for Lv.${level} ${playStyle}`, error);
+      console.error(`Failed to save draft for Lv.${level} ${playStyle}`, error);
       throw error;
     }
   },
 
   /**
-   * Fetch all songs for a specific level and style for assigning (Admin Only)
-   * @returns {Promise<Array>} Array of song objects [{ title: "..." }]
+   * Publish a draft to live (Admin Only)
    */
-  getSongsByLevel: async (level, playStyle) => {
+  publishTierTable: async (level, playStyle, tierData) => {
     try {
-      const response = await apiClient.get(`/tiers/songs/${level}/${playStyle}`);
-      // Backend returns List<String>. Map to objects for frontend compatibility.
+      const payload = {
+        level,
+        playStyle,
+        tierDataJson: JSON.stringify(tierData)
+      };
+      const response = await apiClient.post('/admin/tier-table/publish', payload);
+      return response.data;
+    } catch (error) {
+      console.error(`Failed to publish tier table for Lv.${level} ${playStyle}`, error);
+      throw error;
+    }
+  },
+
+  /**
+   * Fetch all songs for assigning (Admin Only)
+   */
+  getAdminSongs: async (level, playStyle) => {
+    try {
+      const response = await apiClient.get('/admin/songs', {
+        params: { level, playStyle }
+      });
       const songTitles = response.data || [];
       return songTitles.map(title => ({
         title: typeof title === 'object' ? title.title : title,
@@ -55,7 +90,22 @@ export const tierApi = {
         playStyle
       }));
     } catch (error) {
-      console.error(`Failed to fetch songs for Lv.${level} ${playStyle}`, error);
+      console.error(`Failed to fetch admin songs for Lv.${level} ${playStyle}`, error);
+      return [];
+    }
+  },
+
+  /**
+   * Fetch history of edits (Admin Only)
+   */
+  getAdminTierHistory: async (level, playStyle) => {
+    try {
+      const response = await apiClient.get('/admin/tier-table/history', {
+        params: { level, playStyle }
+      });
+      return response.data;
+    } catch (error) {
+      console.error(`Failed to fetch history for Lv.${level} ${playStyle}`, error);
       return [];
     }
   }
