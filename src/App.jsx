@@ -12,6 +12,8 @@ import Signup from './pages/Signup';
 import Dashboard from './pages/Dashboard';
 import TierTable from './pages/TierTable';
 import AdminTierTable from './pages/AdminTierTable';
+import FindAccount from './pages/FindAccount';
+import ResetPasswordConfirm from './pages/ResetPasswordConfirm';
 
 /**
  * 🎓 학습 포인트: 중첩 라우트 (Nested Routes) 패턴
@@ -74,6 +76,8 @@ function App() {
          * ─────────────────────────────────────────────── */}
         <Route path="/login" element={<Login />} />
         <Route path="/signup" element={<Signup />} />
+        <Route path="/find-account" element={<FindAccount />} />
+        <Route path="/reset-password" element={<ResetPasswordConfirm />} />
 
         {/* ───────────────────────────────────────────────
          * 보호된 라우트 (로그인 필요)
