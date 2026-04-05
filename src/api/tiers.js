@@ -1,6 +1,8 @@
-import tierTableData from '../data/tierTable.json';
+import apiClient from './client';
 
-// Simulated API service for fetching static Tier Table JSON data
+/**
+ * API service for fetching Tier Table data from the backend
+ */
 export const tierApi = {
   /**
    * Fetch tier table data for a specific level and play style
@@ -9,64 +11,52 @@ export const tierApi = {
    * @returns {Promise<Object>} Tier grouping (e.g., { "S+": ["Song A", ...], "S": [...] })
    */
   getTierData: async (level, playStyle) => {
-    // Simulate slight network delay to mock real API behavior
-    await new Promise(resolve => setTimeout(resolve, 300));
-
-    // 1. Check if we have modified data in localStorage
-    const storageKey = `tierData_${level}_${playStyle}`;
-    const storedData = localStorage.getItem(storageKey);
-    if (storedData) {
-      try {
-        return JSON.parse(storedData);
-      } catch (e) {
-        console.error('Failed to parse tier data from localStorage', e);
-      }
+    try {
+      const response = await apiClient.get(`/tiers/${level}/${playStyle}`);
+      // The backend returns a JSON string, which Axios parses automatically if it's valid JSON
+      // If it's a raw string in response.data, we might need to parse it if it wasn't auto-parsed
+      const data = response.data;
+      return typeof data === 'string' ? JSON.parse(data) : data;
+    } catch (error) {
+      console.error(`Failed to fetch tier data for Lv.${level} ${playStyle}`, error);
+      return {};
     }
-
-    // 2. Fall back to static JSON
-    const levelData = tierTableData[String(level)];
-    if (!levelData) {
-      return null;
-    }
-
-    return levelData[playStyle] || null;
   },
 
   /**
    * Save (Update) tier table data (Admin Only)
-   * Simulated API for now.
    * @param {number} level 
    * @param {string} playStyle 
    * @param {Object} newTierData - Updated tier object
    */
   saveTierData: async (level, playStyle, newTierData) => {
-    await new Promise(resolve => setTimeout(resolve, 500));
-    
-    // In a real app, this would POST/PUT to backend.
-    console.log(`[MOCK API] Saving Tier Data for Lv.${level} ${playStyle}:`, newTierData);
-    
-    // Save to localStorage so changes persist across page reloads in the browser
-    const storageKey = `tierData_${level}_${playStyle}`;
-    localStorage.setItem(storageKey, JSON.stringify(newTierData));
-    
-    return { success: true };
+    try {
+      // Send as JSON string to the backend
+      const response = await apiClient.post(`/tiers/${level}/${playStyle}`, newTierData);
+      return response.data;
+    } catch (error) {
+      console.error(`Failed to save tier data for Lv.${level} ${playStyle}`, error);
+      throw error;
+    }
   },
 
   /**
-   * Fetch all songs for a specific level and style to find "Unassigned" songs (Admin Only)
-   * This would typically come from a /api/songs endpoint
+   * Fetch all songs for a specific level and style for assigning (Admin Only)
+   * @returns {Promise<Array>} Array of song objects [{ title: "..." }]
    */
   getSongsByLevel: async (level, playStyle) => {
-    await new Promise(resolve => setTimeout(resolve, 300));
-    
-    // Mocking some songs that aren't in the tier list yet for Lv 12
-    if (level === 12 && playStyle === 'SP') {
-      return [
-        { title: 'New Song A', level: 12, playStyle: 'SP' },
-        { title: 'Another Boss', level: 12, playStyle: 'SP' },
-        { title: 'Unknown Track', level: 12, playStyle: 'SP' }
-      ];
+    try {
+      const response = await apiClient.get(`/tiers/songs/${level}/${playStyle}`);
+      // Backend returns List<String>. Map to objects for frontend compatibility.
+      const songTitles = response.data || [];
+      return songTitles.map(title => ({
+        title: typeof title === 'object' ? title.title : title,
+        level,
+        playStyle
+      }));
+    } catch (error) {
+      console.error(`Failed to fetch songs for Lv.${level} ${playStyle}`, error);
+      return [];
     }
-    return [];
   }
 };
