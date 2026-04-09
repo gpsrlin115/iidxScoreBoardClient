@@ -51,12 +51,13 @@ const AdminTierTable = () => {
   );
 
   // Helper to find which container (tier name or 'unassigned') a song belongs to
-  const findContainer = (id) => {
-    if (unassignedSongs.includes(id)) {
+  // Accepts explicit tierData and unassignedSongs to avoid stale closure issues
+  const findContainer = (id, tierData = draftTierData, unassigned = unassignedSongs) => {
+    if (unassigned.includes(id)) {
       return 'unassigned';
     }
     
-    for (const [key, songs] of Object.entries(draftTierData)) {
+    for (const [key, songs] of Object.entries(tierData)) {
       if (songs.includes(id)) {
         return key;
       }
@@ -69,32 +70,11 @@ const AdminTierTable = () => {
   };
 
   const handleDragOver = (event) => {
-    const { active, over } = event;
-    if (!over) return;
-    
-    const activeId = active.id;
-    const overId = over.id;
+    // NOTE: We intentionally do NOT update state in handleDragOver.
+    // Doing so causes @dnd-kit's internal tracking to diverge from UI state,
+    // resulting in snap-back behavior. All state updates happen in handleDragEnd.
 
-    if (activeId === overId) return;
-
-    const activeContainer = findContainer(activeId);
-    let overContainer = findContainer(overId);
-
-    // If overId is a container itself (e.g. dropping on the empty space of a row)
-    if (!overContainer) {
-      if (overId === 'unassigned' || Object.keys(draftTierData).includes(overId)) {
-        overContainer = overId;
-      } else {
-        return;
-      }
-    }
-
-    if (!activeContainer || !overContainer || activeContainer === overContainer) {
-      return;
-    }
-
-    // Moving between different containers
-    moveItemBetweenContainers(activeContainer, overContainer, activeId, overId);
+    // This is a no-op placeholder to satisfy the DndContext API.
   };
 
   const handleDragEnd = (event) => {
@@ -106,11 +86,14 @@ const AdminTierTable = () => {
     const activeId = active.id;
     const overId = over.id;
 
-    const activeContainer = findContainer(activeId);
-    let overContainer = findContainer(overId);
+    // Capture fresh state to ensure consistency in the final drop action
+    const { draftTierData: currentTierData, unassignedSongs: currentUnassignedSongs } = useAdminTierStore.getState();
 
-    // If dragged over the container body directly
-    if (!overContainer && (overId === 'unassigned' || Object.keys(draftTierData).includes(overId))) {
+    const activeContainer = findContainer(activeId, currentTierData, currentUnassignedSongs);
+    let overContainer = findContainer(overId, currentTierData, currentUnassignedSongs);
+
+    // If dragged over the container body directly (overId is a tier name, not a song)
+    if (!overContainer && (overId === 'unassigned' || Object.keys(currentTierData).includes(overId))) {
       overContainer = overId;
     }
 
@@ -119,7 +102,7 @@ const AdminTierTable = () => {
     // Moving within the same container
     if (activeContainer === overContainer) {
       const isUnassigned = activeContainer === 'unassigned';
-      const items = isUnassigned ? unassignedSongs : draftTierData[activeContainer];
+      const items = isUnassigned ? currentUnassignedSongs : currentTierData[activeContainer];
       
       const oldIndex = items.indexOf(activeId);
       let newIndex = items.indexOf(overId);
@@ -129,31 +112,41 @@ const AdminTierTable = () => {
         newIndex = items.length - 1;
       }
 
-      if (oldIndex !== newIndex) {
+      if (oldIndex !== newIndex && oldIndex !== -1) {
         const newItems = arrayMove(items, oldIndex, newIndex);
         
         if (isUnassigned) {
-          updateDraftState(draftTierData, newItems);
+          updateDraftState(currentTierData, newItems);
         } else {
-          updateDraftState({ ...draftTierData, [activeContainer]: newItems }, unassignedSongs);
+          updateDraftState({ ...currentTierData, [activeContainer]: newItems }, currentUnassignedSongs);
         }
       }
+    } else {
+      // Fallback for cross-container movement if handleDragOver didn't commit it yet
+      moveItemBetweenContainers(activeContainer, overContainer, activeId, overId, currentTierData, currentUnassignedSongs);
     }
   };
 
-  const moveItemBetweenContainers = (activeContainer, overContainer, activeId, overId) => {
-    const activeItems = activeContainer === 'unassigned' ? unassignedSongs : draftTierData[activeContainer];
-    const overItems = overContainer === 'unassigned' ? unassignedSongs : draftTierData[overContainer];
+  const moveItemBetweenContainers = (
+    activeContainer, 
+    overContainer, 
+    activeId, 
+    overId, 
+    currentTierData, 
+    currentUnassignedSongs
+  ) => {
+    const activeItems = activeContainer === 'unassigned' ? currentUnassignedSongs : currentTierData[activeContainer];
+    const overItems = overContainer === 'unassigned' ? currentUnassignedSongs : currentTierData[overContainer];
 
     const activeIndex = activeItems.indexOf(activeId);
     let overIndex = overItems.indexOf(overId);
 
+    // If item was already moved or index logic failed
+    if (activeIndex === -1) return;
+
     // If hovering over the container body rather than an item
     if (overIndex === -1) {
       overIndex = overItems.length;
-    } else {
-      // Calculate insertion position based on mouse position relative to the sortable item
-      // (Simplified: just insert at index)
     }
 
     let newActiveItems = [...activeItems];
@@ -162,8 +155,8 @@ const AdminTierTable = () => {
     let newOverItems = [...overItems];
     newOverItems.splice(overIndex, 0, activeId);
 
-    let newTiers = { ...draftTierData };
-    let newUnassigned = [...unassignedSongs];
+    let newTiers = { ...currentTierData };
+    let newUnassigned = [...currentUnassignedSongs];
 
     if (activeContainer === 'unassigned') newUnassigned = newActiveItems;
     else newTiers[activeContainer] = newActiveItems;

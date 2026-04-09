@@ -25,14 +25,12 @@ const useAdminTierStore = create((set, get) => ({
     set({ isLoading: true, error: null, hasChanges: false });
 
     try {
-      // 1. Fetch current draft tier data (or fallbacks to live if no draft)
       const draftTiers = await tierApi.getAdminTierDraft(selectedLevel, selectedPlayStyle);
-      const safeTiers = draftTiers || {};
+      const DEFAULT_TIERS = { 'S+': [], 'S': [], 'A+': [], 'A': [], 'B+': [], 'B': [], 'C': [], 'D': [], 'E': [], 'F': [] };
+      const safeTiers = (draftTiers && Object.keys(draftTiers).length > 0) ? draftTiers : DEFAULT_TIERS;
 
-      // 2. Fetch all songs for this level from admin endpoint
       const allSongs = await tierApi.getAdminSongs(selectedLevel, selectedPlayStyle);
-      
-      // Calculate unassigned: All songs minus songs already in the tiers
+
       const assignedSongSet = new Set();
       Object.values(safeTiers).forEach(songArray => {
         songArray.forEach(song => assignedSongSet.add(song));
@@ -47,7 +45,8 @@ const useAdminTierStore = create((set, get) => ({
         unassignedSongs: unassigned,
         isLoading: false
       });
-    } catch {
+    } catch (error) {
+      console.error('Failed to load data for editor:', error);
       set({ error: 'Failed to load data for editor', isLoading: false });
       toast.error('Failed to load data for editor');
     }
