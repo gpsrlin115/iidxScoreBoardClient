@@ -39,4 +39,26 @@ export const importApi = {
     });
     return response.data;
   },
+
+  /**
+   * 전체 CSV를 업로드해서 8~12레벨 구간의 곡 마스터와 차트 마스터를 초기 적재합니다. (Admin 전용)
+   * @param {File} file - 전체 CSV 파일
+   * @param {'SP' | 'DP'} playStyle - 플레이 스타일
+   * @param {(percent: number) => void} [onProgress] - 진행률 콜백 (0~100)
+   */
+  bootstrapAdminCsv: async (file, playStyle, onProgress) => {
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('playStyle', playStyle);
+
+    const response = await apiClient.post('/admin/bootstrap/iidx/csv', formData, {
+      onUploadProgress: (progressEvent) => {
+        if (onProgress && progressEvent.total) {
+          const percent = Math.round((progressEvent.loaded * 100) / progressEvent.total);
+          onProgress(percent);
+        }
+      },
+    });
+    return response.data;
+  },
 };
