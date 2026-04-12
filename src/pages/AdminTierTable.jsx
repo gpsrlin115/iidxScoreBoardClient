@@ -69,7 +69,7 @@ const AdminTierTable = () => {
     setActiveId(event.active.id);
   };
 
-  const handleDragOver = (event) => {
+  const handleDragOver = (_event) => {
     // NOTE: We intentionally do NOT update state in handleDragOver.
     // Doing so causes @dnd-kit's internal tracking to diverge from UI state,
     // resulting in snap-back behavior. All state updates happen in handleDragEnd.
@@ -128,11 +128,11 @@ const AdminTierTable = () => {
   };
 
   const moveItemBetweenContainers = (
-    activeContainer, 
-    overContainer, 
-    activeId, 
-    overId, 
-    currentTierData, 
+    activeContainer,
+    overContainer,
+    activeId,
+    overId,
+    currentTierData,
     currentUnassignedSongs
   ) => {
     const activeItems = activeContainer === 'unassigned' ? currentUnassignedSongs : currentTierData[activeContainer];
@@ -232,8 +232,8 @@ const AdminTierTable = () => {
               onClick={saveChanges}
               disabled={!hasChanges || isSaving}
               className={`px-4 py-2 rounded-lg font-bold shadow-md transition-all flex items-center gap-2 ${
-                hasChanges 
-                  ? 'bg-green-600 hover:bg-green-500 text-white animate-[pulse_2s_infinite]' 
+                hasChanges
+                  ? 'bg-green-600 hover:bg-green-500 text-white animate-[pulse_2s_infinite]'
                   : 'bg-gray-700 text-gray-400 cursor-not-allowed'
               }`}
             >
