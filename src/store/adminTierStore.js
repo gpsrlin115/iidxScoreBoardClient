@@ -25,14 +25,12 @@ const useAdminTierStore = create((set, get) => ({
     set({ isLoading: true, error: null, hasChanges: false });
 
     try {
-      // 1. Fetch current active tier data
-      const currentTiers = await tierApi.getTierData(selectedLevel, selectedPlayStyle);
-      const safeTiers = currentTiers || {};
+      const draftTiers = await tierApi.getAdminTierDraft(selectedLevel, selectedPlayStyle);
+      const DEFAULT_TIERS = { 'S+': [], 'S': [], 'A+': [], 'A': [], 'B+': [], 'B': [], 'C': [], 'D': [], 'E': [], 'F': [] };
+      const safeTiers = (draftTiers && Object.keys(draftTiers).length > 0) ? draftTiers : DEFAULT_TIERS;
 
-      // 2. Fetch all songs for this level to determine which are unassigned
-      const allSongs = await tierApi.getSongsByLevel(selectedLevel, selectedPlayStyle);
-      
-      // Calculate unassigned: All songs minus songs already in the tiers
+      const allSongs = await tierApi.getAdminSongs(selectedLevel, selectedPlayStyle);
+
       const assignedSongSet = new Set();
       Object.values(safeTiers).forEach(songArray => {
         songArray.forEach(song => assignedSongSet.add(song));
@@ -47,7 +45,8 @@ const useAdminTierStore = create((set, get) => ({
         unassignedSongs: unassigned,
         isLoading: false
       });
-    } catch {
+    } catch (error) {
+      console.error('Failed to load data for editor:', error);
       set({ error: 'Failed to load data for editor', isLoading: false });
       toast.error('Failed to load data for editor');
     }
@@ -62,7 +61,7 @@ const useAdminTierStore = create((set, get) => ({
     });
   },
 
-  // Save the draft state
+  // Save the draft state (임시저장)
   saveChanges: async () => {
     const { selectedLevel, selectedPlayStyle, draftTierData, hasChanges } = get();
     
@@ -73,15 +72,27 @@ const useAdminTierStore = create((set, get) => ({
 
     set({ isSaving: true });
     try {
-      await tierApi.saveTierData(selectedLevel, selectedPlayStyle, draftTierData);
-      toast.success('Tier table saved successfully!');
+      await tierApi.saveAdminTierDraft(selectedLevel, selectedPlayStyle, draftTierData);
+      toast.success('Draft saved successfully!');
       set({ isSaving: false, hasChanges: false });
-      
-      // Note: In a real app, you might also want to trigger a re-fetch in the normal tierStore
-      // so the public view reflects the new changes immediately.
     } catch {
       set({ isSaving: false });
-      toast.error('Failed to save tier table changes');
+      toast.error('Failed to save draft');
+    }
+  },
+
+  // Publish the draft to live (게시)
+  publishChanges: async () => {
+    const { selectedLevel, selectedPlayStyle, draftTierData } = get();
+
+    set({ isSaving: true });
+    try {
+      await tierApi.publishTierTable(selectedLevel, selectedPlayStyle, draftTierData);
+      toast.success('Tier table published successfully! It is now live.');
+      set({ isSaving: false, hasChanges: false });
+    } catch {
+      set({ isSaving: false });
+      toast.error('Failed to publish tier table');
     }
   }
 }));

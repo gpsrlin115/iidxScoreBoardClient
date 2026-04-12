@@ -28,11 +28,8 @@ export const userApi = {
     const formData = new FormData();
     formData.append('file', file);
 
-    const response = await apiClient.post('/users/me/avatar', formData, {
-      headers: {
-        'Content-Type': 'multipart/form-data',
-      },
-    });
+    // Content-Type은 client.js 인터셉터가 FormData를 감지해 자동 설정 (boundary 포함)
+    const response = await apiClient.post('/users/me/avatar', formData);
     return response.data;
   },
 };
