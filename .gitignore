@@ -23,5 +23,3 @@ dist-ssr
 *.sln
 *.sw?
 
-# Ignore docs to prevent sensitive data leaks
-docs/
