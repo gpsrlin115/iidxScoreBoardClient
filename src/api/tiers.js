@@ -1,30 +1,33 @@
 import apiClient from './client';
 
 /**
- * API service for fetching Tier Table data from the backend
+ * API service for fetching Tier Table data from the backend.
+ *
+ * Tier endpoints now return normalized array items like:
+ * [{ title, difficulty, category, tier, sortOrder }]
  */
 export const tierApi = {
   /**
    * Fetch tier table data for a specific level and play style
    * @param {number} level - Level to fetch (e.g. 10, 11, 12)
    * @param {string} playStyle - 'SP' or 'DP'
-   * @returns {Promise<Object>} Tier grouping (e.g., { "S+": ["Song A", ...], "S": [...] })
+   * @returns {Promise<Array|Object>} Normalized tier array (preferred) or legacy tier grouping object
    */
   getTierData: async (level, playStyle) => {
     try {
       const response = await apiClient.get(`/tiers/${level}/${playStyle}`);
-      // The backend returns a JSON string, which Axios parses automatically if it's valid JSON
-      // If it's a raw string in response.data, we might need to parse it if it wasn't auto-parsed
       const data = response.data;
       return typeof data === 'string' ? JSON.parse(data) : data;
     } catch (error) {
       console.error(`Failed to fetch tier data for Lv.${level} ${playStyle}`, error);
-      return {};
+      return [];
     }
   },
 
   /**
-   * Fetch tier table draft (Admin Only)
+   * Fetch the current live tier table for admin editing (Admin Only).
+   * Despite the "draft" naming, the backend now always returns the live tier table.
+   * The endpoint name is kept for backward compatibility.
    */
   getAdminTierDraft: async (level, playStyle) => {
     try {
@@ -35,12 +38,14 @@ export const tierApi = {
       return typeof data === 'string' ? JSON.parse(data) : data;
     } catch (error) {
       console.error(`Failed to fetch draft for Lv.${level} ${playStyle}`, error);
-      return null;
+      return [];
     }
   },
 
   /**
-   * Save (Update) tier table draft (Admin Only)
+   * Save the tier table (Admin Only).
+   * Changes are applied to the live tier table immediately upon saving.
+   * The "draft" name is kept for backward compatibility.
    */
   saveAdminTierDraft: async (level, playStyle, tierData) => {
     try {
@@ -58,7 +63,9 @@ export const tierApi = {
   },
 
   /**
-   * Publish a draft to live (Admin Only)
+   * Backward-compatible alias for saving tier table (Admin Only).
+   * Since the backend now uses a single live source, saving via /draft is equivalent.
+   * This endpoint is kept for compatibility and may be removed in a future refactor.
    */
   publishTierTable: async (level, playStyle, tierData) => {
     try {
@@ -83,12 +90,24 @@ export const tierApi = {
       const response = await apiClient.get('/admin/songs', {
         params: { level, playStyle }
       });
-      const songTitles = response.data || [];
-      return songTitles.map(title => ({
-        title: typeof title === 'object' ? title.title : title,
-        level,
-        playStyle
-      }));
+      const songs = response.data || [];
+      return songs.map((song) => {
+        if (typeof song === 'object' && song !== null) {
+          return {
+            title: song.title,
+            difficulty: song.difficulty ?? null,
+            level: song.level ?? level,
+            playStyle: song.playStyle ?? playStyle
+          };
+        }
+
+        return {
+          title: song,
+          difficulty: null,
+          level,
+          playStyle
+        };
+      });
     } catch (error) {
       console.error(`Failed to fetch admin songs for Lv.${level} ${playStyle}`, error);
       return [];
