@@ -1,4 +1,6 @@
+import { Suspense } from 'react';
 import { Outlet } from 'react-router-dom';
+import { RouteContentSpinner } from '../common/Spinner';
 import Header from './Header';
 
 /**
@@ -36,7 +38,9 @@ const ProtectedLayout = () => {
          * /profile 접속 시 → Profile 컴포넌트가 Outlet 자리에 렌더링됩니다.
          * Header는 공통으로 유지됩니다.
          */}
-        <Outlet />
+        <Suspense fallback={<RouteContentSpinner />}>
+          <Outlet />
+        </Suspense>
       </main>
     </div>
   );

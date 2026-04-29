@@ -1,5 +1,11 @@
 # React + Vite
 
+## Login Performance Workflow
+
+- Create and use a dedicated working branch for this optimization, for example `codex/login-route-splitting`.
+- Run `npm run perf:login` to build the app, start a local preview on `http://localhost:4173`, and save Lighthouse reports for `/login`.
+- Lighthouse artifacts are written to `reports/lighthouse/` and are ignored by git.
+
 This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
 
 Currently, two official plugins are available:

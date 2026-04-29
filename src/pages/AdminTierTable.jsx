@@ -69,7 +69,7 @@ const AdminTierTable = () => {
     setActiveId(event.active.id);
   };
 
-  const handleDragOver = (event) => {
+  const handleDragOver = () => {
     // NOTE: We intentionally do NOT update state in handleDragOver.
     // Doing so causes @dnd-kit's internal tracking to diverge from UI state,
     // resulting in snap-back behavior. All state updates happen in handleDragEnd.
