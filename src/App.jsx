@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { lazy, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
 import { useAuthStore } from './store/authStore';
@@ -7,14 +7,15 @@ import ProtectedRoute from './components/guards/ProtectedRoute';
 import ProtectedLayout from './components/layout/ProtectedLayout';
 import GlobalLoadingOverlay from './components/common/GlobalLoadingOverlay';
 import Login from './pages/Login';
-import Scores from './pages/Scores';
-import CsvUpload from './pages/CsvUpload';
 import Signup from './pages/Signup';
-import Dashboard from './pages/Dashboard';
-import TierTable from './pages/TierTable';
-import AdminTierTable from './pages/AdminTierTable';
 import FindAccount from './pages/FindAccount';
 import ResetPasswordConfirm from './pages/ResetPasswordConfirm';
+
+const Dashboard = lazy(() => import('./pages/Dashboard'));
+const Scores = lazy(() => import('./pages/Scores'));
+const TierTable = lazy(() => import('./pages/TierTable'));
+const CsvUpload = lazy(() => import('./pages/CsvUpload'));
+const AdminTierTable = lazy(() => import('./pages/AdminTierTable'));
 
 /**
  * 🎓 학습 포인트: 중첩 라우트 (Nested Routes) 패턴
