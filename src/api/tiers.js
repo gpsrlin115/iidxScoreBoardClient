@@ -16,8 +16,22 @@ export const tierApi = {
   getTierData: async (level, playStyle) => {
     try {
       const response = await apiClient.get(`/tiers/${level}/${playStyle}`);
-      const data = response.data;
-      return typeof data === 'string' ? JSON.parse(data) : data;
+      const data = typeof response.data === 'string' ? JSON.parse(response.data) : response.data;
+
+      // 백엔드 새 형식: [{title, tier, difficulty, sortOrder, ...}]
+      // tierStore가 기대하는 구 형식: {"S+": ["곡1", "곡2"], ...} 으로 변환
+      if (Array.isArray(data)) {
+        const grouped = {};
+        data
+          .filter(item => item.tier != null) // 미분류 곡 제외
+          .forEach(item => {
+            if (!grouped[item.tier]) grouped[item.tier] = [];
+            grouped[item.tier].push(item.title);
+          });
+        return grouped;
+      }
+
+      return data; // 이미 구 형식인 경우 그대로 반환
     } catch (error) {
       console.error(`Failed to fetch tier data for Lv.${level} ${playStyle}`, error);
       return [];
