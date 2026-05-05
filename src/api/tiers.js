@@ -22,12 +22,16 @@ export const tierApi = {
       // tierStore가 기대하는 구 형식: {"S+": ["곡1", "곡2"], ...} 으로 변환
       if (Array.isArray(data)) {
         const grouped = {};
-        data
-          .filter(item => item.tier != null) // 미분류 곡 제외
-          .forEach(item => {
+        const unranked = [];
+        data.forEach(item => {
+          if (item.tier != null) {
             if (!grouped[item.tier]) grouped[item.tier] = [];
             grouped[item.tier].push(item.title);
-          });
+          } else {
+            unranked.push(item.title);
+          }
+        });
+        if (unranked.length > 0) grouped['Unranked'] = unranked;
         return grouped;
       }
 
