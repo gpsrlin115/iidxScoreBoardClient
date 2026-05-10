@@ -1,5 +1,39 @@
 import apiClient from './client';
 
+const parseJsonIfNeeded = (data) => {
+  if (typeof data !== 'string') return data;
+
+  try {
+    return JSON.parse(data);
+  } catch {
+    return data;
+  }
+};
+
+const unwrapArrayPayload = (data) => {
+  const parsed = parseJsonIfNeeded(data);
+  if (Array.isArray(parsed)) return parsed;
+
+  if (parsed && typeof parsed === 'object') {
+    const candidates = [
+      parsed.content,
+      parsed.data,
+      parsed.items,
+      parsed.songs,
+      parsed.results,
+      parsed.tierData,
+      parsed.tierDataJson
+    ];
+
+    for (const candidate of candidates) {
+      const unwrapped = parseJsonIfNeeded(candidate);
+      if (Array.isArray(unwrapped)) return unwrapped;
+    }
+  }
+
+  return [];
+};
+
 /**
  * API service for fetching Tier Table data from the backend.
  *
@@ -16,7 +50,7 @@ export const tierApi = {
   getTierData: async (level, playStyle) => {
     try {
       const response = await apiClient.get(`/tiers/${level}/${playStyle}`);
-      const data = typeof response.data === 'string' ? JSON.parse(response.data) : response.data;
+      const data = parseJsonIfNeeded(response.data);
 
       // 백엔드 새 형식: [{title, tier, difficulty, sortOrder, ...}]
       // tierStore가 기대하는 구 형식: {"S+": ["곡1", "곡2"], ...} 으로 변환
@@ -52,8 +86,11 @@ export const tierApi = {
       const response = await apiClient.get('/admin/tier-table/draft', {
         params: { level, playStyle }
       });
-      const data = response.data;
-      return typeof data === 'string' ? JSON.parse(data) : data;
+      const data = parseJsonIfNeeded(response.data);
+      if (Array.isArray(data)) return data;
+
+      const unwrapped = unwrapArrayPayload(data);
+      return unwrapped.length > 0 ? unwrapped : data;
     } catch (error) {
       console.error(`Failed to fetch draft for Lv.${level} ${playStyle}`, error);
       return [];
@@ -108,7 +145,7 @@ export const tierApi = {
       const response = await apiClient.get('/admin/songs', {
         params: { level, playStyle }
       });
-      const songs = response.data || [];
+      const songs = unwrapArrayPayload(response.data);
       return songs.map((song) => {
         if (typeof song === 'object' && song !== null) {
           return {

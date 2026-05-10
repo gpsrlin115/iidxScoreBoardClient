@@ -1,9 +1,11 @@
 import { create } from 'zustand';
 import { tierApi } from '../api/tiers';
+import defaultTierTable from '../data/tierTable.json';
 import toast from 'react-hot-toast';
 
 const TIERS = ['S+', 'S', 'A+', 'A', 'B+', 'B', 'C', 'D', 'E', 'F'];
 const CATEGORIES = ['지력', '개인차'];
+const DEFAULT_CATEGORY = '지력';
 const DEFAULT_DIFFICULTY = 'ANOTHER';
 
 const buildSectionKeys = () => TIERS.flatMap((tier) => CATEGORIES.map((category) => `${category}|${tier}`));
@@ -12,6 +14,40 @@ const buildSectionKeys = () => TIERS.flatMap((tier) => CATEGORIES.map((category)
 const buildEmptyDraftTierData = () => Object.fromEntries(buildSectionKeys().map((key) => [key, []]));
 
 const buildItemId = (title, difficulty) => `${title}__${difficulty ?? 'NONE'}`;
+
+const normalizeDraftEntries = (data) => {
+  if (Array.isArray(data)) return data;
+
+  if (!data || typeof data !== 'object') return [];
+
+  return Object.entries(data).flatMap(([tier, songs]) => {
+    if (!Array.isArray(songs)) return [];
+
+    return songs.map((song, index) => {
+      if (song && typeof song === 'object') {
+        return {
+          ...song,
+          tier: song.tier ?? tier,
+          category: song.category ?? DEFAULT_CATEGORY,
+          sortOrder: song.sortOrder ?? index + 1
+        };
+      }
+
+      return {
+        title: song,
+        difficulty: DEFAULT_DIFFICULTY,
+        category: DEFAULT_CATEGORY,
+        tier,
+        sortOrder: index + 1
+      };
+    });
+  });
+};
+
+const getDefaultTierEntries = (level, playStyle) => {
+  const grouped = defaultTierTable[String(level)]?.[playStyle];
+  return normalizeDraftEntries(grouped);
+};
 
 const toAdminItem = (item, fallback = {}) => {
   return {
@@ -43,11 +79,30 @@ const useAdminTierStore = create((set, get) => ({
     set({ isLoading: true, error: null, hasChanges: false });
 
     try {
-      const draftTiers = await tierApi.getAdminTierDraft(selectedLevel, selectedPlayStyle);
-      const allSongs = await tierApi.getAdminSongs(selectedLevel, selectedPlayStyle);
+      const [draftTiers, allSongs] = await Promise.all([
+        tierApi.getAdminTierDraft(selectedLevel, selectedPlayStyle),
+        tierApi.getAdminSongs(selectedLevel, selectedPlayStyle)
+      ]);
 
       const safeTiers = buildEmptyDraftTierData();
-      const rawArray = Array.isArray(draftTiers) ? draftTiers : [];
+      let rawArray = normalizeDraftEntries(draftTiers);
+      let masterSongs = Array.isArray(allSongs) ? allSongs : [];
+
+      if (rawArray.length === 0 && masterSongs.length === 0) {
+        const publicTierData = await tierApi.getTierData(selectedLevel, selectedPlayStyle);
+        rawArray = normalizeDraftEntries(publicTierData);
+      }
+
+      if (rawArray.length === 0 && masterSongs.length === 0) {
+        rawArray = getDefaultTierEntries(selectedLevel, selectedPlayStyle);
+      }
+
+      if (masterSongs.length === 0 && rawArray.length > 0) {
+        masterSongs = rawArray.map((item) => ({
+          title: item.title,
+          difficulty: item.difficulty ?? DEFAULT_DIFFICULTY
+        }));
+      }
 
       // 1. 할당된 곡들을 카테고리|티어 별로 분류
       rawArray.forEach((item) => {
@@ -80,7 +135,7 @@ const useAdminTierStore = create((set, get) => ({
       draftUnassigned.forEach((item) => assignedIds.add(item.id));
 
       // 5. 마스터 곡 목록 중 드래프트에 아예 없는 곡들 추출
-      const allSongItems = allSongs.map((song) => toAdminItem(song, { difficulty: song.difficulty ?? DEFAULT_DIFFICULTY }));
+      const allSongItems = masterSongs.map((song) => toAdminItem(song, { difficulty: song.difficulty ?? DEFAULT_DIFFICULTY }));
       const newMasterSongs = allSongItems.filter((song) => !assignedIds.has(song.id));
 
       set({
