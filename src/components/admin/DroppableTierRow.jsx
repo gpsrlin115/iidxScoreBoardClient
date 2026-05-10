@@ -40,8 +40,8 @@ const DroppableTierRow = ({ id, title, items, isPool = false }) => {
           // but horizontal usually works well enough for wrapped flex items.
           strategy={horizontalListSortingStrategy}
         >
-          {items.map((songTitle) => (
-            <SortableSongTile key={songTitle} id={songTitle} title={songTitle} />
+          {items.map((song) => (
+            <SortableSongTile key={song.id} id={song.id} title={song.title} />
           ))}
         </SortableContext>
         
