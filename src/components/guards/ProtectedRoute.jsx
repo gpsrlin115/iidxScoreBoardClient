@@ -20,7 +20,7 @@ import { useAuthStore } from '../../store/authStore';
  *
  * children prop은 "감싼 컴포넌트"를 의미합니다.
  */
-const ProtectedRoute = ({ children }) => {
+const ProtectedRoute = ({ children, allowedRoles }) => {
   // authStore에서 상태를 읽어옵니다
   const { user, isLoading } = useAuthStore();
 
@@ -56,6 +56,14 @@ const ProtectedRoute = ({ children }) => {
    */
   if (!user) {
     return <Navigate to="/login" replace />;
+  }
+
+  if (allowedRoles?.length) {
+    const userRole = user.role?.toUpperCase();
+
+    if (!allowedRoles.includes(userRole)) {
+      return <Navigate to="/" replace />;
+    }
   }
 
   // 로그인 상태 → 자식 컴포넌트(보호된 페이지)를 그대로 렌더링

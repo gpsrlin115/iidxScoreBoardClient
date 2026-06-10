@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
+    "build:oci": "VITE_API_BASE_URL=/api vite build",
     "lint": "eslint .",
     "preview": "vite preview",
     "perf:login": "node scripts/perf-login.mjs"

@@ -16,7 +16,7 @@ const DroppableTierRow = ({ id, title, items, isPool = false }) => {
   return (
     <div className={`mb-4 rounded-lg overflow-hidden border transition-colors ${isPool ? 'border-dashed border-gray-600 bg-gray-900/50' : 'border-gray-700 bg-gray-800'} ${isOver ? 'ring-2 ring-primary-500 bg-gray-800' : ''}`}>
       <div className={`flex items-center p-3 ${isPool ? 'bg-gray-800/80 border-b border-gray-700' : 'bg-gray-750'}`}>
-        <h3 className={`font-bold ${isPool ? 'text-gray-400 text-base' : 'text-xl text-white w-14 text-center bg-gray-900 py-1 rounded shadow-inner'}`}>
+        <h3 className={`font-bold leading-tight ${isPool ? 'text-gray-400 text-base' : 'text-xl text-white min-w-24 text-center bg-gray-900 px-2 py-1 rounded shadow-inner'}`}>
           {title}
         </h3>
         <span className="ml-3 text-sm text-gray-500 font-mono">

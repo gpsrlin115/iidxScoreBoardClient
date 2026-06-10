@@ -4,6 +4,7 @@ import TierTableViewList from '../components/tier-table/TierTableViewList';
 import TierTableViewGrid from '../components/tier-table/TierTableViewGrid';
 import { default as FullPageSpinner } from '../components/common/Spinner';
 import { FiGrid, FiList } from 'react-icons/fi';
+import { isClearTypeCleared } from '../utils/clearTypes';
 
 const TierTable = () => {
   const {
@@ -28,7 +29,7 @@ const TierTable = () => {
   // Calculate overall progress across all tiers
   const totalSongs = enrichedTierData.reduce((acc, tierObj) => acc + tierObj.songs.length, 0);
   const clearedSongs = enrichedTierData.reduce((acc, tierObj) => {
-    return acc + tierObj.songs.filter(s => Array.from(['ASSIST_CLEAR', 'EASY_CLEAR', 'CLEAR', 'HARD_CLEAR', 'EX_HARD_CLEAR', 'FULL_COMBO']).includes(s.clearType)).length;
+    return acc + tierObj.songs.filter(s => isClearTypeCleared(s.clearType)).length;
   }, 0);
   const overallProgress = totalSongs > 0 ? Math.round((clearedSongs / totalSongs) * 100) : 0;
 

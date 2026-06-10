@@ -107,7 +107,14 @@ function App() {
           <Route path="/import" element={<Navigate to="/import/csv" replace />} />
           <Route path="/import/csv" element={<CsvUpload />} />
           <Route path="/profile/*" element={<PlaceholderPage title="프로필" />} />
-          <Route path="/admin/tier-table" element={<AdminTierTable />} />
+          <Route
+            path="/admin/tier-table"
+            element={
+              <ProtectedRoute allowedRoles={['ADMIN']}>
+                <AdminTierTable />
+              </ProtectedRoute>
+            }
+          />
         </Route>
 
         {/* 404: 정의되지 않은 경로는 홈으로 */}
