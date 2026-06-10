@@ -1,4 +1,5 @@
 import apiClient from './client';
+import { groupTierItems } from '../utils/tierData';
 
 const parseJsonIfNeeded = (data) => {
   if (typeof data !== 'string') return data;
@@ -52,21 +53,8 @@ export const tierApi = {
       const response = await apiClient.get(`/tiers/${level}/${playStyle}`);
       const data = parseJsonIfNeeded(response.data);
 
-      // 백엔드 새 형식: [{title, tier, difficulty, sortOrder, ...}]
-      // tierStore가 기대하는 구 형식: {"S+": ["곡1", "곡2"], ...} 으로 변환
       if (Array.isArray(data)) {
-        const grouped = {};
-        const unranked = [];
-        data.forEach(item => {
-          if (item.tier != null) {
-            if (!grouped[item.tier]) grouped[item.tier] = [];
-            grouped[item.tier].push(item.title);
-          } else {
-            unranked.push(item.title);
-          }
-        });
-        if (unranked.length > 0) grouped['Unranked'] = unranked;
-        return grouped;
+        return groupTierItems(data);
       }
 
       return data; // 이미 구 형식인 경우 그대로 반환

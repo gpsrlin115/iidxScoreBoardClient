@@ -1,5 +1,6 @@
 import clsx from 'clsx';
 import { format } from 'date-fns';
+import { CLEAR_TYPE_LABELS, CLEAR_TYPE_STYLES, normalizeClearType } from '../../utils/clearTypes';
 
 /**
  * 🎓 학습 포인트: 데이터 표시 전용 컴포넌트
@@ -17,26 +18,6 @@ import { format } from 'date-fns';
  * 클리어 타입에 따른 배지 색상 설정
  * IIDX 게임에서 사용하는 클리어 타입별 컬러를 CSS 변수로 정의한 값과 맞춥니다.
  */
-const CLEAR_TYPE_STYLES = {
-  FULL_COMBO:    'bg-yellow-400 text-gray-900',
-  EX_HARD_CLEAR: 'bg-yellow-600 text-white',
-  HARD_CLEAR:    'bg-slate-100 text-gray-900',
-  CLEAR:         'bg-blue-500 text-white',
-  EASY_CLEAR:    'bg-green-500 text-white',
-  ASSIST_CLEAR:  'bg-purple-500 text-white',
-  FAILED:        'bg-slate-600 text-slate-300',
-};
-
-const CLEAR_TYPE_LABEL = {
-  FULL_COMBO:    'FC',
-  EX_HARD_CLEAR: 'EX-H',
-  HARD_CLEAR:    'HARD',
-  CLEAR:         'CLR',
-  EASY_CLEAR:    'EASY',
-  ASSIST_CLEAR:  'AC',
-  FAILED:        'FAIL',
-};
-
 const DJ_LEVEL_STYLES = {
   AAA: 'text-yellow-400 font-bold',
   AA:  'text-slate-300 font-bold',
@@ -48,16 +29,20 @@ const DJ_LEVEL_STYLES = {
   F:   'text-red-600',
 };
 
-const ClearBadge = ({ type }) => (
-  <span
-    className={clsx(
-      'inline-flex items-center justify-center px-2 py-0.5 rounded text-xs font-bold min-w-[40px]',
-      CLEAR_TYPE_STYLES[type] ?? 'bg-slate-700 text-slate-400'
-    )}
-  >
-    {CLEAR_TYPE_LABEL[type] ?? type}
-  </span>
-);
+const ClearBadge = ({ type }) => {
+  const normalizedType = normalizeClearType(type) ?? 'NO_PLAY';
+
+  return (
+    <span
+      className={clsx(
+        'inline-flex items-center justify-center px-2 py-0.5 rounded text-xs font-bold min-w-[40px]',
+        CLEAR_TYPE_STYLES[normalizedType] ?? 'bg-slate-700 text-slate-400'
+      )}
+    >
+      {CLEAR_TYPE_LABELS[normalizedType] ?? normalizedType}
+    </span>
+  );
+};
 
 const ScoreTable = ({ scores }) => {
   if (scores.length === 0) {

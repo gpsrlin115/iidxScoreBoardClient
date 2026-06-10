@@ -2,6 +2,7 @@ import React from 'react';
 import useTierStore from '../../store/tierStore';
 import { BiChevronDown, BiChevronRight } from 'react-icons/bi';
 import SongTile from './SongTile';
+import { isClearTypeCleared } from '../../utils/clearTypes';
 
 const TierGroup = ({ tierData }) => {
   const { tier, songs } = tierData;
@@ -9,7 +10,7 @@ const TierGroup = ({ tierData }) => {
   const isExpanded = expandedTiers.has(tier);
 
   // Calculate clear percentage for this specific tier
-  const clearedSongs = songs.filter(s => Array.from(['ASSIST_CLEAR', 'EASY_CLEAR', 'CLEAR', 'HARD_CLEAR', 'EX_HARD_CLEAR', 'FULL_COMBO']).includes(s.clearType));
+  const clearedSongs = songs.filter(s => isClearTypeCleared(s.clearType));
   const clearPercent = songs.length > 0 ? Math.round((clearedSongs.length / songs.length) * 100) : 0;
 
   return (
@@ -23,7 +24,7 @@ const TierGroup = ({ tierData }) => {
           <div className="text-gray-400">
             {isExpanded ? <BiChevronDown size={24} /> : <BiChevronRight size={24} />}
           </div>
-          <h3 className="text-lg font-bold text-white w-12 text-center bg-gray-900 py-1 rounded shadow-inner">
+          <h3 className="text-lg font-bold text-white min-w-20 text-center bg-gray-900 px-2 py-1 rounded shadow-inner leading-tight">
             {tier}
           </h3>
           <span className="text-sm text-gray-400">
@@ -45,7 +46,7 @@ const TierGroup = ({ tierData }) => {
         <div className="px-4 py-3 border-t border-gray-700 flex flex-wrap bg-gray-800/80">
           {songs.length > 0 ? (
             songs.map((song, idx) => (
-               <SongTile key={`${song.title}-${idx}`} songTitle={song.title} clearType={song.clearType} />
+               <SongTile key={`${song.title}-${song.difficulty ?? idx}`} song={song} />
             ))
           ) : (
             <div className="text-gray-500 text-sm italic py-2">No songs listed in this tier.</div>

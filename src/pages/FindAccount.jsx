@@ -1,10 +1,9 @@
 import { useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import { authApi } from '../api/auth';
 
 const FindAccount = () => {
-  const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState('id'); // 'id' or 'password'
 
   // 아이디 찾기 상태

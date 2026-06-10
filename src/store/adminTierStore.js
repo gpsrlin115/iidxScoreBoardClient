@@ -2,10 +2,11 @@ import { create } from 'zustand';
 import { tierApi } from '../api/tiers';
 import defaultTierTable from '../data/tierTable.json';
 import toast from 'react-hot-toast';
+import { normalizeTierCategory } from '../utils/tierData';
 
 const TIERS = ['S+', 'S', 'A+', 'A', 'B+', 'B', 'C', 'D', 'E', 'F'];
-const CATEGORIES = ['지력', '개인차'];
-const DEFAULT_CATEGORY = '지력';
+const CATEGORIES = ['地力', '個人差'];
+const DEFAULT_CATEGORY = '地力';
 const DEFAULT_DIFFICULTY = 'ANOTHER';
 
 const buildSectionKeys = () => TIERS.flatMap((tier) => CATEGORIES.map((category) => `${category}|${tier}`));
@@ -28,7 +29,7 @@ const normalizeDraftEntries = (data) => {
         return {
           ...song,
           tier: song.tier ?? tier,
-          category: song.category ?? DEFAULT_CATEGORY,
+          category: normalizeTierCategory(song.category) ?? DEFAULT_CATEGORY,
           sortOrder: song.sortOrder ?? index + 1
         };
       }
@@ -54,7 +55,7 @@ const toAdminItem = (item, fallback = {}) => {
     id: buildItemId(item.title ?? fallback.title, item.difficulty ?? fallback.difficulty ?? null),
     title: item.title ?? fallback.title,
     difficulty: item.difficulty ?? fallback.difficulty ?? null,
-    category: item.category ?? fallback.category ?? null,
+    category: normalizeTierCategory(item.category ?? fallback.category),
     tier: item.tier ?? fallback.tier ?? null,
     sortOrder: item.sortOrder ?? fallback.sortOrder ?? null
   };

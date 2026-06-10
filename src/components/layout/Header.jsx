@@ -29,6 +29,7 @@ const Header = () => {
   const { pathname } = useLocation();
   const user = useAuthStore((state) => state.user);
   const logout = useAuthStore((state) => state.logout);
+  const isAdmin = user?.role?.toUpperCase() === 'ADMIN';
 
   /**
    * 🎓 모바일 메뉴 상태
@@ -97,12 +98,14 @@ const Header = () => {
             <FiUser />
             <span className="text-sm">{user?.username}</span>
           </Link>
-          <Link
-            to="/admin/tier-table"
-            className="text-sm text-primary-400 hover:text-primary-300 font-medium px-2 py-1.5 rounded-lg hover:bg-slate-800 transition"
-          >
-            서열표 관리
-          </Link>
+          {isAdmin && (
+            <Link
+              to="/admin/tier-table"
+              className="text-sm text-primary-400 hover:text-primary-300 font-medium px-2 py-1.5 rounded-lg hover:bg-slate-800 transition"
+            >
+              서열표 관리
+            </Link>
+          )}
           <button
             onClick={handleLogout}
             className="flex items-center gap-1.5 text-sm text-slate-500 hover:text-red-400 transition px-2 py-1.5 rounded-lg hover:bg-slate-800"
@@ -154,13 +157,15 @@ const Header = () => {
             >
               <FiUser /> {user?.username}
             </Link>
-            <Link
-              to="/admin/tier-table"
-              onClick={() => setIsMenuOpen(false)}
-              className="flex items-center gap-2 px-3 py-2.5 rounded-lg text-sm text-primary-400 hover:bg-slate-800"
-            >
-               ⚙️ 서열표 관리
-            </Link>
+            {isAdmin && (
+              <Link
+                to="/admin/tier-table"
+                onClick={() => setIsMenuOpen(false)}
+                className="flex items-center gap-2 px-3 py-2.5 rounded-lg text-sm text-primary-400 hover:bg-slate-800"
+              >
+                ⚙️ 서열표 관리
+              </Link>
+            )}
             <button
               onClick={handleLogout}
               className="flex items-center gap-2 px-3 py-2.5 rounded-lg text-sm text-red-400 hover:bg-slate-800 text-left"
