@@ -160,6 +160,15 @@ const useAdminTierStore = create((set, get) => ({
     });
   },
 
+  // Transient update for drag-over previews: must not flip hasChanges,
+  // so a cancelled drag can restore the snapshot without marking the draft dirty.
+  setDraftPreview: (newTiers, newUnassigned) => {
+    set({
+      editorTierData: newTiers,
+      unassignedSongs: newUnassigned
+    });
+  },
+
   buildArrayPayload: () => {
     const { editorTierData, unassignedSongs } = get();
     const payload = [];
