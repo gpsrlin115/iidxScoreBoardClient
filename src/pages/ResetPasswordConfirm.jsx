@@ -53,7 +53,7 @@ const ResetPasswordConfirm = () => {
 
         <div className="bg-slate-800 rounded-2xl p-8 shadow-2xl border border-slate-700">
           <h2 className="text-xl font-semibold text-white mb-6">비밀번호 재설정</h2>
-          
+
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
               <label className="block text-sm text-slate-400 mb-1" htmlFor="password">
