@@ -1,17 +1,9 @@
-import React, { useEffect, useMemo, useState } from 'react';
-import {
-  DndContext,
-  closestCenter,
-  KeyboardSensor,
-  PointerSensor,
-  useSensor,
-  useSensors,
-  DragOverlay
-} from '@dnd-kit/core';
-import { sortableKeyboardCoordinates, arrayMove } from '@dnd-kit/sortable';
-import useAdminTierStore, { TIERS, CATEGORIES, buildSectionKeys } from '../store/adminTierStore';
+import React, { useEffect, useMemo } from 'react';
+import { DndContext, DragOverlay } from '@dnd-kit/core';
+import useAdminTierStore, { buildSectionKeys } from '../store/adminTierStore';
+import useAdminTierDnd from '../hooks/useAdminTierDnd';
 import DroppableTierRow from '../components/admin/DroppableTierRow';
-import SortableSongTile from '../components/admin/SortableSongTile';
+import { SongTileChip } from '../components/admin/SortableSongTile';
 import UnassignedPool from '../components/admin/UnassignedPool';
 import AdminBootstrapUpload from '../components/admin/AdminBootstrapUpload';
 import { default as FullPageSpinner } from '../components/common/Spinner';
@@ -28,141 +20,24 @@ const AdminTierTable = () => {
     setLevel,
     setPlayStyle,
     fetchDataForEdit,
-    updateDraftState,
     saveChanges
   } = useAdminTierStore();
 
-  const [activeId, setActiveId] = useState(null);
+  const {
+    activeId,
+    sensors,
+    collisionDetectionStrategy,
+    handleDragStart,
+    handleDragOver,
+    handleDragEnd,
+    handleDragCancel
+  } = useAdminTierDnd();
 
   useEffect(() => {
     fetchDataForEdit();
   }, [selectedLevel, selectedPlayStyle, fetchDataForEdit]);
 
-  const sensors = useSensors(
-    useSensor(PointerSensor, {
-      activationConstraint: {
-        distance: 5,
-      },
-    }),
-    useSensor(KeyboardSensor, {
-      coordinateGetter: sortableKeyboardCoordinates,
-    })
-  );
-
   const orderedTiers = useMemo(() => buildSectionKeys(), []);
-
-  const findContainer = (id, tierData = editorTierData, unassigned = unassignedSongs) => {
-    if (unassigned.some((song) => song.id === id)) {
-      return 'unassigned';
-    }
-
-    for (const [key, songs] of Object.entries(tierData)) {
-      if (songs.some((song) => song.id === id)) {
-        return key;
-      }
-    }
-
-    return null;
-  };
-
-  const handleDragStart = (event) => {
-    setActiveId(event.active.id);
-  };
-
-  const handleDragOver = (_event) => {
-    // NOTE: We intentionally do NOT update state in handleDragOver.
-    // Doing so causes @dnd-kit's internal tracking to diverge from UI state,
-    // resulting in snap-back behavior. All state updates happen in handleDragEnd.
-
-    // This is a no-op placeholder to satisfy the DndContext API.
-  };
-
-  const handleDragEnd = (event) => {
-    const { active, over } = event;
-    setActiveId(null);
-
-    if (!over) return;
-
-    const activeId = active.id;
-    const overId = over.id;
-
-    const { editorTierData: currentTierData, unassignedSongs: currentUnassignedSongs } = useAdminTierStore.getState();
-
-    const activeContainer = findContainer(activeId, currentTierData, currentUnassignedSongs);
-    let overContainer = findContainer(overId, currentTierData, currentUnassignedSongs);
-
-    if (!overContainer && (overId === 'unassigned' || Object.keys(currentTierData).includes(overId))) {
-      overContainer = overId;
-    }
-
-    if (!activeContainer || !overContainer) return;
-
-    if (activeContainer === overContainer) {
-      const isUnassigned = activeContainer === 'unassigned';
-      const items = isUnassigned ? currentUnassignedSongs : currentTierData[activeContainer];
-
-      const oldIndex = items.findIndex((item) => item.id === activeId);
-      let newIndex = items.findIndex((item) => item.id === overId);
-
-      if (newIndex === -1) {
-        newIndex = items.length - 1;
-      }
-
-      if (oldIndex !== newIndex && oldIndex !== -1) {
-        const newItems = arrayMove(items, oldIndex, newIndex);
-
-        if (isUnassigned) {
-          updateDraftState(currentTierData, newItems);
-        } else {
-          updateDraftState({ ...currentTierData, [activeContainer]: newItems }, currentUnassignedSongs);
-        }
-      }
-    } else {
-      moveItemBetweenContainers(activeContainer, overContainer, activeId, overId, currentTierData, currentUnassignedSongs);
-    }
-  };
-
-  const moveItemBetweenContainers = (
-    activeContainer,
-    overContainer,
-    activeId,
-    overId,
-    currentTierData,
-    currentUnassignedSongs
-  ) => {
-    const activeItems = activeContainer === 'unassigned' ? currentUnassignedSongs : currentTierData[activeContainer];
-    const overItems = overContainer === 'unassigned' ? currentUnassignedSongs : currentTierData[overContainer];
-
-    const activeIndex = activeItems.findIndex((item) => item.id === activeId);
-    let overIndex = overItems.findIndex((item) => item.id === overId);
-
-    if (activeIndex === -1) return;
-    if (overIndex === -1) {
-      overIndex = overItems.length;
-    }
-
-    const [movedItem] = activeItems.slice(activeIndex, activeIndex + 1);
-    const newActiveItems = [...activeItems];
-    newActiveItems.splice(activeIndex, 1);
-
-    const newOverItems = [...overItems];
-    newOverItems.splice(overIndex, 0, movedItem);
-
-    const newTiers = { ...currentTierData };
-    let newUnassigned = [...currentUnassignedSongs];
-
-    if (activeContainer === 'unassigned') newUnassigned = newActiveItems;
-    else newTiers[activeContainer] = newActiveItems;
-
-    if (overContainer === 'unassigned') newUnassigned = newOverItems;
-    else newTiers[overContainer] = newOverItems;
-
-    updateDraftState(newTiers, newUnassigned);
-  };
-
-  const handleDragCancel = () => {
-    setActiveId(null);
-  };
 
   const activeItem = useMemo(() => {
     if (!activeId) return null;
@@ -237,7 +112,7 @@ const AdminTierTable = () => {
       ) : (
         <DndContext
           sensors={sensors}
-          collisionDetection={closestCenter}
+          collisionDetection={collisionDetectionStrategy}
           onDragStart={handleDragStart}
           onDragOver={handleDragOver}
           onDragEnd={handleDragEnd}
@@ -265,7 +140,7 @@ const AdminTierTable = () => {
           <DragOverlay>
             {activeItem ? (
               <div className="opacity-90 scale-105 shadow-2xl pointer-events-none rotate-2">
-                <SortableSongTile item={activeItem} />
+                <SongTileChip title={activeItem.title} />
               </div>
             ) : null}
           </DragOverlay>
