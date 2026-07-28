@@ -1,6 +1,7 @@
 import { Suspense } from 'react';
-import { Outlet } from 'react-router-dom';
+import { Outlet, useLocation } from 'react-router-dom';
 import { RouteContentSpinner } from '../common/Spinner';
+import ErrorBoundary from '../common/ErrorBoundary';
 import Header from './Header';
 
 /**
@@ -28,6 +29,8 @@ import Header from './Header';
  *   </Route>
  */
 const ProtectedLayout = () => {
+  const location = useLocation();
+
   return (
     <div className="min-h-screen bg-bg-darker flex flex-col">
       <Header />
@@ -37,10 +40,17 @@ const ProtectedLayout = () => {
          * /scores 접속 시 → Scores 컴포넌트가 Outlet 자리에 렌더링됩니다.
          * /profile 접속 시 → Profile 컴포넌트가 Outlet 자리에 렌더링됩니다.
          * Header는 공통으로 유지됩니다.
+         *
+         * 🎓 ErrorBoundary가 왜 여기(Header 바깥이 아니라 main 안)에 있나요?
+         * 페이지 렌더 중 에러가 나도 Header는 살아 있어야 사용자가 다른 메뉴로
+         * 빠져나갈 수 있습니다. App.jsx 최상위에도 백스톱 ErrorBoundary가
+         * 있지만, 그건 Header까지 통째로 날아갑니다.
          */}
-        <Suspense fallback={<RouteContentSpinner />}>
-          <Outlet />
-        </Suspense>
+        <ErrorBoundary resetKey={`${location.pathname}${location.search}`}>
+          <Suspense fallback={<RouteContentSpinner />}>
+            <Outlet />
+          </Suspense>
+        </ErrorBoundary>
       </main>
     </div>
   );

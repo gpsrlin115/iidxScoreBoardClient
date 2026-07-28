@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams, Link } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import { authApi } from '../api/auth';
+import { toAppError } from '../utils/httpError';
 
 const ResetPasswordConfirm = () => {
   const navigate = useNavigate();
@@ -34,7 +35,7 @@ const ResetPasswordConfirm = () => {
       // 성공 후 로그인 페이지로 이동
       navigate('/login');
     } catch (err) {
-      const msg = err.response?.data?.message || '비밀번호 재설정에 실패했습니다. 토큰이 만료되었을 수 있습니다.';
+      const msg = toAppError(err, { fallback: '비밀번호 재설정에 실패했습니다. 토큰이 만료되었을 수 있습니다.' }).message;
       toast.error(msg);
     } finally {
       setIsSubmitting(false);

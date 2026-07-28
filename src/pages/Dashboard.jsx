@@ -3,6 +3,7 @@ import { format } from 'date-fns';
 import { FiActivity, FiStar, FiAward, FiCheckCircle, FiTarget } from 'react-icons/fi';
 import useDashboard from '../hooks/useDashboard';
 import { FullPageSpinner } from '../components/common/Spinner';
+import ErrorView from '../components/common/ErrorView';
 import { CLEAR_TYPE_LABELS, normalizeClearType } from '../utils/clearTypes';
 
 /**
@@ -25,7 +26,7 @@ const StatCard = ({ icon: Icon, label, value, colorClass }) => (
 );
 
 const Dashboard = () => {
-  const { stats, recentScores, isLoading, error } = useDashboard();
+  const { stats, recentScores, isLoading, error, refetch } = useDashboard();
 
   if (isLoading) {
     return (
@@ -37,10 +38,12 @@ const Dashboard = () => {
 
   if (error) {
     return (
-      <div className="flex flex-col items-center justify-center py-20 text-red-400 space-y-4">
-        <p className="text-lg">⚠️ 대시보드 오류</p>
-        <p className="text-sm text-slate-500">{error}</p>
-      </div>
+      <ErrorView
+        status={error.status}
+        message={error.message}
+        variant="page"
+        onRetry={error.retryable ? refetch : undefined}
+      />
     );
   }
 

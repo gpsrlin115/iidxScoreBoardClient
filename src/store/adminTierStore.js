@@ -1,13 +1,12 @@
 import { create } from 'zustand';
 import { tierApi } from '../api/tiers';
-import defaultTierTable from '../data/tierTable.json';
 import toast from 'react-hot-toast';
 import { normalizeTierCategory } from '../utils/tierData';
+import { toAppError } from '../utils/httpError';
+import { DEFAULT_DIFFICULTY, loadAdminTierSources } from './adminTierLoader';
 
 const TIERS = ['S+', 'S', 'A+', 'A', 'B+', 'B', 'C', 'D', 'E', 'F'];
 const CATEGORIES = ['地力', '個人差'];
-const DEFAULT_CATEGORY = '地力';
-const DEFAULT_DIFFICULTY = 'ANOTHER';
 
 const buildSectionKeys = () => TIERS.flatMap((tier) => CATEGORIES.map((category) => `${category}|${tier}`));
 
@@ -15,40 +14,6 @@ const buildSectionKeys = () => TIERS.flatMap((tier) => CATEGORIES.map((category)
 const buildEmptyDraftTierData = () => Object.fromEntries(buildSectionKeys().map((key) => [key, []]));
 
 const buildItemId = (title, difficulty) => `${title}__${difficulty ?? 'NONE'}`;
-
-const normalizeDraftEntries = (data) => {
-  if (Array.isArray(data)) return data;
-
-  if (!data || typeof data !== 'object') return [];
-
-  return Object.entries(data).flatMap(([tier, songs]) => {
-    if (!Array.isArray(songs)) return [];
-
-    return songs.map((song, index) => {
-      if (song && typeof song === 'object') {
-        return {
-          ...song,
-          tier: song.tier ?? tier,
-          category: normalizeTierCategory(song.category) ?? DEFAULT_CATEGORY,
-          sortOrder: song.sortOrder ?? index + 1
-        };
-      }
-
-      return {
-        title: song,
-        difficulty: DEFAULT_DIFFICULTY,
-        category: DEFAULT_CATEGORY,
-        tier,
-        sortOrder: index + 1
-      };
-    });
-  });
-};
-
-const getDefaultTierEntries = (level, playStyle) => {
-  const grouped = defaultTierTable[String(level)]?.[playStyle];
-  return normalizeDraftEntries(grouped);
-};
 
 const toAdminItem = (item, fallback = {}) => {
   return {
@@ -80,30 +45,18 @@ const useAdminTierStore = create((set, get) => ({
     set({ isLoading: true, error: null, hasChanges: false });
 
     try {
-      const [draftTiers, allSongs] = await Promise.all([
-        tierApi.getAdminTierDraft(selectedLevel, selectedPlayStyle),
-        tierApi.getAdminSongs(selectedLevel, selectedPlayStyle)
-      ]);
+      const sources = await loadAdminTierSources(selectedLevel, selectedPlayStyle);
 
+      if (sources.authFailure) {
+        const appError = toAppError(sources.authFailure);
+        console.error(sources.context, sources.authFailure);
+        set({ error: appError, isLoading: false });
+        toast.error(appError.message);
+        return;
+      }
+
+      const { rawEntries: rawArray, masterSongs, usedFallbackData } = sources;
       const safeTiers = buildEmptyDraftTierData();
-      let rawArray = normalizeDraftEntries(draftTiers);
-      let masterSongs = Array.isArray(allSongs) ? allSongs : [];
-
-      if (rawArray.length === 0 && masterSongs.length === 0) {
-        const publicTierData = await tierApi.getTierData(selectedLevel, selectedPlayStyle);
-        rawArray = normalizeDraftEntries(publicTierData);
-      }
-
-      if (rawArray.length === 0 && masterSongs.length === 0) {
-        rawArray = getDefaultTierEntries(selectedLevel, selectedPlayStyle);
-      }
-
-      if (masterSongs.length === 0 && rawArray.length > 0) {
-        masterSongs = rawArray.map((item) => ({
-          title: item.title,
-          difficulty: item.difficulty ?? DEFAULT_DIFFICULTY
-        }));
-      }
 
       // 1. 할당된 곡들을 카테고리|티어 별로 분류
       rawArray.forEach((item) => {
@@ -145,10 +98,17 @@ const useAdminTierStore = create((set, get) => ({
         rawTierData: rawArray,
         isLoading: false
       });
+
+      // Saving would write this substitute data over the live table, so the
+      // admin has to know the editor is not showing the real thing.
+      if (usedFallbackData) {
+        toast('관리자 데이터가 비어 있어 기본 데이터로 표시 중입니다.', { icon: 'ℹ️' });
+      }
     } catch (error) {
+      const appError = toAppError(error, { fallback: '편집기 데이터를 불러오지 못했습니다.' });
       console.error('Failed to load data for editor:', error);
-      set({ error: 'Failed to load data for editor', isLoading: false });
-      toast.error('Failed to load data for editor');
+      set({ error: appError, isLoading: false });
+      toast.error(appError.message);
     }
   },
 
@@ -220,9 +180,9 @@ const useAdminTierStore = create((set, get) => ({
       await tierApi.saveAdminTierDraft(selectedLevel, selectedPlayStyle, payload);
       toast.success('Changes saved! Now live.');
       set({ isSaving: false, hasChanges: false, rawTierData: payload });
-    } catch {
+    } catch (error) {
       set({ isSaving: false });
-      toast.error('Failed to save changes');
+      toast.error(toAppError(error, { fallback: '변경사항 저장에 실패했습니다.' }).message);
     }
   },
 
@@ -236,9 +196,9 @@ const useAdminTierStore = create((set, get) => ({
       await tierApi.publishTierTable(selectedLevel, selectedPlayStyle, payload);
       toast.success('Changes saved! Now live.');
       set({ isSaving: false, hasChanges: false, rawTierData: payload });
-    } catch {
+    } catch (error) {
       set({ isSaving: false });
-      toast.error('Failed to publish tier table');
+      toast.error(toAppError(error, { fallback: '서열표 반영에 실패했습니다.' }).message);
     }
   }
 }));

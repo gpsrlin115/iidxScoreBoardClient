@@ -59,8 +59,11 @@ export const tierApi = {
 
       return data; // 이미 구 형식인 경우 그대로 반환
     } catch (error) {
+      // Rethrow instead of returning []: swallowing the error here made a 403
+      // look identical to "no tier data exists" on screen.
+      // See docs/retro-2026-05-10-tier-table-403-and-history-cleanup.md
       console.error(`Failed to fetch tier data for Lv.${level} ${playStyle}`, error);
-      return [];
+      throw error;
     }
   },
 
@@ -81,7 +84,7 @@ export const tierApi = {
       return unwrapped.length > 0 ? unwrapped : data;
     } catch (error) {
       console.error(`Failed to fetch draft for Lv.${level} ${playStyle}`, error);
-      return [];
+      throw error;
     }
   },
 
@@ -153,7 +156,7 @@ export const tierApi = {
       });
     } catch (error) {
       console.error(`Failed to fetch admin songs for Lv.${level} ${playStyle}`, error);
-      return [];
+      throw error;
     }
   },
 
@@ -168,7 +171,7 @@ export const tierApi = {
       return response.data;
     } catch (error) {
       console.error(`Failed to fetch history for Lv.${level} ${playStyle}`, error);
-      return [];
+      throw error;
     }
   }
 };

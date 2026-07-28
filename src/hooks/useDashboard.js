@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { scoresApi } from '../api/scores';
 import { useAuthStore } from '../store/authStore';
+import { toAppError } from '../utils/httpError';
 
 /**
  * 🎓 학습 포인트: Promise.all을 활용한 병렬 데이터 페칭
@@ -78,7 +79,7 @@ const useDashboard = () => {
 
       setRecentScores(recentRes.content);
     } catch (err) {
-      setError(err.response?.data?.message || '대시보드 데이터를 불러오는데 실패했습니다.');
+      setError(toAppError(err, { fallback: '대시보드 데이터를 불러오는데 실패했습니다.' }));
     } finally {
       setIsLoading(false);
     }

@@ -1,0 +1,24 @@
+# Copy this file to terraform.tfvars and replace every placeholder.
+# Do not commit terraform.tfvars.
+
+region         = "ap-chuncheon-1"
+tenancy_ocid   = "ocid1.tenancy.oc1..replace"
+compartment_id = "ocid1.tenancy.oc1..replace-or-compartment-ocid"
+
+# Use the existing public subnet created from the OCI console wizard.
+# This must start with ocid1.subnet, not ocid1.vcn.
+subnet_id = "ocid1.subnet.oc1.ap-chuncheon-1.replace"
+
+# Generate this from your private key if needed:
+# ssh-keygen -y -f ~/.ssh/iidx-oci.key > ~/.ssh/iidx-oci.pub
+ssh_public_key_path = "~/.ssh/iidx-oci.pub"
+
+instance_name = "iidxinstance"
+hostname_label = "iidx"
+
+# Start small to improve the chance of getting capacity. Resize later if needed.
+ocpus     = 1
+memory_gb = 6
+
+boot_volume_size_gb = 50
+oracle_linux_version = "9"

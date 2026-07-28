@@ -1,11 +1,14 @@
 import { lazy, useEffect } from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
 import { useAuthStore } from './store/authStore';
 import { authApi } from './api/auth';
 import ProtectedRoute from './components/guards/ProtectedRoute';
 import ProtectedLayout from './components/layout/ProtectedLayout';
 import GlobalLoadingOverlay from './components/common/GlobalLoadingOverlay';
+import ErrorBoundary from './components/common/ErrorBoundary';
+import NavigationBridge from './components/routing/NavigationBridge';
+import NotFoundPage from './pages/errors/NotFoundPage';
 import Login from './pages/Login';
 import Signup from './pages/Signup';
 import FindAccount from './pages/FindAccount';
@@ -44,37 +47,24 @@ const PlaceholderPage = ({ title }) => (
   </div>
 );
 
-function App() {
-  /**
-   * 앱 마운트 시 세션 복원
-   * → 새로고침 후에도 로그인 상태를 유지합니다
-   */
-  useEffect(() => {
-    const restoreSession = async () => {
-      try {
-        const user = await authApi.getCurrentUser();
-        useAuthStore.getState().setUser(user);
-      } catch {
-        // 비로그인 상태 → user: null 유지
-      } finally {
-        useAuthStore.getState().setLoading(false);
-      }
-    };
-    restoreSession();
-  }, []);
+/**
+ * 라우트 정의 + 최상위 ErrorBoundary
+ *
+ * 🎓 왜 App에서 분리했나요?
+ * useLocation()은 <Router> 안에서만 호출할 수 있는데, App 자신이 <Router>를
+ * 렌더링하므로 App 레벨에서는 쓸 수 없습니다. 한 단계 안쪽 컴포넌트로 빼면
+ * 현재 경로를 읽어 ErrorBoundary의 resetKey로 넘길 수 있습니다.
+ */
+function AppRoutes() {
+  const location = useLocation();
 
   return (
-    <Router>
-      {/* 전역 로딩 오버레이 — isLoading이 true일 때만 렌더링됩니다 */}
-      <GlobalLoadingOverlay />
-
-      <Toaster
-        position="top-right"
-        toastOptions={{
-          style: { background: '#1e293b', color: '#f1f5f9' },
-        }}
-      />
-
+    /**
+     * resetKey에 경로를 넘기면 사용자가 다른 메뉴로 이동할 때 에러 상태가
+     * 자동으로 풀립니다. 이게 없으면 한 페이지에서 렌더 에러가 난 뒤
+     * 어디로 이동해도 계속 에러 화면에 갇힙니다.
+     */
+    <ErrorBoundary resetKey={`${location.pathname}${location.search}`}>
       <Routes>
         {/* ───────────────────────────────────────────────
          * 공개 라우트 (로그인 없이 접근 가능)
@@ -117,9 +107,52 @@ function App() {
           />
         </Route>
 
-        {/* 404: 정의되지 않은 경로는 홈으로 */}
-        <Route path="*" element={<Navigate to="/" replace />} />
+        {/* 404: 정의되지 않은 경로 → 홈으로 조용히 보내지 않고 명시적으로 알립니다 */}
+        <Route path="*" element={<NotFoundPage />} />
       </Routes>
+    </ErrorBoundary>
+  );
+}
+
+function App() {
+  /**
+   * 앱 마운트 시 세션 복원
+   * → 새로고침 후에도 로그인 상태를 유지합니다
+   */
+  useEffect(() => {
+    const restoreSession = async () => {
+      try {
+        const user = await authApi.getCurrentUser();
+        useAuthStore.getState().setUser(user);
+      } catch {
+        // 비로그인 상태 → user: null 유지
+      } finally {
+        useAuthStore.getState().setLoading(false);
+      }
+    };
+    restoreSession();
+  }, []);
+
+  return (
+    <Router>
+      {/**
+       * NavigationBridge — axios 인터셉터처럼 React 밖에서 실행되는 코드가
+       * SPA 이동을 할 수 있도록 navigate 함수를 등록합니다 (401 → /login).
+       * 반드시 <Router> 안에 있어야 합니다.
+       */}
+      <NavigationBridge />
+
+      {/* 전역 로딩 오버레이 — isLoading이 true일 때만 렌더링됩니다 */}
+      <GlobalLoadingOverlay />
+
+      <Toaster
+        position="top-right"
+        toastOptions={{
+          style: { background: '#1e293b', color: '#f1f5f9' },
+        }}
+      />
+
+      <AppRoutes />
     </Router>
   );
 }

@@ -3,6 +3,7 @@ import useScores from '../hooks/useScores';
 import ScoreFilter from '../components/scores/ScoreFilter';
 import ScoreTable from '../components/scores/ScoreTable';
 import { FullPageSpinner } from '../components/common/Spinner';
+import ErrorView from '../components/common/ErrorView';
 
 /**
  * 🎓 학습 포인트: 이 페이지의 역할 (컨테이너 컴포넌트)
@@ -18,7 +19,7 @@ import { FullPageSpinner } from '../components/common/Spinner';
  */
 const Scores = () => {
   const { setPage } = useScoresStore();
-  const { scores, totalElements, totalPages, currentPage, isLoading, error } = useScores();
+  const { scores, totalElements, totalPages, currentPage, isLoading, error, refetch } = useScores();
 
   return (
     <div className="space-y-4">
@@ -45,13 +46,15 @@ const Scores = () => {
       ) : error ? (
         /**
          * 🎓 에러 상태 UI
-         * 네트워크 오류나 서버 오류 시 사용자에게 명확히 알립니다.
-         * 빈 화면보다 훨씬 나은 UX입니다.
+         * 상태 코드에 따라 문구와 재시도 버튼이 달라집니다.
+         * (ErrorView가 403/404/5xx/네트워크를 각각 다르게 표현합니다)
          */
-        <div className="flex flex-col items-center justify-center py-20 text-red-400">
-          <p className="text-lg">⚠️ 오류가 발생했습니다</p>
-          <p className="text-sm mt-1 text-slate-500">{error}</p>
-        </div>
+        <ErrorView
+          status={error.status}
+          message={error.message}
+          variant="page"
+          onRetry={error.retryable ? refetch : undefined}
+        />
       ) : (
         <>
           <ScoreTable scores={scores} />
