@@ -13,6 +13,7 @@ import Login from './pages/Login';
 import Signup from './pages/Signup';
 import FindAccount from './pages/FindAccount';
 import ResetPasswordConfirm from './pages/ResetPasswordConfirm';
+import Ddr from './pages/Ddr';
 
 const Dashboard = lazy(() => import('./pages/Dashboard'));
 const Scores = lazy(() => import('./pages/Scores'));
@@ -73,6 +74,7 @@ function AppRoutes() {
         <Route path="/signup" element={<Signup />} />
         <Route path="/find-account" element={<FindAccount />} />
         <Route path="/reset-password" element={<ResetPasswordConfirm />} />
+        <Route path="/ddr" element={<Ddr />} />
 
         {/* ───────────────────────────────────────────────
          * 보호된 라우트 (로그인 필요)
