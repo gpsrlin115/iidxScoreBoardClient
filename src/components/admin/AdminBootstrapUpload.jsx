@@ -3,6 +3,7 @@ import toast from 'react-hot-toast';
 import { FiDatabase } from 'react-icons/fi';
 import { importApi } from '../../api/import';
 import { useLoading } from '../../hooks/useLoading';
+import { toAppError } from '../../utils/httpError';
 
 const AdminBootstrapUpload = ({ playStyle }) => {
   const fileInputRef = useRef(null);
@@ -24,7 +25,7 @@ const AdminBootstrapUpload = ({ playStyle }) => {
       );
       toast.success(`DB 초기화 성공! (곡: ${data.songsImported}, 패턴: ${data.chartsImported})`);
     } catch (err) {
-      toast.error(err.response?.data?.message || 'DB 초기화 업로드에 실패했습니다.');
+      toast.error(toAppError(err, { fallback: 'DB 초기화 업로드에 실패했습니다.' }).message);
     } finally {
       if (fileInputRef.current) fileInputRef.current.value = '';
     }

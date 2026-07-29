@@ -24,3 +24,15 @@ dist-ssr
 *.sw?
 
 ./docs
+
+# Local agent/runtime configuration
+.codex/
+
+# Terraform local state and machine-specific inputs
+**/.terraform/
+**/.terraform.lock.hcl
+**/terraform.tfstate
+**/terraform.tfstate.backup
+**/terraform.tfvars
+**/tf-output.txt
+**/*-create.log

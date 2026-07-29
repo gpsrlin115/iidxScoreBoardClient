@@ -75,4 +75,28 @@ export const authApi = {
     const response = await apiClient.get('/users/me');
     return response.data;
   },
+
+  /**
+   * 아이디 찾기
+   */
+  findUsername: async (email) => {
+    const response = await apiClient.post('/auth/find-username', { email });
+    return response.data;
+  },
+
+  /**
+   * 비밀번호 재설정 요청 (토큰 발급)
+   */
+  requestPasswordReset: async (username, email) => {
+    const response = await apiClient.post('/auth/password-reset/request', { username, email });
+    return response.data;
+  },
+
+  /**
+   * 비밀번호 재설정 완료
+   */
+  confirmPasswordReset: async (token, newPassword) => {
+    const response = await apiClient.post('/auth/password-reset/confirm', { token, newPassword });
+    return response.data;
+  },
 };

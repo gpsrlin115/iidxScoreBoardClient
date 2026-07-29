@@ -1,6 +1,7 @@
 import React from 'react';
 import useTierStore from '../../store/tierStore';
 import SongTile from './SongTile';
+import { isClearTypeCleared } from '../../utils/clearTypes';
 
 /**
  * Grid View Mode
@@ -18,7 +19,7 @@ const TierTableViewGrid = () => {
               const { tier, songs } = tierObj;
 
               // Calculate clear amount
-              const clearedSongs = songs.filter(s => Array.from(['ASSIST_CLEAR', 'EASY_CLEAR', 'CLEAR', 'HARD_CLEAR', 'EX_HARD_CLEAR', 'FULL_COMBO']).includes(s.clearType)).length;
+              const clearedSongs = songs.filter(s => isClearTypeCleared(s.clearType)).length;
               
               // Alternating row backgrounds for better readability
               const bgClass = idx % 2 === 0 ? 'bg-gray-800/60' : 'bg-gray-850';
@@ -29,7 +30,7 @@ const TierTableViewGrid = () => {
                   {/* Left Column: Tier Name & Stats */}
                   <th scope="row" className="w-[120px] px-4 py-3 align-middle border-r border-gray-700 bg-gray-900/50">
                     <div className="flex flex-col items-center justify-center space-y-1">
-                      <span className="text-xl font-bold font-mono text-white text-center tracking-wider">{tier}</span>
+                      <span className="text-xl font-bold text-white text-center tracking-normal leading-tight">{tier}</span>
                       <span className="text-[10px] text-gray-500 font-medium">
                         {clearedSongs} / {songs.length}
                       </span>
@@ -41,7 +42,7 @@ const TierTableViewGrid = () => {
                     <div className="flex flex-wrap gap-1">
                       {songs.length > 0 ? (
                         songs.map((song, sIdx) => (
-                           <SongTile key={`${song.title}-${sIdx}`} songTitle={song.title} clearType={song.clearType} />
+                           <SongTile key={`${song.title}-${song.difficulty ?? sIdx}`} song={song} />
                         ))
                       ) : (
                         <span className="text-gray-600 italic text-xs px-2">No songs in this tier</span>

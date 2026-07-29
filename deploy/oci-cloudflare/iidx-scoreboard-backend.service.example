@@ -1,0 +1,23 @@
+[Unit]
+Description=IIDX ScoreBoard Spring Boot backend
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=iidxscoreboard
+Group=iidxscoreboard
+WorkingDirectory=/opt/iidx-scoreboard/server
+EnvironmentFile=/etc/iidx-scoreboard/backend.env
+ExecStart=/usr/bin/java -jar /opt/iidx-scoreboard/server/iidx-scoreboard.jar
+Restart=on-failure
+RestartSec=10
+SuccessExitStatus=143
+
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=full
+ReadWritePaths=/opt/iidx-scoreboard/uploads /opt/iidx-scoreboard/server/logs
+
+[Install]
+WantedBy=multi-user.target

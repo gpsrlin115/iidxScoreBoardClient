@@ -3,6 +3,7 @@ import { useNavigate, Link } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import { authApi } from '../api/auth';
 import { useAuthStore } from '../store/authStore';
+import { toAppError } from '../utils/httpError';
 
 /**
  * 🎓 학습 포인트: 로그인 페이지의 역할
@@ -70,7 +71,7 @@ const Login = () => {
        * err.response?.data?.message: 백엔드에서 보낸 에러 메시지
        * 없으면 기본 메시지를 보여줍니다
        */
-      const message = err.response?.data?.message || '아이디 또는 비밀번호를 확인해주세요.';
+      const message = toAppError(err, { fallback: '아이디 또는 비밀번호를 확인해주세요.' }).message;
       toast.error(message);
     } finally {
       setIsSubmitting(false);
@@ -157,12 +158,10 @@ const Login = () => {
           </form>
 
           <p className="text-center text-slate-500 text-sm mt-6">
-            계정이 없으신가요?{' '}
-            {/**
-             * 🎓 Link 컴포넌트
-             * <a href="/signup"> 대신 React Router의 <Link>를 사용합니다.
-             * 이유: Link는 페이지 전체를 새로고침하지 않고 이동합니다 (SPA 방식).
-             */}
+            <Link to="/find-account" className="text-slate-400 hover:text-white transition">
+              아이디 / 비밀번호 찾기
+            </Link>
+            <span className="mx-3 text-slate-600">|</span>
             <Link to="/signup" className="text-primary-500 hover:text-primary-400 transition">
               회원가입
             </Link>

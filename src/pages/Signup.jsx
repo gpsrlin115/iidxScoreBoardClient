@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import { authApi } from '../api/auth';
+import { toAppError } from '../utils/httpError';
 
 /**
  * 🎓 학습 포인트: 폼 유효성 검사 (Form Validation)
@@ -98,7 +99,7 @@ const Signup = () => {
       toast.success('회원가입 완료! 로그인 해주세요.');
       navigate('/login');
     } catch (err) {
-      const message = err.response?.data?.message || '회원가입 중 오류가 발생했습니다.';
+      const message = toAppError(err, { fallback: '회원가입 중 오류가 발생했습니다.' }).message;
       toast.error(message);
     } finally {
       setIsSubmitting(false);

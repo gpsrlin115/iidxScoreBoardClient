@@ -1,6 +1,6 @@
 import React from 'react';
 import { useDroppable } from '@dnd-kit/core';
-import { SortableContext, horizontalListSortingStrategy } from '@dnd-kit/sortable';
+import { SortableContext, rectSortingStrategy } from '@dnd-kit/sortable';
 import SortableSongTile from './SortableSongTile';
 
 /**
@@ -16,7 +16,7 @@ const DroppableTierRow = ({ id, title, items, isPool = false }) => {
   return (
     <div className={`mb-4 rounded-lg overflow-hidden border transition-colors ${isPool ? 'border-dashed border-gray-600 bg-gray-900/50' : 'border-gray-700 bg-gray-800'} ${isOver ? 'ring-2 ring-primary-500 bg-gray-800' : ''}`}>
       <div className={`flex items-center p-3 ${isPool ? 'bg-gray-800/80 border-b border-gray-700' : 'bg-gray-750'}`}>
-        <h3 className={`font-bold ${isPool ? 'text-gray-400 text-base' : 'text-xl text-white w-14 text-center bg-gray-900 py-1 rounded shadow-inner'}`}>
+        <h3 className={`font-bold leading-tight ${isPool ? 'text-gray-400 text-base' : 'text-xl text-white min-w-24 text-center bg-gray-900 px-2 py-1 rounded shadow-inner'}`}>
           {title}
         </h3>
         <span className="ml-3 text-sm text-gray-500 font-mono">
@@ -32,16 +32,16 @@ const DroppableTierRow = ({ id, title, items, isPool = false }) => {
         ref={setNodeRef} 
         className={`p-3 min-h-[80px] flex flex-wrap content-start ${items.length === 0 && !isOver ? 'bg-[url("data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI4IiBoZWlnaHQ9IjgiPgo8cmVjdCB3aWR0aD0iOCIgaGVpZ2h0PSI4IiBmaWxsPSIjMWYyOTM3Ij48L3JlY3Q+CjxwYXRoIGQ9Ik0wIDBMOCA4Wk04IDBMMCA4WiIgc3Ryb2tlPSIjMzc0MTUxIiBzdHJva2Utd2lkdGg9IjEiPjwvcGF0aD4KPC9zdmc+")]' : ''}`}
       >
-        <SortableContext 
-          id={id} 
-          items={items} 
-          // Use horizontal strategy since items are laid out inline (flex-wrap).
-          // For a true 2D grid, rectSortingStrategy is sometimes better, 
-          // but horizontal usually works well enough for wrapped flex items.
-          strategy={horizontalListSortingStrategy}
+        <SortableContext
+          id={id}
+          items={items.map((song) => song.id)}
+          // Items are laid out with flex-wrap (a 2D grid once a tier wraps),
+          // so use rectSortingStrategy; the horizontal strategy assumes a
+          // single row and miscomputes the gap position on wrapped rows.
+          strategy={rectSortingStrategy}
         >
-          {items.map((songTitle) => (
-            <SortableSongTile key={songTitle} id={songTitle} title={songTitle} />
+          {items.map((song) => (
+            <SortableSongTile key={song.id} id={song.id} title={song.title} />
           ))}
         </SortableContext>
         

@@ -3,6 +3,8 @@ import { format } from 'date-fns';
 import { FiActivity, FiStar, FiAward, FiCheckCircle, FiTarget } from 'react-icons/fi';
 import useDashboard from '../hooks/useDashboard';
 import { FullPageSpinner } from '../components/common/Spinner';
+import ErrorView from '../components/common/ErrorView';
+import { CLEAR_TYPE_LABELS, normalizeClearType } from '../utils/clearTypes';
 
 /**
  * 🎓 학습 포인트: StatCard 컴포넌트 분리
@@ -24,7 +26,7 @@ const StatCard = ({ icon: Icon, label, value, colorClass }) => (
 );
 
 const Dashboard = () => {
-  const { stats, recentScores, isLoading, error } = useDashboard();
+  const { stats, recentScores, isLoading, error, refetch } = useDashboard();
 
   if (isLoading) {
     return (
@@ -36,10 +38,12 @@ const Dashboard = () => {
 
   if (error) {
     return (
-      <div className="flex flex-col items-center justify-center py-20 text-red-400 space-y-4">
-        <p className="text-lg">⚠️ 대시보드 오류</p>
-        <p className="text-sm text-slate-500">{error}</p>
-      </div>
+      <ErrorView
+        status={error.status}
+        message={error.message}
+        variant="page"
+        onRetry={error.retryable ? refetch : undefined}
+      />
     );
   }
 
@@ -127,7 +131,10 @@ const Dashboard = () => {
           <p className="text-slate-500 text-center py-8">최근 플레이 기록이 없습니다.</p>
         ) : (
           <div className="divide-y divide-slate-700/50">
-            {recentScores.map((score) => (
+            {recentScores.map((score) => {
+              const clearType = normalizeClearType(score.bestClearType) ?? 'NO_PLAY';
+
+              return (
               <div key={score.id} className="py-4 flex justify-between items-center group">
                 <div>
                   <div className="flex items-center gap-2">
@@ -149,15 +156,15 @@ const Dashboard = () => {
                 <div className="text-right">
                   <div className="flex items-center justify-end gap-2 mb-1">
                     <span className={`px-2 py-1 rounded text-xs font-bold border
-                      ${score.bestClearType === 'FULL_COMBO' ? 'bg-gradient-to-r from-pink-500/20 to-yellow-500/20 text-pink-300 border-pink-500/50' :
-                        score.bestClearType === 'EX_HARD_CLEAR' ? 'bg-yellow-900/30 text-yellow-500 border-yellow-700/50' :
-                        score.bestClearType === 'HARD_CLEAR' ? 'bg-white/10 text-white border-white/30' :
-                        score.bestClearType === 'CLEAR' ? 'bg-blue-900/30 text-blue-400 border-blue-700/50' :
-                        score.bestClearType === 'EASY_CLEAR' ? 'bg-green-900/30 text-green-400 border-green-700/50' :
-                        score.bestClearType === 'ASSIST_CLEAR' ? 'bg-purple-900/30 text-purple-400 border-purple-700/50' :
+                      ${clearType === 'FULLCOMBO_CLEAR' ? 'bg-gradient-to-r from-pink-500/20 to-yellow-500/20 text-pink-300 border-pink-500/50' :
+                        clearType === 'EX_HARD_CLEAR' ? 'bg-yellow-900/30 text-yellow-500 border-yellow-700/50' :
+                        clearType === 'HARD_CLEAR' ? 'bg-white/10 text-white border-white/30' :
+                        clearType === 'CLEAR' ? 'bg-blue-900/30 text-blue-400 border-blue-700/50' :
+                        clearType === 'EASY_CLEAR' ? 'bg-green-900/30 text-green-400 border-green-700/50' :
+                        clearType === 'ASSIST_CLEAR' ? 'bg-purple-900/30 text-purple-400 border-purple-700/50' :
                         'bg-slate-800 text-slate-400 border-slate-600'}
                     `}>
-                      {score.bestClearType.replace('_CLEAR', '')}
+                      {CLEAR_TYPE_LABELS[clearType] ?? clearType}
                     </span>
                     <span className={`font-bold font-mono text-lg
                       ${score.bestDjLevel === 'AAA' ? 'text-yellow-400' :
@@ -174,7 +181,8 @@ const Dashboard = () => {
                   )}
                 </div>
               </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </div>

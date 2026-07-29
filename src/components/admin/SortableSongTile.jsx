@@ -3,6 +3,31 @@ import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 
 /**
+ * SongTileChip
+ * Presentational song tile. Also rendered standalone inside DragOverlay,
+ * where attaching useSortable again would duplicate the sortable id.
+ */
+export const SongTileChip = React.forwardRef(({ title, isDragging = false, style, ...rest }, ref) => (
+  <div
+    ref={ref}
+    style={style}
+    {...rest}
+    className={`
+      inline-flex items-center px-3 py-1.5 m-1 rounded text-sm font-semibold border shadow-sm
+      cursor-grab active:cursor-grabbing select-none transition-colors
+      ${isDragging
+        ? 'bg-primary-600/50 border-primary-400 text-white z-50 opacity-80 scale-105'
+        : 'bg-gray-800 border-gray-600 text-gray-200 hover:bg-gray-700 hover:border-gray-500'
+      }
+    `}
+  >
+    <span className="truncate max-w-[150px]" title={title}>{title}</span>
+  </div>
+));
+
+SongTileChip.displayName = 'SongTileChip';
+
+/**
  * SortableSongTile
  * A draggable and sortable component representing a single IIDX song in the admin editor.
  * Uses @dnd-kit/sortable hooks.
@@ -23,22 +48,14 @@ const SortableSongTile = ({ id, title }) => {
   };
 
   return (
-    <div
+    <SongTileChip
       ref={setNodeRef}
       style={style}
+      title={title}
+      isDragging={isDragging}
       {...attributes}
       {...listeners}
-      className={`
-        inline-flex items-center px-3 py-1.5 m-1 rounded text-sm font-semibold border shadow-sm
-        cursor-grab active:cursor-grabbing select-none transition-colors
-        ${isDragging 
-          ? 'bg-primary-600/50 border-primary-400 text-white z-50 opacity-80 scale-105' 
-          : 'bg-gray-800 border-gray-600 text-gray-200 hover:bg-gray-700 hover:border-gray-500'
-        }
-      `}
-    >
-      <span className="truncate max-w-[150px]" title={title}>{title}</span>
-    </div>
+    />
   );
 };
 

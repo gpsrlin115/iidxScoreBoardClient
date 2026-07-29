@@ -64,4 +64,16 @@ export const FullPageSpinner = () => (
   </div>
 );
 
+/**
+ * 보호된 페이지 청크를 불러오는 동안 표시하는 본문 영역 로딩 UI
+ */
+export const RouteContentSpinner = () => (
+  <div className="flex items-center justify-center min-h-[50vh]">
+    <div className="flex flex-col items-center gap-3">
+      <Spinner size="md" />
+      <p className="text-slate-400 text-sm animate-pulse">페이지를 불러오는 중...</p>
+    </div>
+  </div>
+);
+
 export default Spinner;
