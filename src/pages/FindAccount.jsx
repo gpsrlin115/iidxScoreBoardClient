@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import { authApi } from '../api/auth';
+import { toAppError } from '../utils/httpError';
 
 const FindAccount = () => {
   const [activeTab, setActiveTab] = useState('id'); // 'id' or 'password'
@@ -26,7 +27,7 @@ const FindAccount = () => {
       setMaskedId(res.maskedUsername);
       toast.success('아이디를 찾았습니다.');
     } catch (err) {
-      const msg = err.response?.data?.message || '아이디 찾기에 실패했습니다.';
+      const msg = toAppError(err, { fallback: '아이디 찾기에 실패했습니다.' }).message;
       toast.error(msg);
     } finally {
       setIsFindingId(false);
@@ -45,7 +46,7 @@ const FindAccount = () => {
         setResetToken(res.resetToken);
       }
     } catch (err) {
-      const msg = err.response?.data?.message || '요청에 실패했습니다. 입력 정보를 확인해주세요.';
+      const msg = toAppError(err, { fallback: '요청에 실패했습니다. 입력 정보를 확인해주세요.' }).message;
       toast.error(msg);
     } finally {
       setIsResetting(false);

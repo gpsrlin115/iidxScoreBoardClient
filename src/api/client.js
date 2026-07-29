@@ -1,4 +1,6 @@
 import axios from 'axios';
+import { toAppError } from '../utils/httpError';
+import { handleSessionExpired } from './sessionExpiry';
 
 const apiClient = axios.create({
   baseURL: import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080/api',
@@ -40,9 +42,9 @@ apiClient.interceptors.request.use(
 apiClient.interceptors.response.use(
   (response) => response,
   (error) => {
-    if (error.response?.status === 401) {
-      // Unauthorized - could redirect to login
-      console.warn('Unauthorized request:', error.config.url);
+    error.appError = toAppError(error);
+    if (error.appError.status === 401) {
+      handleSessionExpired(error.config?.url);
     }
     return Promise.reject(error);
   }

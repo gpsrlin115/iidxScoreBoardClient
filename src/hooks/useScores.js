@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { scoresApi } from '../api/scores';
 import { useScoresStore } from '../store/scoresStore';
+import { toAppError } from '../utils/httpError';
 
 /**
  * 🎓 학습 포인트: 커스텀 훅 (Custom Hook)이란?
@@ -29,6 +30,8 @@ const useScores = () => {
 
   const [data, setData] = useState(null);    // Spring Page 응답 전체
   const [isLoading, setIsLoading] = useState(true);
+  // toAppError가 정규화한 객체({ status, message, retryable, ... })를 담습니다.
+  // 문자열이 아니라 객체인 이유: 화면이 상태 코드별로 다른 UI를 보여줘야 하기 때문입니다.
   const [error, setError] = useState(null);
 
   /**
@@ -53,7 +56,7 @@ const useScores = () => {
       });
       setData(result);
     } catch (err) {
-      setError(err.response?.data?.message || '스코어를 불러오는 데 실패했습니다.');
+      setError(toAppError(err, { fallback: '스코어를 불러오는 데 실패했습니다.' }));
     } finally {
       setIsLoading(false);
     }

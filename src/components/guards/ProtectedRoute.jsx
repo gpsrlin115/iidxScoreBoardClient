@@ -1,5 +1,6 @@
 import { Navigate } from 'react-router-dom';
 import { useAuthStore } from '../../store/authStore';
+import ForbiddenPage from '../../pages/errors/ForbiddenPage';
 
 /**
  * 🎓 학습 포인트: Route Guard (라우트 가드)란?
@@ -58,11 +59,17 @@ const ProtectedRoute = ({ children, allowedRoles }) => {
     return <Navigate to="/login" replace />;
   }
 
+  /**
+   * 🎓 권한이 부족할 때 왜 홈으로 보내지 않나요?
+   * 조용히 리다이렉트하면 사용자는 "링크가 깨졌나?" 하고 계속 재시도합니다.
+   * 403 화면으로 이유를 명확히 알려주는 편이 낫습니다.
+   * (로그인 자체가 안 된 경우는 위에서 /login으로 보내는 것이 맞습니다)
+   */
   if (allowedRoles?.length) {
     const userRole = user.role?.toUpperCase();
 
     if (!allowedRoles.includes(userRole)) {
-      return <Navigate to="/" replace />;
+      return <ForbiddenPage />;
     }
   }
 

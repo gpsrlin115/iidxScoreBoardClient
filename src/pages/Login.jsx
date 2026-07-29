@@ -3,6 +3,7 @@ import { useNavigate, Link } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import { authApi } from '../api/auth';
 import { useAuthStore } from '../store/authStore';
+import { toAppError } from '../utils/httpError';
 
 /**
  * 🎓 학습 포인트: 로그인 페이지의 역할
@@ -70,7 +71,7 @@ const Login = () => {
        * err.response?.data?.message: 백엔드에서 보낸 에러 메시지
        * 없으면 기본 메시지를 보여줍니다
        */
-      const message = err.response?.data?.message || '아이디 또는 비밀번호를 확인해주세요.';
+      const message = toAppError(err, { fallback: '아이디 또는 비밀번호를 확인해주세요.' }).message;
       toast.error(message);
     } finally {
       setIsSubmitting(false);

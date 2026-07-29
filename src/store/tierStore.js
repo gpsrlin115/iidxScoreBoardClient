@@ -4,6 +4,7 @@ import { scoresApi } from '../api/scores';
 import toast from 'react-hot-toast';
 import { normalizeClearType } from '../utils/clearTypes';
 import { normalizeDifficultyKey, normalizeTitleKey } from '../utils/tierData';
+import { toAppError } from '../utils/httpError';
 
 const normalizeTierSong = (song) => {
   if (typeof song === 'string') {
@@ -137,10 +138,12 @@ const useTierStore = create((set, get) => ({
       });
 
     } catch (error) {
+      // tierApi가 더 이상 실패를 []로 삼키지 않으므로 403/500이 여기까지 올라옵니다.
+      // 화면은 이 status를 보고 "데이터 없음"이 아닌 실제 오류를 표시합니다.
       console.error('Failed to fetch tier data:', error);
-      const message = error.response?.data?.message || '서열표 데이터를 불러오는데 실패했습니다.';
-      set({ error: message, isLoading: false });
-      toast.error(message);
+      const appError = toAppError(error, { fallback: '서열표 데이터를 불러오는데 실패했습니다.' });
+      set({ error: appError, isLoading: false });
+      toast.error(appError.message);
     }
   }
 }));

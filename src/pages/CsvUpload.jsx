@@ -4,6 +4,7 @@ import toast from 'react-hot-toast';
 import { FiUploadCloud, FiFile, FiX, FiCheckCircle } from 'react-icons/fi';
 import { importApi } from '../api/import';
 import Button from '../components/common/Button';
+import { toAppError } from '../utils/httpError';
 
 /**
  * 🎓 학습 포인트: 파일 입력을 다루는 두 가지 방법
@@ -97,7 +98,7 @@ const CsvUpload = () => {
       toast.success(`${data.scoresImported + data.scoresUpdated}개 스코어 처리 완료!`);
     } catch (err) {
       setUploadState('error');
-      const msg = err.response?.data?.message || '업로드 중 오류가 발생했습니다.';
+      const msg = toAppError(err, { fallback: '업로드 중 오류가 발생했습니다.' }).message;
       toast.error(msg);
     }
   };

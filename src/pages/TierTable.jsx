@@ -3,6 +3,7 @@ import useTierStore from '../store/tierStore';
 import TierTableViewList from '../components/tier-table/TierTableViewList';
 import TierTableViewGrid from '../components/tier-table/TierTableViewGrid';
 import { default as FullPageSpinner } from '../components/common/Spinner';
+import ErrorView from '../components/common/ErrorView';
 import { FiGrid, FiList } from 'react-icons/fi';
 import { isClearTypeCleared } from '../utils/clearTypes';
 
@@ -150,10 +151,18 @@ const TierTable = () => {
                <FullPageSpinner size="lg" message="Loading tier and score combinations..." />
             </div>
           ) : error ? (
-            <div className="bg-red-900/50 border-l-4 border-red-500 text-red-200 p-6 rounded-lg shadow-md">
-              <h3 className="font-bold mb-1">Error Loading Data</h3>
-              <p>{error}</p>
-            </div>
+            /**
+             * 이 분기가 "No Data Available"보다 먼저 평가되는 것이 중요합니다.
+             * 예전에는 tierApi가 403을 []로 삼켜서 권한 오류가 "데이터 없음"으로
+             * 보였습니다. 이제 실제 상태 코드가 그대로 표시됩니다.
+             * docs/retro-2026-05-10-tier-table-403-and-history-cleanup.md 참고
+             */
+            <ErrorView
+              status={error.status}
+              message={error.message}
+              variant="page"
+              onRetry={error.retryable ? fetchTierData : undefined}
+            />
           ) : enrichedTierData.length > 0 ? (
              viewMode === 'list' ? <TierTableViewList /> : <TierTableViewGrid />
           ) : (
