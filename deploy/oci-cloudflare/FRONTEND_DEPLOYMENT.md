@@ -10,7 +10,7 @@ Add these Actions secrets to `gpsrlin115/iidxScoreBoardClient`:
 
 - `OCI_HOST`: the OCI VM hostname or public IP
 - `OCI_USER`: the SSH deployment user
-- `OCI_SSH_KEY`: the complete private key used by that user
+- `OCI_SSH_KEY`: a dedicated private key created for this Actions workflow
 - `OCI_KNOWN_HOSTS`: the verified `known_hosts` entry for `OCI_HOST`
 
 Secrets belong to a repository, so the values already configured in
@@ -19,32 +19,47 @@ repository.
 
 ## One-time setup from the Mac
 
-Use the OCI host, user, and key that already work on the Mac:
+Use the existing Mac key only to bootstrap a dedicated Actions key:
 
 ```bash
 export REPO="gpsrlin115/iidxScoreBoardClient"
 export OCI_HOST="<existing OCI hostname or IP>"
 export OCI_USER="<existing SSH user>"
-export OCI_KEY="$HOME/.ssh/<existing private key>"
+export OCI_BOOTSTRAP_KEY="$HOME/.ssh/<existing private key>"
+export ACTIONS_KEY="$HOME/.ssh/iidx_frontend_actions"
 
-scp -i "$OCI_KEY" \
+test ! -e "$ACTIONS_KEY"
+ssh-keygen -t ed25519 -N '' \
+  -C 'github-actions:iidxScoreBoardClient' \
+  -f "$ACTIONS_KEY"
+
+cat "$ACTIONS_KEY.pub" |
+  ssh -i "$OCI_BOOTSTRAP_KEY" "$OCI_USER@$OCI_HOST" \
+    'umask 077
+     mkdir -p "$HOME/.ssh"
+     touch "$HOME/.ssh/authorized_keys"
+     key="$(cat)"
+     grep -qxF "$key" "$HOME/.ssh/authorized_keys" ||
+       printf "%s\n" "$key" >> "$HOME/.ssh/authorized_keys"'
+
+scp -i "$OCI_BOOTSTRAP_KEY" \
   deploy/oci-cloudflare/iidx-deploy-frontend.sh \
   "$OCI_USER@$OCI_HOST:/tmp/iidx-deploy-frontend.sh"
 
-ssh -i "$OCI_KEY" "$OCI_USER@$OCI_HOST" \
+ssh -i "$OCI_BOOTSTRAP_KEY" "$OCI_USER@$OCI_HOST" \
   "sudo install -o root -g root -m 0755 \
     /tmp/iidx-deploy-frontend.sh \
     /usr/local/bin/iidx-deploy-frontend"
 
 printf '%s ALL=(root) NOPASSWD: /usr/local/bin/iidx-deploy-frontend\n' "$OCI_USER" |
-  ssh -i "$OCI_KEY" "$OCI_USER@$OCI_HOST" \
+  ssh -i "$OCI_BOOTSTRAP_KEY" "$OCI_USER@$OCI_HOST" \
     'sudo tee /etc/sudoers.d/iidx-deploy-frontend >/dev/null &&
      sudo chmod 0440 /etc/sudoers.d/iidx-deploy-frontend &&
      sudo visudo -cf /etc/sudoers.d/iidx-deploy-frontend'
 
 gh secret set OCI_HOST --repo "$REPO" --body "$OCI_HOST"
 gh secret set OCI_USER --repo "$REPO" --body "$OCI_USER"
-gh secret set OCI_SSH_KEY --repo "$REPO" < "$OCI_KEY"
+gh secret set OCI_SSH_KEY --repo "$REPO" < "$ACTIONS_KEY"
 
 ssh-keygen -F "$OCI_HOST" -f "$HOME/.ssh/known_hosts" > /tmp/iidx-known-hosts
 test -s /tmp/iidx-known-hosts
