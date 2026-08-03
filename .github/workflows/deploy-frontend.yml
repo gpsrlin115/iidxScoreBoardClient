@@ -1,6 +1,9 @@
 name: Deploy Frontend to OCI
 
 on:
+  push:
+    branches:
+      - main
   workflow_dispatch:
 
 permissions:
