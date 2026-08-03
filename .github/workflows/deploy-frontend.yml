@@ -1,0 +1,114 @@
+name: Deploy Frontend to OCI
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy-frontend-production
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Set up Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Build OCI bundle
+        run: npm run build:oci
+
+      - name: Package static bundle
+        run: |
+          set -euo pipefail
+          test -s dist/index.html
+          test -d dist/assets
+          tar -C dist -czf iidx-scoreboard-frontend.tar.gz .
+          sha256sum iidx-scoreboard-frontend.tar.gz
+
+      - name: Configure SSH
+        env:
+          OCI_HOST: ${{ secrets.OCI_HOST }}
+          OCI_USER: ${{ secrets.OCI_USER }}
+          OCI_SSH_KEY: ${{ secrets.OCI_SSH_KEY }}
+          OCI_KNOWN_HOSTS: ${{ secrets.OCI_KNOWN_HOSTS }}
+        run: |
+          set -euo pipefail
+          test -n "$OCI_HOST" || { echo "::error::OCI_HOST secret is missing"; exit 1; }
+          test -n "$OCI_USER" || { echo "::error::OCI_USER secret is missing"; exit 1; }
+          test -n "$OCI_SSH_KEY" || { echo "::error::OCI_SSH_KEY secret is missing"; exit 1; }
+          test -n "$OCI_KNOWN_HOSTS" || { echo "::error::OCI_KNOWN_HOSTS secret is missing"; exit 1; }
+
+          install -d -m 700 "$HOME/.ssh"
+          printf '%s\n' "$OCI_SSH_KEY" | tr -d '\r' > "$HOME/.ssh/id_oci"
+          printf '%s\n' "$OCI_KNOWN_HOSTS" | tr -d '\r' > "$HOME/.ssh/known_hosts"
+          chmod 600 "$HOME/.ssh/id_oci" "$HOME/.ssh/known_hosts"
+          ssh-keygen -y -f "$HOME/.ssh/id_oci" >/dev/null
+
+      - name: Upload static bundle
+        env:
+          OCI_HOST: ${{ secrets.OCI_HOST }}
+          OCI_USER: ${{ secrets.OCI_USER }}
+        run: |
+          scp \
+            -i "$HOME/.ssh/id_oci" \
+            -o BatchMode=yes \
+            -o ConnectTimeout=15 \
+            -o IdentitiesOnly=yes \
+            -o StrictHostKeyChecking=yes \
+            iidx-scoreboard-frontend.tar.gz \
+            "$OCI_USER@$OCI_HOST:/tmp/iidx-scoreboard-frontend.tar.gz"
+
+      - name: Deploy and verify on OCI
+        env:
+          OCI_HOST: ${{ secrets.OCI_HOST }}
+          OCI_USER: ${{ secrets.OCI_USER }}
+        run: |
+          ssh \
+            -i "$HOME/.ssh/id_oci" \
+            -o BatchMode=yes \
+            -o ConnectTimeout=15 \
+            -o IdentitiesOnly=yes \
+            -o StrictHostKeyChecking=yes \
+            "$OCI_USER@$OCI_HOST" \
+            'sudo /usr/local/bin/iidx-deploy-frontend'
+
+      - name: Verify public site
+        run: |
+          set -euo pipefail
+          expected_script="$(sed -n 's/.*src="\([^"]*\/assets\/index-[^"]*\.js\)".*/\1/p' dist/index.html)"
+          expected_script="${expected_script%%$'\n'*}"
+          test -n "$expected_script"
+
+          deployed_html="$(curl --fail --silent --show-error \
+            --retry 5 --retry-all-errors --retry-delay 3 \
+            "https://iidxtier.page/login?deploy=${{ github.sha }}")"
+          [[ "$deployed_html" == *"$expected_script"* ]]
+          curl --fail --silent --show-error \
+            --retry 5 --retry-all-errors --retry-delay 3 \
+            "https://iidxtier.page$expected_script" >/dev/null
+
+      - name: Remove SSH key
+        if: always()
+        run: |
+          if [ -f "$HOME/.ssh/id_oci" ]; then
+            shred -u "$HOME/.ssh/id_oci" || rm -f "$HOME/.ssh/id_oci"
+          fi
