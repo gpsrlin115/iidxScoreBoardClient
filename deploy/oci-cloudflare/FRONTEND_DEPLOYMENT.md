@@ -1,9 +1,10 @@
 # OCI 프런트엔드 자동 배포
 
-`.github/workflows/deploy-frontend.yml`은 GitHub Actions에서 프런트엔드를
-빌드하고 OCI의 Caddy 문서 루트를 교체합니다. 최초 도입 단계에서는
-`workflow_dispatch`로만 실행합니다. 첫 수동 배포가 성공한 뒤 별도 PR에서
-`main` push 트리거를 활성화합니다.
+`.github/workflows/deploy-frontend.yml`은 `main`이 갱신될 때마다 GitHub
+Actions에서 프런트엔드를 빌드하고 OCI의 Caddy 문서 루트를 교체합니다.
+Actions 탭에서 `workflow_dispatch`로 수동 실행할 수도 있습니다. 최초 도입
+시에는 수동 실행만 허용해 배포를 검증한 뒤 `main` push 트리거를
+활성화했습니다.
 
 배포 과정은 다음 안전장치를 사용합니다.
 
@@ -171,7 +172,7 @@ gh run watch "$run_id" --repo "$REPO" --exit-status
 - `/admin/tier-table`, `/tier-table`, `/ddr` 주요 경로가 정상인지
 - 서버의 `/opt/iidx-scoreboard/client/.dist-previous`에 직전 버전이 남았는지
 
-첫 수동 배포가 성공한 뒤 별도 PR에서 워크플로에 다음 트리거를 추가합니다.
+첫 수동 배포 검증 후 워크플로에는 다음 트리거를 사용합니다.
 
 ```yaml
 on:
