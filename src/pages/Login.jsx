@@ -4,6 +4,7 @@ import toast from 'react-hot-toast';
 import { authApi } from '../api/auth';
 import { useAuthStore } from '../store/authStore';
 import { toAppError } from '../utils/httpError';
+import loginCharacter from '../assets/login-character.webp';
 
 /**
  * 🎓 학습 포인트: 로그인 페이지의 역할
@@ -79,8 +80,23 @@ const Login = () => {
   };
 
   return (
-    <div className="min-h-screen bg-bg-darker flex items-center justify-center px-4">
-      <div className="w-full max-w-md">
+    <div className="relative min-h-screen overflow-hidden bg-bg-darker flex items-center justify-center px-4">
+      <div className="pointer-events-none absolute inset-0" aria-hidden="true">
+        <img
+          src={loginCharacter}
+          alt=""
+          width="941"
+          height="1672"
+          decoding="async"
+          fetchPriority="high"
+          className="absolute bottom-[-8vh] left-1/2 h-[92vh] w-auto max-w-none -translate-x-1/2 opacity-[0.14]
+                     sm:h-[100vh] sm:translate-x-[-12%] sm:opacity-[0.2]
+                     lg:h-[112vh] lg:translate-x-[8%] lg:opacity-[0.28]"
+        />
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(2,6,23,0.3),rgba(2,6,23,0.78)_68%,#020617_100%)]" />
+      </div>
+
+      <div className="relative z-10 w-full max-w-md">
         {/* 로고 & 타이틀 */}
         <div className="text-center mb-8">
           <h1 className="text-4xl font-bold text-white mb-2">
@@ -90,7 +106,7 @@ const Login = () => {
         </div>
 
         {/* 로그인 카드 */}
-        <div className="bg-slate-800 rounded-2xl p-8 shadow-2xl border border-slate-700">
+        <div className="bg-slate-800/90 backdrop-blur-sm rounded-2xl p-8 shadow-2xl border border-slate-700/90">
           <h2 className="text-xl font-semibold text-white mb-6">로그인</h2>
 
           {/**
