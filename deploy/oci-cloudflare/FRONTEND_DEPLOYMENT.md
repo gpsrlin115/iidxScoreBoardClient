@@ -1,8 +1,10 @@
 # Frontend deployment to OCI
 
 The `.github/workflows/deploy-frontend.yml` workflow builds and deploys the
-frontend whenever `main` is updated. It can also be retried manually from the
-Actions tab.
+frontend whenever `main` is updated. It uploads `dist/` with the same rsync
+staging path used by the previous manual deployment (`/tmp/iidx-dist/`), then
+switches the Caddy document root safely. It can also be retried manually from
+the Actions tab.
 
 ## Required repository secrets
 
@@ -68,9 +70,10 @@ rm -f /tmp/iidx-known-hosts
 ```
 
 The sudoers entry permits only the fixed deployment command. The deployment
-script validates the archive, rejects unsafe paths and symbolic links, keeps
-the previous `dist` directory as a backup, and restores it if the local Caddy
-health check fails.
+script validates the uploaded Vite bundle, rejects non-regular files, keeps the
+previous `dist` directory as a backup, and restores it if the local Caddy
+health check fails. GitHub Actions replaces the former manual sequence of
+rsyncing to `/tmp/iidx-dist/` and then opening an interactive OCI SSH session.
 
 ## First deployment
 

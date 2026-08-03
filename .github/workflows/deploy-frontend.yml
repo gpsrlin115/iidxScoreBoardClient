@@ -36,13 +36,11 @@ jobs:
       - name: Build OCI bundle
         run: npm run build:oci
 
-      - name: Package static bundle
+      - name: Validate static bundle
         run: |
           set -euo pipefail
           test -s dist/index.html
           test -d dist/assets
-          tar -C dist -czf iidx-scoreboard-frontend.tar.gz .
-          sha256sum iidx-scoreboard-frontend.tar.gz
 
       - name: Configure SSH
         env:
@@ -63,19 +61,31 @@ jobs:
           chmod 600 "$HOME/.ssh/id_oci" "$HOME/.ssh/known_hosts"
           ssh-keygen -y -f "$HOME/.ssh/id_oci" >/dev/null
 
-      - name: Upload static bundle
+      - name: Upload static bundle with rsync
         env:
           OCI_HOST: ${{ secrets.OCI_HOST }}
           OCI_USER: ${{ secrets.OCI_USER }}
         run: |
-          scp \
+          set -euo pipefail
+
+          ssh \
             -i "$HOME/.ssh/id_oci" \
             -o BatchMode=yes \
             -o ConnectTimeout=15 \
             -o IdentitiesOnly=yes \
             -o StrictHostKeyChecking=yes \
-            iidx-scoreboard-frontend.tar.gz \
-            "$OCI_USER@$OCI_HOST:/tmp/iidx-scoreboard-frontend.tar.gz"
+            "$OCI_USER@$OCI_HOST" \
+            'rm -rf -- /tmp/iidx-dist && install -d -m 700 /tmp/iidx-dist'
+
+          rsync \
+            --archive \
+            --compress \
+            --delete \
+            --delay-updates \
+            --chmod=D700,F600 \
+            -e "ssh -i $HOME/.ssh/id_oci -o BatchMode=yes -o ConnectTimeout=15 -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes" \
+            dist/ \
+            "$OCI_USER@$OCI_HOST:/tmp/iidx-dist/"
 
       - name: Deploy and verify on OCI
         env:
