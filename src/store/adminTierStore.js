@@ -8,6 +8,8 @@ import { DEFAULT_DIFFICULTY, loadAdminTierSources } from './adminTierLoader';
 const TIERS = ['S+', 'S', 'A+', 'A', 'B+', 'B', 'C', 'D', 'E', 'F'];
 const CATEGORIES = ['地力', '個人差'];
 
+let latestAdminTierRequestId = 0;
+
 const buildSectionKeys = () => TIERS.flatMap((tier) => CATEGORIES.map((category) => `${category}|${tier}`));
 
 // Builds an empty tier map used as the initial state for the editor
@@ -37,15 +39,28 @@ const useAdminTierStore = create((set, get) => ({
   isSaving: false,
   error: null,
 
-  setLevel: (level) => set({ selectedLevel: level, hasChanges: false }),
-  setPlayStyle: (style) => set({ selectedPlayStyle: style, hasChanges: false }),
+  setLevel: (level) => {
+    latestAdminTierRequestId += 1;
+    set({ selectedLevel: level, hasChanges: false });
+  },
+  setPlayStyle: (style) => {
+    latestAdminTierRequestId += 1;
+    set({ selectedPlayStyle: style, hasChanges: false });
+  },
 
   fetchDataForEdit: async () => {
     const { selectedLevel, selectedPlayStyle } = get();
+    const requestId = ++latestAdminTierRequestId;
+    const isCurrentRequest = () => (
+      requestId === latestAdminTierRequestId
+      && get().selectedLevel === selectedLevel
+      && get().selectedPlayStyle === selectedPlayStyle
+    );
     set({ isLoading: true, error: null, hasChanges: false });
 
     try {
       const sources = await loadAdminTierSources(selectedLevel, selectedPlayStyle);
+      if (!isCurrentRequest()) return;
 
       if (sources.authFailure) {
         const appError = toAppError(sources.authFailure);
@@ -105,6 +120,7 @@ const useAdminTierStore = create((set, get) => ({
         toast('관리자 데이터가 비어 있어 기본 데이터로 표시 중입니다.', { icon: 'ℹ️' });
       }
     } catch (error) {
+      if (!isCurrentRequest()) return;
       const appError = toAppError(error, { fallback: '편집기 데이터를 불러오지 못했습니다.' });
       console.error('Failed to load data for editor:', error);
       set({ error: appError, isLoading: false });

@@ -3,8 +3,9 @@ import { tierApi } from '../api/tiers';
 import { scoresApi } from '../api/scores';
 import toast from 'react-hot-toast';
 import { normalizeClearType } from '../utils/clearTypes';
-import { normalizeDifficultyKey, normalizeTitleKey } from '../utils/tierData';
 import { toAppError } from '../utils/httpError';
+
+let latestTierRequestId = 0;
 
 const normalizeTierSong = (song) => {
   if (typeof song === 'string') {
@@ -21,7 +22,7 @@ const normalizeTierSong = (song) => {
 };
 
 const buildScoreKey = (title, difficulty) => (
-  `${normalizeTitleKey(title)}||${normalizeDifficultyKey(difficulty)}`
+  JSON.stringify([title ?? null, difficulty ?? null])
 );
 
 const buildScoreMap = (scores) => {
@@ -51,8 +52,14 @@ const useTierStore = create((set, get) => ({
 
   // Actions
   setViewMode: (mode) => set({ viewMode: mode }),
-  setLevel: (level) => set({ selectedLevel: level }),
-  setPlayStyle: (playStyle) => set({ selectedPlayStyle: playStyle }),
+  setLevel: (level) => {
+    latestTierRequestId += 1;
+    set({ selectedLevel: level });
+  },
+  setPlayStyle: (playStyle) => {
+    latestTierRequestId += 1;
+    set({ selectedPlayStyle: playStyle });
+  },
 
   toggleTier: (tier) => {
     const { expandedTiers } = get();
@@ -75,11 +82,18 @@ const useTierStore = create((set, get) => ({
 
   fetchTierData: async () => {
     const { selectedLevel, selectedPlayStyle } = get();
+    const requestId = ++latestTierRequestId;
+    const isCurrentRequest = () => (
+      requestId === latestTierRequestId
+      && get().selectedLevel === selectedLevel
+      && get().selectedPlayStyle === selectedPlayStyle
+    );
     set({ isLoading: true, error: null });
 
     try {
       // 1. Fetch static tier data for the current level/style
       const rawTierData = await tierApi.getTierData(selectedLevel, selectedPlayStyle);
+      if (!isCurrentRequest()) return;
 
       if (!rawTierData || Object.keys(rawTierData).length === 0) {
         set({
@@ -97,6 +111,7 @@ const useTierStore = create((set, get) => ({
         playStyle: selectedPlayStyle,
         size: 1000 // A large enough number to get all scores for mapping
       });
+      if (!isCurrentRequest()) return;
 
       const userScores = response.content || [];
 
@@ -111,9 +126,9 @@ const useTierStore = create((set, get) => ({
           const exactScore = tierSong.difficulty
             ? scoreMap.get(buildScoreKey(tierSong.title, tierSong.difficulty))
             : null;
-          const fallbackScore = exactScore ?? userScores.find(s => (
-            normalizeTitleKey(s.song?.title) === normalizeTitleKey(tierSong.title)
-          ));
+          const fallbackScore = tierSong.difficulty
+            ? null
+            : userScores.find(s => s.song?.title === tierSong.title);
           const score = exactScore ?? fallbackScore;
           const clearType = normalizeClearType(score?.bestClearType) ?? 'NO_PLAY';
 
@@ -138,6 +153,7 @@ const useTierStore = create((set, get) => ({
       });
 
     } catch (error) {
+      if (!isCurrentRequest()) return;
       // tierApi가 더 이상 실패를 []로 삼키지 않으므로 403/500이 여기까지 올라옵니다.
       // 화면은 이 status를 보고 "데이터 없음"이 아닌 실제 오류를 표시합니다.
       console.error('Failed to fetch tier data:', error);
