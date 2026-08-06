@@ -7,6 +7,17 @@
     <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
     <link rel="icon" type="image/png" sizes="512x512" href="/icon-512.png" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <script>
+      if (window.location.pathname === '/login' || window.location.pathname === '/login/') {
+        const preload = document.createElement('link');
+        preload.rel = 'preload';
+        preload.as = 'image';
+        preload.type = 'image/webp';
+        preload.href = '/assets/login-character-v1.webp';
+        preload.setAttribute('fetchpriority', 'high');
+        document.head.appendChild(preload);
+      }
+    </script>
     <title>client</title>
   </head>
   <body>
