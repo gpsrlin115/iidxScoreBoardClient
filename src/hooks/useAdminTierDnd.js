@@ -12,6 +12,7 @@ import {
 import { sortableKeyboardCoordinates } from '@dnd-kit/sortable';
 import useAdminTierStore from '../store/adminTierStore';
 import { sortSongsByTitle } from '../utils/tierData';
+import { isDropOutsideEveryContainer, resolveDropTarget } from '../utils/adminDndCollision';
 
 const UNASSIGNED_ID = 'unassigned';
 
@@ -63,7 +64,10 @@ const useAdminTierDnd = () => {
   const movedAcrossContainers = useRef(false);
   // Guards against collision-detection flicker right after a container switch.
   const recentlyMovedToNewContainer = useRef(false);
-  const lastOverId = useRef(null);
+  // True when the last reported target was the grace-frame stand-in rather than
+  // a real collision. dnd-kit still reports it as `over`, so onDragEnd needs
+  // this to tell an actual drop from a release outside every container.
+  const lastTargetWasSubstitute = useRef(false);
 
   const editorTierData = useAdminTierStore((state) => state.editorTierData);
   const unassignedSongs = useAdminTierStore((state) => state.unassignedSongs);
@@ -107,22 +111,21 @@ const useAdminTierDnd = () => {
           overId = closestItem[0]?.id ?? overId;
         }
       }
-      lastOverId.current = overId;
-      return [{ id: overId }];
     }
 
-    // After a container switch the layout shifts under the pointer; reuse the
-    // active id for one frame so the item does not snap back.
-    if (recentlyMovedToNewContainer.current) {
-      lastOverId.current = args.active.id;
-    }
-    return lastOverId.current ? [{ id: lastOverId.current }] : [];
+    const target = resolveDropTarget({
+      collisionId: overId,
+      activeId: args.active.id,
+      recentlyMovedToNewContainer: recentlyMovedToNewContainer.current
+    });
+    lastTargetWasSubstitute.current = target.id != null && !target.isRealCollision;
+    return target.id != null ? [{ id: target.id }] : [];
   }, []);
 
   const cleanupDragRefs = () => {
     snapshotRef.current = null;
     movedAcrossContainers.current = false;
-    lastOverId.current = null;
+    lastTargetWasSubstitute.current = false;
   };
 
   const restoreSnapshot = () => {
@@ -179,8 +182,12 @@ const useAdminTierDnd = () => {
       updateDraftState
     } = useAdminTierStore.getState();
 
-    const activeContainer = over ? findContainer(active.id, tierData, unassigned) : null;
-    const overContainer = over ? findContainer(over.id, tierData, unassigned) : null;
+    const droppedOutside = isDropOutsideEveryContainer({
+      hasOverTarget: Boolean(over),
+      lastTargetWasSubstitute: lastTargetWasSubstitute.current
+    });
+    const activeContainer = droppedOutside ? null : findContainer(active.id, tierData, unassigned);
+    const overContainer = droppedOutside ? null : findContainer(over.id, tierData, unassigned);
 
     if (!activeContainer || !overContainer) {
       // Dropped outside any container: undo the preview moves, keep prior state.
