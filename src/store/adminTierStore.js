@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { tierApi } from '../api/tiers';
 import toast from 'react-hot-toast';
-import { normalizeTierCategory } from '../utils/tierData';
+import { normalizeTierCategory, sortSongsByTitle } from '../utils/tierData';
 import { toAppError } from '../utils/httpError';
 import { DEFAULT_DIFFICULTY, loadAdminTierSources } from './adminTierLoader';
 
@@ -81,13 +81,11 @@ const useAdminTierStore = create((set, get) => ({
         }
       });
 
-      // 2. 각 티어 내부 정렬 (sortOrder 기준, 보조적으로 제목 순)
+      // 2. A song's position inside a tier is derived from its title, never
+      //    from the stored sortOrder: sortOrder is only a persistence detail
+      //    that buildArrayPayload rewrites from this order on every save.
       Object.keys(safeTiers).forEach((key) => {
-        safeTiers[key].sort((a, b) => {
-          const orderDiff = (a.sortOrder ?? Number.MAX_SAFE_INTEGER) - (b.sortOrder ?? Number.MAX_SAFE_INTEGER);
-          if (orderDiff !== 0) return orderDiff;
-          return a.title.localeCompare(b.title);
-        });
+        safeTiers[key] = sortSongsByTitle(safeTiers[key]);
       });
 
       // 3. 이미 할당되었거나 드래프트에 포함된 ID 추적
@@ -109,7 +107,7 @@ const useAdminTierStore = create((set, get) => ({
 
       set({
         editorTierData: safeTiers,
-        unassignedSongs: [...draftUnassigned, ...newMasterSongs],
+        unassignedSongs: sortSongsByTitle([...draftUnassigned, ...newMasterSongs]),
         rawTierData: rawArray,
         isLoading: false
       });
