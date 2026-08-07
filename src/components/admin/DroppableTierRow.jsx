@@ -13,8 +13,14 @@ const DroppableTierRow = ({ id, title, items, isPool = false }) => {
     id: id,
   });
 
+  // setNodeRef sits on the whole row, header included: with the header outside
+  // the drop target, releasing over a tier label counted as "outside every
+  // container" and cancelled the drag.
   return (
-    <div className={`mb-4 rounded-lg overflow-hidden border transition-colors ${isPool ? 'border-dashed border-gray-600 bg-gray-900/50' : 'border-gray-700 bg-gray-800'} ${isOver ? 'ring-2 ring-primary-500 bg-gray-800' : ''}`}>
+    <div
+      ref={setNodeRef}
+      className={`mb-4 rounded-lg overflow-hidden border transition-colors ${isPool ? 'border-dashed border-gray-600 bg-gray-900/50' : 'border-gray-700 bg-gray-800'} ${isOver ? 'ring-2 ring-primary-500 bg-gray-800' : ''}`}
+    >
       <div className={`flex items-center p-3 ${isPool ? 'bg-gray-800/80 border-b border-gray-700' : 'bg-gray-750'}`}>
         <h3 className={`font-bold leading-tight ${isPool ? 'text-gray-400 text-base' : 'text-xl text-white min-w-24 text-center bg-gray-900 px-2 py-1 rounded shadow-inner'}`}>
           {title}
@@ -24,12 +30,10 @@ const DroppableTierRow = ({ id, title, items, isPool = false }) => {
         </span>
       </div>
       
-      {/* 
-        We use setNodeRef here so dnd-kit knows this entire div is the drop target for the container 'id'.
+      {/*
         SortableContext is required for the items inside to be sortable amongst themselves.
       */}
-      <div 
-        ref={setNodeRef} 
+      <div
         className={`p-3 min-h-[80px] flex flex-wrap content-start ${items.length === 0 && !isOver ? 'bg-[url("data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI4IiBoZWlnaHQ9IjgiPgo8cmVjdCB3aWR0aD0iOCIgaGVpZ2h0PSI4IiBmaWxsPSIjMWYyOTM3Ij48L3JlY3Q+CjxwYXRoIGQ9Ik0wIDBMOCA4Wk04IDBMMCA4WiIgc3Ryb2tlPSIjMzc0MTUxIiBzdHJva2Utd2lkdGg9IjEiPjwvcGF0aD4KPC9zdmc+")]' : ''}`}
       >
         <SortableContext

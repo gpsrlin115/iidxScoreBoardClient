@@ -9,8 +9,10 @@ import {
   useSensor,
   useSensors
 } from '@dnd-kit/core';
-import { sortableKeyboardCoordinates, arrayMove } from '@dnd-kit/sortable';
+import { sortableKeyboardCoordinates } from '@dnd-kit/sortable';
 import useAdminTierStore from '../store/adminTierStore';
+import { sortSongsByTitle } from '../utils/tierData';
+import { isDropOutsideEveryContainer, resolveDropTarget } from '../utils/adminDndCollision';
 
 const UNASSIGNED_ID = 'unassigned';
 
@@ -29,12 +31,15 @@ const findContainer = (id, tierData, unassigned) => {
 const getContainerItems = (container, tierData, unassigned) =>
   container === UNASSIGNED_ID ? unassigned : tierData[container] ?? [];
 
+// Every write goes through here, so sorting once keeps the A-Z invariant that
+// the editor and the viewer both rely on.
 const applyContainers = (tierData, unassigned, changes) => {
   const newTiers = { ...tierData };
   let newUnassigned = unassigned;
   for (const [container, items] of Object.entries(changes)) {
-    if (container === UNASSIGNED_ID) newUnassigned = items;
-    else newTiers[container] = items;
+    const sorted = sortSongsByTitle(items);
+    if (container === UNASSIGNED_ID) newUnassigned = sorted;
+    else newTiers[container] = sorted;
   }
   return { newTiers, newUnassigned };
 };
@@ -43,8 +48,12 @@ const applyContainers = (tierData, unassigned, changes) => {
  * useAdminTierDnd
  * Drag-and-drop handlers for the admin tier editor, ported from dnd-kit's
  * official MultipleContainers pattern. Items are moved into the hovered
- * container during onDragOver so the insertion gap is previewed in real time;
- * onDragEnd only finalizes ordering and marks the draft as changed.
+ * container during onDragOver so the drop target is previewed in real time;
+ * onDragEnd only marks the draft as changed.
+ *
+ * A drop decides which container a song belongs to — never its position inside
+ * one. Each container is kept sorted by title, so where the pointer lands
+ * within a tier is irrelevant and manual reordering inside a tier is a no-op.
  */
 const useAdminTierDnd = () => {
   const [activeId, setActiveId] = useState(null);
@@ -55,7 +64,10 @@ const useAdminTierDnd = () => {
   const movedAcrossContainers = useRef(false);
   // Guards against collision-detection flicker right after a container switch.
   const recentlyMovedToNewContainer = useRef(false);
-  const lastOverId = useRef(null);
+  // True when the last reported target was the grace-frame stand-in rather than
+  // a real collision. dnd-kit still reports it as `over`, so onDragEnd needs
+  // this to tell an actual drop from a release outside every container.
+  const lastTargetWasSubstitute = useRef(false);
 
   const editorTierData = useAdminTierStore((state) => state.editorTierData);
   const unassignedSongs = useAdminTierStore((state) => state.unassignedSongs);
@@ -99,22 +111,21 @@ const useAdminTierDnd = () => {
           overId = closestItem[0]?.id ?? overId;
         }
       }
-      lastOverId.current = overId;
-      return [{ id: overId }];
     }
 
-    // After a container switch the layout shifts under the pointer; reuse the
-    // active id for one frame so the item does not snap back.
-    if (recentlyMovedToNewContainer.current) {
-      lastOverId.current = args.active.id;
-    }
-    return lastOverId.current ? [{ id: lastOverId.current }] : [];
+    const target = resolveDropTarget({
+      collisionId: overId,
+      activeId: args.active.id,
+      recentlyMovedToNewContainer: recentlyMovedToNewContainer.current
+    });
+    lastTargetWasSubstitute.current = target.id != null && !target.isRealCollision;
+    return target.id != null ? [{ id: target.id }] : [];
   }, []);
 
   const cleanupDragRefs = () => {
     snapshotRef.current = null;
     movedAcrossContainers.current = false;
-    lastOverId.current = null;
+    lastTargetWasSubstitute.current = false;
   };
 
   const restoreSnapshot = () => {
@@ -147,26 +158,14 @@ const useAdminTierDnd = () => {
     const activeItems = getContainerItems(activeContainer, tierData, unassigned);
     const overItems = getContainerItems(overContainer, tierData, unassigned);
 
-    const activeIndex = activeItems.findIndex((song) => song.id === active.id);
-    if (activeIndex === -1) return;
+    const movedItem = activeItems.find((song) => song.id === active.id);
+    if (!movedItem) return;
 
-    const overIndex = overItems.findIndex((song) => song.id === overId);
-    let newIndex;
-    if (overIndex === -1) {
-      newIndex = overItems.length;
-    } else {
-      // Tiles flow left-to-right in a wrapped row, so compare horizontal centers
-      // to decide whether to insert before or after the hovered tile.
-      const translated = active.rect.current.translated;
-      const isAfterOverItem =
-        translated && translated.left + translated.width / 2 > over.rect.left + over.rect.width / 2;
-      newIndex = overIndex + (isAfterOverItem ? 1 : 0);
-    }
-
-    const movedItem = activeItems[activeIndex];
+    // Appended rather than inserted at the pointer: applyContainers sorts the
+    // container by title, so the tile previews at its final alphabetical slot.
     const { newTiers, newUnassigned } = applyContainers(tierData, unassigned, {
       [activeContainer]: activeItems.filter((song) => song.id !== active.id),
-      [overContainer]: [...overItems.slice(0, newIndex), movedItem, ...overItems.slice(newIndex)]
+      [overContainer]: [...overItems, movedItem]
     });
 
     recentlyMovedToNewContainer.current = true;
@@ -183,8 +182,12 @@ const useAdminTierDnd = () => {
       updateDraftState
     } = useAdminTierStore.getState();
 
-    const activeContainer = over ? findContainer(active.id, tierData, unassigned) : null;
-    const overContainer = over ? findContainer(over.id, tierData, unassigned) : null;
+    const droppedOutside = isDropOutsideEveryContainer({
+      hasOverTarget: Boolean(over),
+      lastTargetWasSubstitute: lastTargetWasSubstitute.current
+    });
+    const activeContainer = droppedOutside ? null : findContainer(active.id, tierData, unassigned);
+    const overContainer = droppedOutside ? null : findContainer(over.id, tierData, unassigned);
 
     if (!activeContainer || !overContainer) {
       // Dropped outside any container: undo the preview moves, keep prior state.
@@ -193,26 +196,10 @@ const useAdminTierDnd = () => {
       return;
     }
 
-    let newTiers = tierData;
-    let newUnassigned = unassigned;
-
-    if (activeContainer === overContainer) {
-      const items = getContainerItems(activeContainer, tierData, unassigned);
-      const oldIndex = items.findIndex((song) => song.id === active.id);
-      let newIndex = items.findIndex((song) => song.id === over.id);
-      if (newIndex === -1) newIndex = items.length - 1;
-
-      if (oldIndex !== -1 && oldIndex !== newIndex) {
-        const reordered = arrayMove(items, oldIndex, newIndex);
-        ({ newTiers, newUnassigned } = applyContainers(tierData, unassigned, {
-          [activeContainer]: reordered
-        }));
-      }
-    }
-
-    const reorderedHere = newTiers !== tierData || newUnassigned !== unassigned;
-    if (movedAcrossContainers.current || reorderedHere) {
-      updateDraftState(newTiers, newUnassigned);
+    // onDragOver already placed the song in its container in sorted position,
+    // so a same-container drop changes nothing and must not dirty the draft.
+    if (movedAcrossContainers.current) {
+      updateDraftState(tierData, unassigned);
     }
     cleanupDragRefs();
   };
