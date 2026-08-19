@@ -1,8 +1,5 @@
 // Single source of truth for the DJ-level color scale used across score
-// tables and dashboard widgets. Currently duplicated inline in
-// src/components/scores/ScoreTable.jsx (DJ_LEVEL_STYLES) and
-// src/pages/Dashboard.jsx; those call sites are migrated to this util in a
-// later phase, not here.
+// cards and dashboard widgets (see ScoreCard.jsx and RecentList.jsx).
 export const DJ_LEVEL_COLORS = {
   AAA: '#ffc107',
   AA: '#dfe1ec',
