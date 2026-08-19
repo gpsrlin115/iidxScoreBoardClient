@@ -29,7 +29,7 @@ const SongScoreDialog = ({ id, song, difficultyLabel, onClose }) => {
 
   return createPortal(
     <div
-      className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/80 p-4 backdrop-blur-sm"
+      className="fixed inset-0 z-[100] flex items-center justify-center bg-night/80 p-4 backdrop-blur-sm"
       onMouseDown={(event) => {
         if (event.target === event.currentTarget) onClose();
       }}
@@ -41,17 +41,17 @@ const SongScoreDialog = ({ id, song, difficultyLabel, onClose }) => {
         aria-modal="true"
         aria-labelledby={titleId}
         aria-describedby={descriptionId}
-        className="max-h-[90vh] w-full max-w-3xl overflow-y-auto rounded-2xl border border-slate-700 bg-slate-900 p-5 text-left shadow-2xl sm:p-6"
+        className="max-h-[90vh] w-full max-w-3xl overflow-y-auto rounded-[4px] border border-line bg-panel p-5 text-left shadow-2xl sm:p-6"
       >
         <div className="flex items-start justify-between gap-4">
           <div className="min-w-0">
-            <h2 id={titleId} className="break-words text-xl font-bold text-white sm:text-2xl">
+            <h2 id={titleId} className="break-words text-xl font-bold text-ink sm:text-2xl">
               {song.title}
               {difficultyLabel && (
-                <span className="ml-2 font-mono text-base text-primary-400">[{difficultyLabel}]</span>
+                <span className="ml-2 font-mono text-base text-info">[{difficultyLabel}]</span>
               )}
             </h2>
-            <p id={descriptionId} className="mt-1 text-sm text-slate-400">
+            <p id={descriptionId} className="mt-1 text-sm text-muted">
               {song.playStyle} · Lv.{song.level} · 개인 상세 기록
             </p>
           </div>
@@ -59,7 +59,7 @@ const SongScoreDialog = ({ id, song, difficultyLabel, onClose }) => {
             ref={closeButtonRef}
             type="button"
             onClick={onClose}
-            className="shrink-0 rounded-lg p-2 text-slate-400 transition hover:bg-slate-800 hover:text-white focus-visible:outline-2 focus-visible:outline-primary-400"
+            className="shrink-0 rounded-lg p-2 text-muted transition hover:bg-ink/6 hover:text-ink focus-visible:outline-2 focus-visible:outline-accent"
             aria-label="상세 점수 닫기"
           >
             <FiX size={22} />

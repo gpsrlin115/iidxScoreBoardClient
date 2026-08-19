@@ -107,21 +107,21 @@ const Signup = () => {
   };
 
   return (
-    <div className="min-h-screen bg-bg-darker flex items-center justify-center px-4">
+    <div className="min-h-screen bg-night flex items-center justify-center px-4">
       <div className="w-full max-w-md">
         {/* 로고 */}
         <div className="text-center mb-8">
-          <h1 className="text-4xl font-bold text-white mb-2">🎵 IIDX</h1>
-          <p className="text-slate-400 text-sm">ScoreBoard</p>
+          <h1 className="text-4xl font-bold text-ink mb-2">🎵 IIDX</h1>
+          <p className="text-muted text-sm">ScoreBoard</p>
         </div>
 
-        <div className="bg-slate-800 rounded-2xl p-8 shadow-2xl border border-slate-700">
-          <h2 className="text-xl font-semibold text-white mb-6">회원가입</h2>
+        <div className="bg-panel/90 rounded-2xl p-8 shadow-2xl border border-line">
+          <h2 className="text-xl font-semibold text-ink mb-6">회원가입</h2>
 
           <form onSubmit={handleSubmit} className="space-y-4">
             {/* 아이디 */}
             <div>
-              <label className="block text-sm text-slate-400 mb-1" htmlFor="username">
+              <label className="block text-sm text-muted mb-1" htmlFor="username">
                 아이디
               </label>
               <input
@@ -130,24 +130,23 @@ const Signup = () => {
                 type="text"
                 value={form.username}
                 onChange={handleChange}
-                className={`w-full bg-slate-700 text-white rounded-lg px-4 py-3 text-sm
-                            border transition focus:outline-none focus:ring-2 focus:ring-offset-1
-                            focus:ring-offset-slate-800
+                className={`w-full bg-night/60 text-ink rounded-lg px-4 py-3 text-sm
+                            border transition focus:outline-none
                             ${errors.username
-                              ? 'border-red-500 focus:ring-red-500'
-                              : 'border-slate-600 focus:border-primary-500 focus:ring-primary-500'
+                              ? 'border-danger focus:border-danger'
+                              : 'border-line-strong focus:border-accent'
                             }`}
                 placeholder="3자 이상"
                 autoFocus
               />
               {errors.username && (
-                <p className="text-xs text-red-400 mt-1">{errors.username}</p>
+                <p className="text-xs text-danger mt-1">{errors.username}</p>
               )}
             </div>
 
             {/* 이메일 */}
             <div>
-              <label className="block text-sm text-slate-400 mb-1" htmlFor="email">
+              <label className="block text-sm text-muted mb-1" htmlFor="email">
                 이메일
               </label>
               <input
@@ -156,23 +155,22 @@ const Signup = () => {
                 type="email"
                 value={form.email}
                 onChange={handleChange}
-                className={`w-full bg-slate-700 text-white rounded-lg px-4 py-3 text-sm
-                            border transition focus:outline-none focus:ring-2 focus:ring-offset-1
-                            focus:ring-offset-slate-800
+                className={`w-full bg-night/60 text-ink rounded-lg px-4 py-3 text-sm
+                            border transition focus:outline-none
                             ${errors.email
-                              ? 'border-red-500 focus:ring-red-500'
-                              : 'border-slate-600 focus:border-primary-500 focus:ring-primary-500'
+                              ? 'border-danger focus:border-danger'
+                              : 'border-line-strong focus:border-accent'
                             }`}
                 placeholder="example@email.com"
               />
               {errors.email && (
-                <p className="text-xs text-red-400 mt-1">{errors.email}</p>
+                <p className="text-xs text-danger mt-1">{errors.email}</p>
               )}
             </div>
 
             {/* 비밀번호 */}
             <div>
-              <label className="block text-sm text-slate-400 mb-1" htmlFor="password">
+              <label className="block text-sm text-muted mb-1" htmlFor="password">
                 비밀번호
               </label>
               <input
@@ -181,23 +179,22 @@ const Signup = () => {
                 type="password"
                 value={form.password}
                 onChange={handleChange}
-                className={`w-full bg-slate-700 text-white rounded-lg px-4 py-3 text-sm
-                            border transition focus:outline-none focus:ring-2 focus:ring-offset-1
-                            focus:ring-offset-slate-800
+                className={`w-full bg-night/60 text-ink rounded-lg px-4 py-3 text-sm
+                            border transition focus:outline-none
                             ${errors.password
-                              ? 'border-red-500 focus:ring-red-500'
-                              : 'border-slate-600 focus:border-primary-500 focus:ring-primary-500'
+                              ? 'border-danger focus:border-danger'
+                              : 'border-line-strong focus:border-accent'
                             }`}
                 placeholder="8자 이상"
               />
               {errors.password && (
-                <p className="text-xs text-red-400 mt-1">{errors.password}</p>
+                <p className="text-xs text-danger mt-1">{errors.password}</p>
               )}
             </div>
 
             {/* 비밀번호 확인 */}
             <div>
-              <label className="block text-sm text-slate-400 mb-1" htmlFor="passwordConfirm">
+              <label className="block text-sm text-muted mb-1" htmlFor="passwordConfirm">
                 비밀번호 확인
               </label>
               <input
@@ -206,17 +203,16 @@ const Signup = () => {
                 type="password"
                 value={form.passwordConfirm}
                 onChange={handleChange}
-                className={`w-full bg-slate-700 text-white rounded-lg px-4 py-3 text-sm
-                            border transition focus:outline-none focus:ring-2 focus:ring-offset-1
-                            focus:ring-offset-slate-800
+                className={`w-full bg-night/60 text-ink rounded-lg px-4 py-3 text-sm
+                            border transition focus:outline-none
                             ${errors.passwordConfirm
-                              ? 'border-red-500 focus:ring-red-500'
-                              : 'border-slate-600 focus:border-primary-500 focus:ring-primary-500'
+                              ? 'border-danger focus:border-danger'
+                              : 'border-line-strong focus:border-accent'
                             }`}
                 placeholder="비밀번호를 다시 입력하세요"
               />
               {errors.passwordConfirm && (
-                <p className="text-xs text-red-400 mt-1">{errors.passwordConfirm}</p>
+                <p className="text-xs text-danger mt-1">{errors.passwordConfirm}</p>
               )}
             </div>
 
@@ -231,7 +227,7 @@ const Signup = () => {
             </button>
           </form>
 
-          <p className="text-center text-slate-500 text-sm mt-6">
+          <p className="text-center text-muted text-sm mt-6">
             이미 계정이 있으신가요?{' '}
             <Link to="/login" className="text-primary-500 hover:text-primary-400 transition">
               로그인

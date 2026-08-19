@@ -23,20 +23,20 @@ export const VOTE_HINTS = {
 // colour alone.
 export const VOTE_STYLES = {
   [VOTE_UP]: {
-    selected: 'border-primary-500 bg-primary-500/15 text-primary-300 ring-1 ring-primary-500/60',
-    bar: 'bg-primary-500',
+    selected: 'border-accent bg-accent/15 text-accent ring-1 ring-accent/60',
+    bar: 'bg-accent',
   },
   [VOTE_KEEP]: {
-    selected: 'border-slate-400 bg-slate-400/15 text-slate-100 ring-1 ring-slate-400/60',
-    bar: 'bg-slate-400',
+    selected: 'border-muted bg-muted/15 text-text2 ring-1 ring-muted/60',
+    bar: 'bg-muted',
   },
   [VOTE_DOWN]: {
-    selected: 'border-accent-500 bg-accent-500/15 text-accent-500 ring-1 ring-accent-500/60',
-    bar: 'bg-accent-500',
+    selected: 'border-info bg-info/15 text-info ring-1 ring-info/60',
+    bar: 'bg-info',
   },
 };
 
-export const VOTE_IDLE_STYLE = 'border-slate-700 text-slate-400 hover:bg-slate-800 hover:text-slate-200';
+export const VOTE_IDLE_STYLE = 'border-line text-muted hover:bg-ink/5 hover:text-text2';
 
 export const EMPTY_VOTE_COUNTS = Object.freeze({ [VOTE_UP]: 0, [VOTE_KEEP]: 0, [VOTE_DOWN]: 0 });
 

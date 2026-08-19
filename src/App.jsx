@@ -42,8 +42,8 @@ const AdminTierTable = lazy(() => import('./pages/AdminTierTable'));
 const PlaceholderPage = ({ title }) => (
   <div className="flex items-center justify-center min-h-[60vh]">
     <div className="text-center">
-      <h1 className="text-3xl font-bold text-white mb-2">{title}</h1>
-      <p className="text-slate-400 text-sm">개발 중입니다...</p>
+      <h1 className="text-3xl font-bold text-ink mb-2">{title}</h1>
+      <p className="text-muted text-sm">개발 중입니다...</p>
     </div>
   </div>
 );
@@ -150,7 +150,13 @@ function App() {
       <Toaster
         position="top-right"
         toastOptions={{
-          style: { background: '#1e293b', color: '#f1f5f9' },
+          style: {
+            background: '#0a0e1d',
+            color: '#eceaf4',
+            border: '1px solid rgba(236,234,244,.14)',
+            borderRadius: '4px',
+            fontSize: '13px',
+          },
         }}
       />
 

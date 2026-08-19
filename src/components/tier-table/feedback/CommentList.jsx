@@ -18,7 +18,7 @@ const VoteBadge = ({ value, isStale }) => {
 
   return (
     <span
-      className={`inline-flex items-center gap-1 rounded-full border border-slate-700 bg-slate-800 px-1.5 py-0.5 text-[10px] text-slate-300 ${isStale ? 'opacity-50' : ''}`}
+      className={`inline-flex items-center gap-1 rounded-full border border-line bg-ink/6 px-1.5 py-0.5 text-[10px] text-text2 ${isStale ? 'opacity-50' : ''}`}
       title={isStale ? '개정 전 투표' : undefined}
     >
       <Icon aria-hidden="true" size={10} />
@@ -35,15 +35,15 @@ const CommentItem = ({ comment, isMine, myVote, onRemove }) => {
   const badgeStale = isMine ? false : comment.authorVoteStale;
 
   return (
-    <li className="rounded-lg border border-slate-700 bg-slate-900/60 p-3">
+    <li className="rounded-[4px] border border-line bg-surface p-3">
       <div className="flex items-start justify-between gap-2">
         <div className="flex flex-wrap items-center gap-1.5 text-xs">
-          <span className="font-semibold text-slate-200">{comment.username}</span>
+          <span className="font-semibold text-text2">{comment.username}</span>
           <VoteBadge value={badgeValue} isStale={badgeStale} />
           <time
             dateTime={comment.createdAt}
             title={formatDateTime(comment.createdAt)}
-            className="text-slate-500"
+            className="text-faint2"
           >
             {formatDistanceToNow(new Date(comment.createdAt), { addSuffix: true, locale: ko })}
           </time>
@@ -54,14 +54,14 @@ const CommentItem = ({ comment, isMine, myVote, onRemove }) => {
             type="button"
             aria-label="댓글 삭제"
             onClick={() => onRemove(comment.id)}
-            className="shrink-0 rounded p-1 text-slate-500 transition hover:bg-slate-800 hover:text-red-400 focus-visible:outline-2 focus-visible:outline-primary-400"
+            className="shrink-0 rounded p-1 text-faint2 transition hover:bg-ink/6 hover:text-danger focus-visible:outline-2 focus-visible:outline-accent"
           >
             <FiTrash2 aria-hidden="true" size={14} />
           </button>
         )}
       </div>
 
-      <p className="mt-1.5 whitespace-pre-wrap break-words text-sm text-slate-200">{comment.body}</p>
+      <p className="mt-1.5 whitespace-pre-wrap break-words text-sm text-text2">{comment.body}</p>
     </li>
   );
 };
@@ -105,14 +105,17 @@ const CommentList = ({
 
   return (
     <div>
-      <p className="text-xs text-slate-500">댓글 {totalElements}개</p>
+      <p className="text-xs text-faint2">댓글 {totalElements}개</p>
 
       {error && comments.length === 0 ? (
-        <p role="alert" className="mt-3 rounded-xl border border-red-500/40 bg-red-500/10 px-4 py-6 text-center text-sm text-red-200">
+        <p
+          role="alert"
+          className="mt-3 rounded-[4px] border border-danger/35 bg-danger/6 px-4 py-6 text-center text-sm text-[#dfc3c3]"
+        >
           {error.message}
         </p>
       ) : comments.length === 0 ? (
-        <p className="mt-3 rounded-xl border border-dashed border-slate-700 bg-slate-950/50 px-4 py-6 text-center text-sm text-slate-400">
+        <p className="mt-3 rounded-[4px] border border-dashed border-line-strong bg-night/50 px-4 py-6 text-center text-sm text-muted">
           아직 댓글이 없습니다. 첫 의견을 남겨보세요.
         </p>
       ) : (

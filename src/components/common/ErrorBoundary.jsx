@@ -77,10 +77,10 @@ class ErrorBoundary extends Component {
         <div className="flex items-center justify-center min-h-[60vh] px-4">
           <div className="flex flex-col items-center gap-3 text-center max-w-md mx-auto">
             <div className="text-6xl">🚀</div>
-            <h2 className="text-2xl font-bold text-white">
+            <h2 className="text-2xl font-bold text-ink">
               새 버전이 배포되었습니다
             </h2>
-            <p className="text-sm text-slate-400">
+            <p className="text-sm text-muted">
               페이지를 새로고침해주세요.
             </p>
             <Button

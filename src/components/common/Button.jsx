@@ -54,12 +54,15 @@ const Button = forwardRef(
     const variantClasses = {
       primary:
         'bg-primary-500 hover:bg-primary-700 text-white focus:ring-primary-500',
+      // These three used raw Tailwind slate/red, which the night-sky theme never
+      // remaps, so they read as a different design language next to the rest of
+      // the app. Expressed in tokens they follow the palette automatically.
       secondary:
-        'bg-slate-700 hover:bg-slate-600 text-slate-100 border border-slate-600 focus:ring-slate-500',
+        'bg-surface hover:bg-ink/10 text-text2 border border-line focus:ring-accent',
       danger:
-        'bg-red-600 hover:bg-red-700 text-white focus:ring-red-500',
+        'bg-danger hover:bg-danger/80 text-night focus:ring-danger',
       ghost:
-        'bg-transparent hover:bg-slate-800 text-slate-300 hover:text-white focus:ring-slate-500',
+        'bg-transparent hover:bg-ink/5 text-muted hover:text-ink focus:ring-accent',
     };
 
     const sizeClasses = {
