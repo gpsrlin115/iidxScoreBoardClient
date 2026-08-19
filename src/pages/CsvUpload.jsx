@@ -95,8 +95,8 @@ const CsvUpload = () => {
       setUploadState('success');
       // tierStore memoizes on `${level}:${playStyle}`; without `force` the
       // tier table and dashboard would keep serving the pre-upload clear
-      // lamps for the current scope. This is the one call site that uses
-      // it — see fetchTierData's jsdoc in store/tierStore.js.
+      // lamps for the current scope. This is the call site that actually
+      // needs it — see fetchTierData's jsdoc in store/tierStore.js.
       useTierStore.getState().fetchTierData(level, playStyle, { force: true });
     } catch (err) {
       const { status } = toAppError(err);
@@ -153,7 +153,7 @@ const CsvUpload = () => {
     <div className="px-[30px] pb-[80px] pt-[38px]">
       <div className="mx-auto max-w-[604px]">
         <div>
-          <h1 className="text-[21px] text-ink">가져오기</h1>
+          <h1 className="text-[21px] font-normal text-ink">가져오기</h1>
           <p className="mt-[6px] text-[13.5px] text-muted">
             e-amusement gate에서 내려받은 성적 CSV를 올리면 스코어와 서열표가 함께 갱신됩니다.
           </p>

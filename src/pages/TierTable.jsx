@@ -71,8 +71,8 @@ const TierTable = () => {
         <>
           <TierRows tiers={enrichedTierData} dense={viewMode === 'dense'} />
 
-          <div className="mt-8 flex flex-wrap items-center gap-x-5 gap-y-2">
-            <span className="font-mono text-[9px] uppercase tracking-[.2em] text-label">
+          <div className="mt-6 flex flex-wrap items-center gap-x-[18px] gap-y-[10px] border-t border-line pt-4">
+            <span className="font-mono text-[9px] uppercase tracking-[.2em] text-dim">
               legend
             </span>
             {CLEAR_ORDER.map((key) => (

@@ -9,8 +9,11 @@ import { useAuthStore } from '../store/authStore';
 import { toAppError } from '../utils/httpError';
 
 const LABEL_CLASS = 'block mb-[9px] font-mono text-[9.5px] tracking-[.22em] uppercase text-label';
+// The handoff contradicts itself on this underline: its token table lists .14
+// for input underlines, but the login section (and the prototype) specify .16
+// for this field specifically. The per-screen spec wins.
 const INPUT_CLASS =
-  'w-full bg-transparent border-0 border-b border-line-strong pb-[9px] text-[15px] text-ink ' +
+  'w-full bg-transparent border-0 border-b border-[rgba(236,234,244,.16)] pb-[9px] text-[15px] text-ink ' +
   'focus:outline-none focus:border-accent';
 
 const Login = () => {

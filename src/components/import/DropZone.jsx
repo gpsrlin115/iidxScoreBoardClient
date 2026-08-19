@@ -78,11 +78,11 @@ const DropZone = ({ status, file, inputRef, onFileSelect, onZoneClick, onRemoveF
 
       {isEmpty ? (
         <div className="flex flex-col items-center gap-[10px] text-center">
-          <span className="flex h-[42px] w-[42px] items-center justify-center border border-[rgba(236,234,244,.14)] font-mono text-[15px] text-muted">
+          <span className="flex h-[42px] w-[42px] items-center justify-center rounded-[3px] border border-[rgba(236,234,244,.16)] font-mono text-[15px] text-label">
             {'↑'}
           </span>
           <p className="text-[13.5px] text-text2">CSV 파일을 끌어다 놓거나 클릭해서 선택</p>
-          <p className="font-mono text-[9px] uppercase tracking-[.14em] text-faint">
+          <p className="font-mono text-[9px] uppercase tracking-[.14em] text-faint2">
             max 10 mb · .csv
           </p>
         </div>
@@ -100,7 +100,7 @@ const DropZone = ({ status, file, inputRef, onFileSelect, onZoneClick, onRemoveF
           </span>
           <div className="min-w-0 flex-1">
             <p className="truncate text-[13.5px] text-ink">{file.name}</p>
-            <p className="font-mono text-[9.5px] uppercase tracking-[.1em] text-faint">
+            <p className="font-mono text-[9.5px] uppercase tracking-[.1em] text-faint2">
               {formatKB(file.size)} · 선택됨
             </p>
           </div>
@@ -111,7 +111,7 @@ const DropZone = ({ status, file, inputRef, onFileSelect, onZoneClick, onRemoveF
               onRemoveFile();
             }}
             aria-label="선택한 파일 제거"
-            className="shrink-0 text-muted transition-colors duration-200 hover:text-danger"
+            className="shrink-0 text-faint2 transition-colors duration-200 hover:text-danger"
           >
             {'✕'}
           </button>

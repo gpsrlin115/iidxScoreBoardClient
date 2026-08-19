@@ -67,9 +67,10 @@ const useTierStore = create((set, get) => ({
    * @param {'SP'|'DP'} playStyle
    * @param {{ force?: boolean }} [options] `force: true` bypasses the
    *   fetchedKey memo and always hits the network. It is the only public way
-   *   to break the cache. The call site is reserved for the Phase 3d CSV
-   *   upload success handler (newly imported scores invalidate the joined
-   *   clear lamps for the current scope); nothing calls it with force today.
+   *   to break the cache. Two call sites use it: the CSV upload success
+   *   handler (newly imported scores invalidate the joined clear lamps for
+   *   the current scope) and the tier table's error retry (redundant, since
+   *   a stored error already bypasses the memo, but it states the intent).
    */
   fetchTierData: async (level, playStyle, options = {}) => {
     // INVARIANT: latestTierRequestId is incremented on EVERY entry into this

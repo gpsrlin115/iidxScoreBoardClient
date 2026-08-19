@@ -52,10 +52,14 @@ const ScorePagination = ({ totalPages, currentPage, onPageChange }) => {
             ...
           </span>
         ) : (
+          // aria-current: the active page was signalled by colour alone, and a
+          // screen reader walks this list as bare numbers otherwise.
           <button
             key={item}
             type="button"
             onClick={() => onPageChange(item)}
+            aria-current={item === currentPage ? 'page' : undefined}
+            aria-label={`${item + 1}페이지`}
             className={
               item === currentPage
                 ? 'bg-accent px-2 py-1 font-num text-[12.5px] text-night'
