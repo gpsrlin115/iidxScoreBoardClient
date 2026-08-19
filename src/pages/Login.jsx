@@ -59,15 +59,9 @@ const Login = () => {
             </span>
           </div>
 
-          <p className="mb-[10px] font-mono text-[10px] tracking-[.24em] uppercase text-label">
+          <p className="mb-11 font-mono text-[10px] tracking-[.24em] uppercase text-label">
             score archive · sp / dp
           </p>
-
-          <h1 className="mb-11 text-[38px] font-normal leading-[1.18] tracking-[-.01em] text-ink">
-            밤하늘에 <span className="text-accent">기록</span>을
-            <br />
-            남기다
-          </h1>
 
           <form onSubmit={handleSubmit} className="flex flex-col gap-6">
             <div>

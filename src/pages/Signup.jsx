@@ -3,6 +3,57 @@ import { Link, useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import { authApi } from '../api/auth';
 import { toAppError } from '../utils/httpError';
+import Starfield from '../components/background/Starfield';
+import LoginArtwork from '../components/auth/LoginArtwork';
+import MonoButton from '../components/common/MonoButton';
+
+// Shares the login screen's visual language: same underline fields, same
+// left-aligned block over the artwork, so the two auth screens read as one flow.
+const LABEL_CLASS = 'block mb-[9px] font-mono text-[9.5px] tracking-[.22em] uppercase text-label';
+
+const inputClass = (hasError, isPassword) =>
+  [
+    'w-full bg-transparent border-0 border-b pb-[9px] text-[15px] text-ink',
+    // Hints must not read as already-filled values next to the real input text.
+    'placeholder:text-[13px] placeholder:tracking-normal placeholder:text-faint2',
+    'transition-colors focus:outline-none',
+    hasError ? 'border-danger focus:border-danger' : 'border-[rgba(236,234,244,.16)] focus:border-accent',
+    isPassword ? 'tracking-[.16em]' : '',
+  ]
+    .filter(Boolean)
+    .join(' ');
+
+const FIELDS = [
+  {
+    name: 'username',
+    label: '아이디',
+    type: 'text',
+    placeholder: '3자 이상',
+    autoComplete: 'username',
+    autoFocus: true,
+  },
+  {
+    name: 'email',
+    label: '이메일',
+    type: 'email',
+    placeholder: 'you@example.com',
+    autoComplete: 'email',
+  },
+  {
+    name: 'password',
+    label: '비밀번호',
+    type: 'password',
+    placeholder: '8자 이상',
+    autoComplete: 'new-password',
+  },
+  {
+    name: 'passwordConfirm',
+    label: '비밀번호 확인',
+    type: 'password',
+    placeholder: '',
+    autoComplete: 'new-password',
+  },
+];
 
 /**
  * 🎓 학습 포인트: 폼 유효성 검사 (Form Validation)
@@ -107,132 +158,68 @@ const Signup = () => {
   };
 
   return (
-    <div className="min-h-screen bg-night flex items-center justify-center px-4">
-      <div className="w-full max-w-md">
-        {/* 로고 */}
-        <div className="text-center mb-8">
-          <h1 className="text-4xl font-bold text-ink mb-2">🎵 IIDX</h1>
-          <p className="text-muted text-sm">ScoreBoard</p>
-        </div>
+    <div className="relative flex min-h-screen items-center overflow-hidden bg-night">
+      <Starfield litRatio={0.5} />
+      <LoginArtwork />
 
-        <div className="bg-panel/90 rounded-2xl p-8 shadow-2xl border border-line">
-          <h2 className="text-xl font-semibold text-ink mb-6">회원가입</h2>
+      <div className="relative mx-auto w-full max-w-[1180px] px-14">
+        <div className="max-w-[400px]">
+          <div className="mb-14 flex items-center gap-[11px]">
+            <img src="/favicon.png" alt="" width={22} height={22} className="block rounded-[3px]" />
+            <span className="font-mono text-xs uppercase tracking-[.2em] text-ink">
+              IIDX ScoreBoard
+            </span>
+          </div>
 
-          <form onSubmit={handleSubmit} className="space-y-4">
-            {/* 아이디 */}
-            <div>
-              <label className="block text-sm text-muted mb-1" htmlFor="username">
-                아이디
-              </label>
-              <input
-                id="username"
-                name="username"
-                type="text"
-                value={form.username}
-                onChange={handleChange}
-                className={`w-full bg-night/60 text-ink rounded-lg px-4 py-3 text-sm
-                            border transition focus:outline-none
-                            ${errors.username
-                              ? 'border-danger focus:border-danger'
-                              : 'border-line-strong focus:border-accent'
-                            }`}
-                placeholder="3자 이상"
-                autoFocus
-              />
-              {errors.username && (
-                <p className="text-xs text-danger mt-1">{errors.username}</p>
-              )}
-            </div>
+          <p className="mb-11 font-mono text-[10px] uppercase tracking-[.24em] text-label">
+            create account
+          </p>
 
-            {/* 이메일 */}
-            <div>
-              <label className="block text-sm text-muted mb-1" htmlFor="email">
-                이메일
-              </label>
-              <input
-                id="email"
-                name="email"
-                type="email"
-                value={form.email}
-                onChange={handleChange}
-                className={`w-full bg-night/60 text-ink rounded-lg px-4 py-3 text-sm
-                            border transition focus:outline-none
-                            ${errors.email
-                              ? 'border-danger focus:border-danger'
-                              : 'border-line-strong focus:border-accent'
-                            }`}
-                placeholder="example@email.com"
-              />
-              {errors.email && (
-                <p className="text-xs text-danger mt-1">{errors.email}</p>
-              )}
-            </div>
+          <form onSubmit={handleSubmit} className="flex flex-col gap-6" noValidate>
+            {FIELDS.map(({ name, label, type, placeholder, autoComplete, autoFocus }) => (
+              <div key={name}>
+                <label className={LABEL_CLASS} htmlFor={name}>
+                  {label}
+                </label>
+                <input
+                  id={name}
+                  name={name}
+                  type={type}
+                  value={form[name]}
+                  onChange={handleChange}
+                  className={inputClass(Boolean(errors[name]), type === 'password')}
+                  placeholder={placeholder}
+                  autoComplete={autoComplete}
+                  autoFocus={autoFocus}
+                  aria-invalid={errors[name] ? true : undefined}
+                  aria-describedby={errors[name] ? `${name}-error` : undefined}
+                />
+                {errors[name] && (
+                  <p id={`${name}-error`} className="mt-[6px] text-[12px] text-danger">
+                    {errors[name]}
+                  </p>
+                )}
+              </div>
+            ))}
 
-            {/* 비밀번호 */}
-            <div>
-              <label className="block text-sm text-muted mb-1" htmlFor="password">
-                비밀번호
-              </label>
-              <input
-                id="password"
-                name="password"
-                type="password"
-                value={form.password}
-                onChange={handleChange}
-                className={`w-full bg-night/60 text-ink rounded-lg px-4 py-3 text-sm
-                            border transition focus:outline-none
-                            ${errors.password
-                              ? 'border-danger focus:border-danger'
-                              : 'border-line-strong focus:border-accent'
-                            }`}
-                placeholder="8자 이상"
-              />
-              {errors.password && (
-                <p className="text-xs text-danger mt-1">{errors.password}</p>
-              )}
-            </div>
-
-            {/* 비밀번호 확인 */}
-            <div>
-              <label className="block text-sm text-muted mb-1" htmlFor="passwordConfirm">
-                비밀번호 확인
-              </label>
-              <input
-                id="passwordConfirm"
-                name="passwordConfirm"
-                type="password"
-                value={form.passwordConfirm}
-                onChange={handleChange}
-                className={`w-full bg-night/60 text-ink rounded-lg px-4 py-3 text-sm
-                            border transition focus:outline-none
-                            ${errors.passwordConfirm
-                              ? 'border-danger focus:border-danger'
-                              : 'border-line-strong focus:border-accent'
-                            }`}
-                placeholder="비밀번호를 다시 입력하세요"
-              />
-              {errors.passwordConfirm && (
-                <p className="text-xs text-danger mt-1">{errors.passwordConfirm}</p>
-              )}
-            </div>
-
-            <button
+            <MonoButton
               type="submit"
+              variant="accent"
+              fullWidth
               disabled={isSubmitting}
-              className="w-full bg-primary-500 hover:bg-primary-700 disabled:opacity-50
-                         disabled:cursor-not-allowed text-white font-semibold py-3 rounded-lg
-                         transition mt-2"
+              trailing={<span>&#8594;</span>}
+              className="mt-2"
             >
               {isSubmitting ? '가입 중...' : '회원가입'}
-            </button>
+            </MonoButton>
           </form>
 
-          <p className="text-center text-muted text-sm mt-6">
-            이미 계정이 있으신가요?{' '}
-            <Link to="/login" className="text-primary-500 hover:text-primary-400 transition">
+          <div className="mt-6 flex items-center gap-4 text-[12.5px]">
+            <span className="text-faint">이미 계정이 있으신가요?</span>
+            <Link to="/login" className="text-accent transition-colors hover:text-ink">
               로그인
             </Link>
-          </p>
+          </div>
         </div>
       </div>
     </div>
