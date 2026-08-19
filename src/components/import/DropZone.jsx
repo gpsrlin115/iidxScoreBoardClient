@@ -33,13 +33,18 @@ const formatKB = (bytes) => `${(bytes / 1024).toFixed(1)} KB`;
  * only focusable control here — a real <button> never ends up nested
  * inside another interactive element. Removing the file returns the zone
  * to the empty state, where it becomes keyboard-operable again.
+ *
+ * `locked`: while an upload for the current file is in flight, both
+ * re-selecting a new file and removing this one are disabled. Either
+ * action would leave the original request's eventual response with
+ * nothing valid to land on.
  */
-const DropZone = ({ status, file, inputRef, onFileSelect, onZoneClick, onRemoveFile }) => {
+const DropZone = ({ status, file, inputRef, onFileSelect, onZoneClick, onRemoveFile, locked = false }) => {
   const isEmpty = status === 'empty';
   const mark = MARK_CONFIG[status];
 
   const handleKeyDown = (e) => {
-    if (!isEmpty) return;
+    if (!isEmpty || locked) return;
     if (e.key === 'Enter' || e.key === ' ') {
       e.preventDefault();
       onZoneClick();
@@ -48,20 +53,26 @@ const DropZone = ({ status, file, inputRef, onFileSelect, onZoneClick, onRemoveF
 
   const handleDrop = (e) => {
     e.preventDefault();
+    // A request for the current file is in flight -- swapping it out from
+    // under that request would let a late response overwrite whatever the
+    // user moved on to. See CsvUpload.jsx's `locked` prop.
+    if (locked) return;
     onFileSelect(e.dataTransfer.files?.[0] ?? null);
   };
 
   return (
     <div
-      onClick={onZoneClick}
+      onClick={locked ? undefined : onZoneClick}
       onDragOver={(e) => e.preventDefault()}
       onDrop={handleDrop}
       role={isEmpty ? 'button' : undefined}
-      tabIndex={isEmpty ? 0 : undefined}
+      tabIndex={isEmpty && !locked ? 0 : undefined}
       onKeyDown={handleKeyDown}
       aria-label={isEmpty ? 'CSV 파일 선택' : undefined}
+      aria-disabled={locked || undefined}
       className={clsx(
-        'flex min-h-[112px] cursor-pointer items-center justify-center rounded-[4px] px-[18px] py-[26px] transition-colors duration-200',
+        'flex min-h-[112px] items-center justify-center rounded-[4px] px-[18px] py-[26px] transition-colors duration-200',
+        locked ? 'cursor-not-allowed opacity-60' : 'cursor-pointer',
         ZONE_STYLES[status]
       )}
     >
@@ -104,17 +115,19 @@ const DropZone = ({ status, file, inputRef, onFileSelect, onZoneClick, onRemoveF
               {formatKB(file.size)} · 선택됨
             </p>
           </div>
-          <button
-            type="button"
-            onClick={(e) => {
-              e.stopPropagation();
-              onRemoveFile();
-            }}
-            aria-label="선택한 파일 제거"
-            className="shrink-0 text-faint2 transition-colors duration-200 hover:text-danger"
-          >
-            {'✕'}
-          </button>
+          {!locked && (
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                onRemoveFile();
+              }}
+              aria-label="선택한 파일 제거"
+              className="shrink-0 text-faint2 transition-colors duration-200 hover:text-danger"
+            >
+              {'✕'}
+            </button>
+          )}
         </div>
       )}
     </div>

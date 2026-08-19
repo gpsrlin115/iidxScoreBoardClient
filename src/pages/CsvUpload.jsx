@@ -5,6 +5,7 @@ import { toAppError } from '../utils/httpError';
 import { useScopeStore } from '../store/scopeStore';
 import useTierStore from '../store/tierStore';
 import MonoButton from '../components/common/MonoButton';
+import Spinner from '../components/common/Spinner';
 import DropZone from '../components/import/DropZone';
 import ImportErrorAlert from '../components/import/ImportErrorAlert';
 import ImportResultPanel from '../components/import/ImportResultPanel';
@@ -34,6 +35,12 @@ const CsvUpload = () => {
   const [uploadState, setUploadState] = useState('idle'); // 'idle' | 'uploading' | 'success' | 'error'
   const [file, setFile] = useState(null);
   const [progress, setProgress] = useState(0);
+  // True once the request body has fully reached the server, before its
+  // response comes back. axios' onUploadProgress only measures the upload
+  // leg -- everything after 100% is the backend parsing the CSV and writing
+  // scores inside one transaction, with no signal of its own. This flag is
+  // what lets the UI stop claiming "업로드 중" once that's no longer true.
+  const [uploadComplete, setUploadComplete] = useState(false);
   const [result, setResult] = useState(null);
   const [errorInfo, setErrorInfo] = useState(null);
   const [guideOpen, setGuideOpen] = useState(false);
@@ -44,6 +51,7 @@ const CsvUpload = () => {
     setFile(null);
     setUploadState('idle');
     setProgress(0);
+    setUploadComplete(false);
     setResult(null);
     setErrorInfo(null);
   };
@@ -87,10 +95,18 @@ const CsvUpload = () => {
     if (!file) return;
     setUploadState('uploading');
     setProgress(0);
+    setUploadComplete(false);
     setErrorInfo(null);
 
+    // Flip to the "server is processing" state the instant the browser
+    // reports the body as fully sent, rather than waiting on the response.
+    const handleProgress = (percent) => {
+      setProgress(percent);
+      if (percent >= 100) setUploadComplete(true);
+    };
+
     try {
-      const data = await importApi.uploadCsv(file, playStyle, setProgress);
+      const data = await importApi.uploadCsv(file, playStyle, handleProgress);
       setResult(data);
       setUploadState('success');
       // tierStore memoizes on `${level}:${playStyle}`; without `force` the
@@ -206,19 +222,32 @@ const CsvUpload = () => {
             onFileSelect={handleFileSelect}
             onZoneClick={openFilePicker}
             onRemoveFile={resetToIdle}
+            locked={uploadState === 'uploading'}
           />
 
           <ImportErrorAlert errorInfo={errorInfo} />
 
           {uploadState === 'uploading' && (
             <div className="mt-[14px]">
-              <div className="mb-[4px] flex items-center justify-between font-mono text-[9px] uppercase tracking-[.14em] text-label">
-                <span>업로드 중...</span>
-                <span>{progress}%</span>
+              <div className="mb-[4px] flex items-center gap-[6px] font-mono text-[9px] uppercase tracking-[.14em] text-label">
+                {uploadComplete ? (
+                  <>
+                    <Spinner size="sm" className="h-3 w-3" />
+                    <span>서버에서 처리하는 중입니다...</span>
+                  </>
+                ) : (
+                  <div className="flex w-full items-center justify-between">
+                    <span>업로드 중...</span>
+                    <span>{progress}%</span>
+                  </div>
+                )}
               </div>
               <div className="h-[2px] w-full bg-[rgba(236,234,244,.07)]">
                 <div
-                  className="h-full bg-accent transition-[width] duration-300"
+                  className={clsx(
+                    'h-full bg-accent transition-[width] duration-300',
+                    uploadComplete && 'animate-pulse'
+                  )}
                   style={{ width: `${progress}%` }}
                 />
               </div>
