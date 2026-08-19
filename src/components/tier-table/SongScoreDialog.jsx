@@ -13,12 +13,12 @@ import SongFeedbackPanel from './feedback/SongFeedbackPanel';
  * one per tile (a Lv.12 table holds ~1000 tiles), and makes unmount the single
  * place where focus restore and cache teardown happen.
  *
- * Layer scale in this app: header 50 (Header.jsx), this dialog 100,
- * GlobalLoadingOverlay 9999. The dialog now sits above the header — the two
- * used to share z-50 and only DOM order kept this on top — but stays below the
- * global overlay, which is meant to block everything. So any async work owned
- * by this dialog must use local pending state, never useLoading().run(): that
- * overlay would cover the dialog the user is looking at.
+ * Layer scale in this app: app shell 1 (ProtectedLayout grid) with the top bar
+ * at 4 (TopBar.jsx) and the sidebar at auto, this dialog 100, and
+ * GlobalLoadingOverlay 9999. The dialog clears the whole shell but stays below
+ * the global overlay, which is meant to block everything. So any async work
+ * owned by this dialog must use local pending state, never useLoading().run():
+ * that overlay would cover the dialog the user is looking at.
  */
 const SongScoreDialog = ({ id, song, difficultyLabel, onClose }) => {
   const closeButtonRef = useRef(null);
