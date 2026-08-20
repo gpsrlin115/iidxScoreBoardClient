@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { scoresApi } from '../api/scores';
 import { useScoresStore, PAGE_SIZE } from '../store/scoresStore';
 import { useScopeStore } from '../store/scopeStore';
@@ -35,7 +35,18 @@ const useScores = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
 
+  // Same monotonic-id guard tierStore and useTierVote use: only the newest
+  // request may write. Without it, flipping level or SP/DP quickly let a
+  // slower earlier response land last and overwrite the current scope's
+  // rows. Bumping once more on unmount doubles as the no-setState-after-
+  // unmount guard.
+  const requestIdRef = useRef(0);
+  useEffect(() => () => { requestIdRef.current += 1; }, []);
+
   const fetchScores = useCallback(async () => {
+    const requestId = ++requestIdRef.current;
+    const isCurrentRequest = () => requestId === requestIdRef.current;
+
     setIsLoading(true);
     setError(null);
     try {
@@ -47,12 +58,16 @@ const useScores = () => {
         playStyle,
         size: MAX_FETCH_SIZE,
       });
+      if (!isCurrentRequest()) return;
       setAllScores(result.content ?? []);
       setFetchedTotal(result.totalElements ?? 0);
     } catch (err) {
+      if (!isCurrentRequest()) return;
       setError(toAppError(err, { fallback: '스코어를 불러오는 데 실패했습니다.' }));
     } finally {
-      setIsLoading(false);
+      // Guarded too: a superseded request must not clear the spinner the
+      // request that replaced it is still showing.
+      if (isCurrentRequest()) setIsLoading(false);
     }
   }, [effectiveLevel, playStyle]);
 

@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { scoresApi } from '../api/scores';
 import { useAuthStore } from '../store/authStore';
 import { useScopeStore } from '../store/scopeStore';
@@ -37,11 +37,21 @@ const useDashboard = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
 
+  // Same monotonic-id guard tierStore and useTierVote use: only the newest
+  // request may write. These six queries fan out per scope, so flipping
+  // level or SP/DP quickly let an earlier, slower set land last and repaint
+  // the stats for a scope the user already left.
+  const requestIdRef = useRef(0);
+  useEffect(() => () => { requestIdRef.current += 1; }, []);
+
   const fetchDashboardData = useCallback(async () => {
     if (!isAuthenticated) {
       setIsLoading(false);
       return;
     }
+
+    const requestId = ++requestIdRef.current;
+    const isCurrentRequest = () => requestId === requestIdRef.current;
 
     setIsLoading(true);
     setError(null);
@@ -61,6 +71,8 @@ const useDashboard = () => {
         scoresApi.getScores({ ...scope, page: 0, size: 5 }),
       ]);
 
+      if (!isCurrentRequest()) return;
+
       setStats({
         total: totalRes.totalElements,
         fullCombo: fcRes.totalElements,
@@ -70,9 +82,12 @@ const useDashboard = () => {
       });
       setRecentScores(recentRes.content);
     } catch (err) {
+      if (!isCurrentRequest()) return;
       setError(toAppError(err, { fallback: '대시보드 데이터를 불러오는데 실패했습니다.' }));
     } finally {
-      setIsLoading(false);
+      // Guarded too: a superseded request must not clear the spinner the
+      // request that replaced it is still showing.
+      if (isCurrentRequest()) setIsLoading(false);
     }
   }, [isAuthenticated, level, playStyle]);
 
