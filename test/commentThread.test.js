@@ -75,3 +75,26 @@ test('hasMorePages follows the server page count', () => {
   assert.equal(hasMorePages(0, 1), false);
   assert.equal(hasMorePages(0, undefined), false);
 });
+
+test('a delete in flight must be reserved before its own request settles', async () => {
+  // Not a test of nextPageToFetch's math (covered above) -- a test of the
+  // CALLING CONVENTION useSongComments.removeComment must follow. The
+  // reservation has to be visible to a same-tick loadMore synchronously,
+  // before the DELETE's await resolves. Reserving only in the success
+  // branch (after the round-trip) leaves a window where a fast "더 보기"
+  // click computes its rewind against a stale, too-low count and steps
+  // over the very comment the in-flight delete is about to shift into view.
+  let removedSinceLoad = 0;
+  const loadedPage = 1;
+
+  const startDelete = () => {
+    removedSinceLoad += 1; // must happen HERE, not in a .then()/after await
+    return new Promise((resolve) => setTimeout(resolve, 5));
+  };
+
+  const deleteRequest = startDelete();
+  const requestedPage = nextPageToFetch(loadedPage, removedSinceLoad, 20);
+  await deleteRequest;
+
+  assert.equal(requestedPage, 1, 'must rewind onto the held page, not step past it');
+});

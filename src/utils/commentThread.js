@@ -4,9 +4,10 @@
  * project has no React test renderer).
  *
  * Everything here exists because the server pages by OFFSET over a list
- * sorted `createdAt DESC` (see docs/api-contract-song-feedback.md, §4).
- * An offset window is only stable while the underlying list is; every
- * insert and delete shifts it under us.
+ * sorted `createdAt DESC` -- soft-deleted comments excluded, per the
+ * contract src/api/songFeedback.js's GET /charts/{chartId}/comments
+ * implements. An offset window is only stable while the underlying list
+ * is; every insert and delete shifts it under us.
  */
 
 /**

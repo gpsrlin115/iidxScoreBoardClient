@@ -96,6 +96,7 @@ const SongFeedbackPanel = ({ chartId, hasDifficulty = false }) => {
                   onRemove={commentsState.removeComment}
                   currentUserId={currentUserId}
                   myVote={vote.myVote}
+                  myVoteStale={vote.myVoteStale}
                   error={commentsState.error}
                 />
               </div>
