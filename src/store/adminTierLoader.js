@@ -48,7 +48,7 @@ const getDefaultTierEntries = (level, playStyle) => {
 // A 401/403 means the editor is not allowed to see the real data. It must
 // never be replaced with public or bundled default data: doing so shows
 // plausible-looking content that the admin could then save over the live
-// table. See docs/retro-2026-05-10-tier-table-403-and-history-cleanup.md
+// table.
 const isAuthFailure = (error) => {
   const { status } = toAppError(error);
   return status === 401 || status === 403;
