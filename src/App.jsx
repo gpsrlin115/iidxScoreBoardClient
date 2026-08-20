@@ -2,6 +2,9 @@ import { lazy, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
 import { useAuthStore } from './store/authStore';
+// Side-effect import: subscribes to auth identity changes and drops every
+// per-user cache. Must be imported exactly once, at the app entry.
+import './store/sessionReset';
 import { authApi } from './api/auth';
 import ProtectedRoute from './components/guards/ProtectedRoute';
 import ProtectedLayout from './components/layout/ProtectedLayout';

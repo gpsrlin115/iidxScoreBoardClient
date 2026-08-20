@@ -5,12 +5,35 @@ import { resolveMockChartId } from '../api/songFeedback';
 import toast from 'react-hot-toast';
 import { normalizeClearType } from '../utils/clearTypes';
 import { toAppError } from '../utils/httpError';
+import { useAuthStore } from './authStore';
+import { decideTierFetch } from '../utils/tierFetchGate';
 
 // Monotonic id shared by every fetchTierData call. Only the newest request may
 // write into the store. See the INVARIANT note inside fetchTierData.
 let latestTierRequestId = 0;
 
-const buildFetchedKey = (level, playStyle) => `${level}:${playStyle}`;
+// Scope key of the request currently on the wire, or null. Lets an identical
+// non-forced entry ride along instead of cancelling it — see tierFetchGate.
+let inFlightKey = null;
+
+// The cache key names the USER as well as the scope. enrichedTierData carries
+// that user's clear lamps and best scores, so a key of scope alone let a
+// logout -> different login serve the previous user's records. store/
+// sessionReset.js also clears this store on identity change; both layers are
+// deliberate, since a leak here is a privacy failure, not a stale render.
+const buildFetchedKey = (level, playStyle) => {
+  const userId = useAuthStore.getState().user?.id ?? 'anon';
+  return `${userId}:${level}:${playStyle}`;
+};
+
+const EMPTY_TIER_STATE = {
+  tierData: null,
+  userScores: [],
+  enrichedTierData: [],
+  fetchedKey: null,
+  isLoading: false,
+  error: null,
+};
 
 const normalizeTierSong = (song) => {
   if (typeof song === 'string') {
@@ -60,6 +83,21 @@ const useTierStore = create((set, get) => ({
   setViewMode: (mode) => set({ viewMode: mode }),
 
   /**
+   * Drop every cached per-user row. Called by store/sessionReset.js whenever
+   * the signed-in identity changes; `viewMode` survives because it is a UI
+   * preference, not user data.
+   *
+   * Bumping the request id is the important half: a fetch started by the
+   * previous user may still be on the wire, and without invalidating it here
+   * its response would land in the freshly cleared store.
+   */
+  reset: () => {
+    latestTierRequestId += 1;
+    inFlightKey = null;
+    set({ ...EMPTY_TIER_STATE });
+  },
+
+  /**
    * Fetch tier data + user scores for one scope and join them into
    * enrichedTierData.
    *
@@ -73,8 +111,20 @@ const useTierStore = create((set, get) => ({
    *   a stored error already bypasses the memo, but it states the intent).
    */
   fetchTierData: async (level, playStyle, options = {}) => {
-    // INVARIANT: latestTierRequestId is incremented on EVERY entry into this
-    // action, before any early return — the cache-hit return below included.
+    const { force = false } = options;
+    const nextFetchedKey = buildFetchedKey(level, playStyle);
+    const previous = get();
+    const decision = decideTierFetch({
+      force,
+      requestedKey: nextFetchedKey,
+      fetchedKey: previous.fetchedKey,
+      inFlightKey,
+      hasError: Boolean(previous.error),
+    });
+
+    // INVARIANT: latestTierRequestId is incremented on every entry that could
+    // change what the screen should show — which is every entry EXCEPT
+    // 'join-inflight'.
     //
     // Response-race protection used to live in setLevel/setPlayStyle (commit
     // 1d9749d), which bumped the id whenever the scope changed. Those actions
@@ -86,21 +136,24 @@ const useTierStore = create((set, get) => ({
     //   3. The user switches back to lv12 -> cache hit -> early return.
     //   4. The lv11 response finally lands, still holding the newest id, so it
     //      passes isCurrentRequest() and overwrites the lv12 screen.
-    // Bumping here invalidates the in-flight lv11 request at step 3.
-    const requestId = ++latestTierRequestId;
-    const { force = false } = options;
-    const nextFetchedKey = buildFetchedKey(level, playStyle);
-    const previous = get();
+    // Bumping on 'serve-cache' invalidates the in-flight lv11 request at step 3.
+    //
+    // 'join-inflight' is the one safe exception: the request already on the
+    // wire is for the SAME key, so its response is exactly what this caller
+    // wanted. Bumping there would cancel it for no gain — and when that
+    // request is a CSV import's `force` refresh, cancelling it silently threw
+    // away the newly imported clear lamps.
+    if (decision === 'join-inflight') return;
 
-    // Cache memo: same scope key, already settled successfully, no pending
-    // error, and not forced -> the store already holds this scope's data, so
-    // skip the network. This is what lets the dashboard and the tier table
-    // share one fetch while both sit on the same scope.
-    // `fetchedKey` is written only after a successful settle, so a non-null
-    // match already means "data for this key has been resolved". Gating on
-    // enrichedTierData.length instead would re-request forever for a scope
-    // whose tier table is legitimately empty.
-    if (!force && previous.fetchedKey === nextFetchedKey && !previous.error) {
+    const requestId = ++latestTierRequestId;
+
+    if (decision === 'serve-cache') {
+      // The bump above just orphaned whatever was in flight for another
+      // scope. That request returns early at its own isCurrentRequest()
+      // check, i.e. BEFORE its `isLoading: false`, so nothing else will ever
+      // turn the spinner off. The data this cache hit serves is complete, so
+      // clear it here.
+      if (previous.isLoading) set({ isLoading: false });
       return;
     }
 
@@ -109,6 +162,12 @@ const useTierStore = create((set, get) => ({
     // invariant above makes the id alone sufficient: any newer entry into this
     // action — fetch or cache hit — has already invalidated this requestId.
     const isCurrentRequest = () => requestId === latestTierRequestId;
+    inFlightKey = nextFetchedKey;
+    // Releases the ride-along slot, but only if this request still owns it —
+    // a newer entry may have claimed it in the meantime.
+    const releaseInFlight = () => {
+      if (isCurrentRequest()) inFlightKey = null;
+    };
     set({ isLoading: true, error: null });
 
     try {
@@ -196,6 +255,12 @@ const useTierStore = create((set, get) => ({
       const appError = toAppError(error, { fallback: '서열표 데이터를 불러오는데 실패했습니다.' });
       set({ error: appError, isLoading: false });
       toast.error(appError.message);
+    } finally {
+      // In `finally` so that every exit — success, error, and the two stale
+      // `return`s inside the try — frees the slot. A leaked inFlightKey would
+      // make later callers ride along with a request that already finished
+      // and then never see any data at all.
+      releaseInFlight();
     }
   }
 }));
