@@ -6,15 +6,11 @@ import toast from 'react-hot-toast';
 import { normalizeClearType } from '../utils/clearTypes';
 import { toAppError } from '../utils/httpError';
 import { useAuthStore } from './authStore';
-import { decideTierFetch } from '../utils/tierFetchGate';
+import { createTierFetchGate } from '../utils/tierFetchGate';
 
-// Monotonic id shared by every fetchTierData call. Only the newest request may
-// write into the store. See the INVARIANT note inside fetchTierData.
-let latestTierRequestId = 0;
-
-// Scope key of the request currently on the wire, or null. Lets an identical
-// non-forced entry ride along instead of cancelling it — see tierFetchGate.
-let inFlightKey = null;
+// Request admission: monotonic request ids plus the in-flight slot. Every
+// staleness and cache rule lives in the gate; this store only obeys it.
+const gate = createTierFetchGate();
 
 // The cache key names the USER as well as the scope. enrichedTierData carries
 // that user's clear lamps and best scores, so a key of scope alone let a
@@ -74,7 +70,7 @@ const useTierStore = create((set, get) => ({
   tierData: null,          // Raw JSON tier data
   userScores: [],          // Raw scores from backend
   enrichedTierData: [],    // Combined data array: [{ tier: 'S+', songs: [{ title, clearType }] }]
-  fetchedKey: null,        // `${level}:${playStyle}` of the last successfully settled fetch
+  fetchedKey: null,        // `${userId}:${level}:${playStyle}` of the last successfully settled fetch
   viewMode: 'chips',       // 'chips' | 'dense'
   isLoading: false,
   error: null,
@@ -92,8 +88,7 @@ const useTierStore = create((set, get) => ({
    * its response would land in the freshly cleared store.
    */
   reset: () => {
-    latestTierRequestId += 1;
-    inFlightKey = null;
+    gate.invalidateAll();
     set({ ...EMPTY_TIER_STATE });
   },
 
@@ -114,60 +109,32 @@ const useTierStore = create((set, get) => ({
     const { force = false } = options;
     const nextFetchedKey = buildFetchedKey(level, playStyle);
     const previous = get();
-    const decision = decideTierFetch({
+    const { decision, requestId } = gate.enter({
       force,
-      requestedKey: nextFetchedKey,
+      key: nextFetchedKey,
       fetchedKey: previous.fetchedKey,
-      inFlightKey,
       hasError: Boolean(previous.error),
     });
 
-    // INVARIANT: latestTierRequestId is incremented on every entry that could
-    // change what the screen should show — which is every entry EXCEPT
-    // 'join-inflight'.
-    //
     // Response-race protection used to live in setLevel/setPlayStyle (commit
-    // 1d9749d), which bumped the id whenever the scope changed. Those actions
-    // are gone, so the bump had to move to the only remaining entry point.
-    //
-    // Skipping the bump on the cache-hit path would reopen the race:
-    //   1. lv12 is already cached.
-    //   2. fetchTierData(11, 'SP') starts and is slow.
-    //   3. The user switches back to lv12 -> cache hit -> early return.
-    //   4. The lv11 response finally lands, still holding the newest id, so it
-    //      passes isCurrentRequest() and overwrites the lv12 screen.
-    // Bumping on 'serve-cache' invalidates the in-flight lv11 request at step 3.
-    //
-    // 'join-inflight' is the one safe exception: the request already on the
-    // wire is for the SAME key, so its response is exactly what this caller
-    // wanted. Bumping there would cancel it for no gain — and when that
-    // request is a CSV import's `force` refresh, cancelling it silently threw
-    // away the newly imported clear lamps.
+    // 1d9749d), which bumped the request id whenever the scope changed. Those
+    // actions are gone, so admission moved to this, the only entry point.
+    // The gate owns the rules; the three branches below just obey them.
     if (decision === 'join-inflight') return;
 
-    const requestId = ++latestTierRequestId;
-
     if (decision === 'serve-cache') {
-      // The bump above just orphaned whatever was in flight for another
-      // scope. That request returns early at its own isCurrentRequest()
-      // check, i.e. BEFORE its `isLoading: false`, so nothing else will ever
-      // turn the spinner off. The data this cache hit serves is complete, so
-      // clear it here.
+      // Entering here invalidated whatever was in flight for a DIFFERENT
+      // scope. That request returns early at its own isCurrent() check —
+      // i.e. before its `isLoading: false` — so nothing else will ever turn
+      // the spinner off. The data this cache hit serves is complete.
       if (previous.isLoading) set({ isLoading: false });
       return;
     }
 
-    // requestId equality is now the entire staleness test. Comparing
-    // get().selectedLevel is no longer possible (the field is gone), but the
-    // invariant above makes the id alone sufficient: any newer entry into this
-    // action — fetch or cache hit — has already invalidated this requestId.
-    const isCurrentRequest = () => requestId === latestTierRequestId;
-    inFlightKey = nextFetchedKey;
-    // Releases the ride-along slot, but only if this request still owns it —
-    // a newer entry may have claimed it in the meantime.
-    const releaseInFlight = () => {
-      if (isCurrentRequest()) inFlightKey = null;
-    };
+    // requestId equality is the entire staleness test. Comparing
+    // get().selectedLevel is no longer possible (the field is gone), but any
+    // newer entry — fetch or cache hit — has already superseded this id.
+    const isCurrentRequest = () => gate.isCurrent(requestId);
     set({ isLoading: true, error: null });
 
     try {
@@ -257,10 +224,11 @@ const useTierStore = create((set, get) => ({
       toast.error(appError.message);
     } finally {
       // In `finally` so that every exit — success, error, and the two stale
-      // `return`s inside the try — frees the slot. A leaked inFlightKey would
-      // make later callers ride along with a request that already finished
-      // and then never see any data at all.
-      releaseInFlight();
+      // `return`s inside the try — frees the slot. `gate.settle` is scoped by
+      // owner id and is deliberately NOT conditional on still being current:
+      // a superseded request must hand its slot back too, or later callers
+      // ride along with a request that already finished and never see data.
+      gate.settle(requestId);
     }
   }
 }));
