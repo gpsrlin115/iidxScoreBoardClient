@@ -1,6 +1,6 @@
 /**
- * Deterministic starfield renderer, ported from the design handoff prototype
- * (docs/design_handoff_night_sky_redesign/iidx-data.js -> makeSky).
+ * Deterministic starfield renderer, ported from an internal design
+ * prototype's `makeSky` function.
  *
  * Kept as a plain factory outside React so the component only owns refs and
  * effects. Every star property comes from an FNV-1a hash of its index, never

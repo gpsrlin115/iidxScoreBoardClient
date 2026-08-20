@@ -1,8 +1,8 @@
 import clsx from 'clsx';
 
-// Border/background per visual state. Literal rgba values match the design
-// handoff's status table exactly (docs/design_handoff_night_sky_redesign,
-// section 5, item 5) rather than being derived from a shared token.
+// Border/background per visual state. Literal rgba values are used
+// deliberately here, matching the fixed spec for this control, rather than
+// being derived from a shared token.
 const ZONE_STYLES = {
   empty: 'border border-dashed border-[rgba(236,234,244,.14)] bg-[rgba(236,234,244,.018)]',
   selected: 'border border-dashed border-[rgba(231,155,187,.45)] bg-[rgba(231,155,187,.04)]',

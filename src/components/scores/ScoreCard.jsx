@@ -8,14 +8,13 @@ const META_TAG_CLASS =
 /**
  * One score card on the /scores grid.
  *
- * Achievement-rate restore point: the design handoff
- * (docs/design_handoff_night_sky_redesign/README.md, "3. Scores") specs an
- * achievement-rate %, a 4px fill bar, and AAA/AA/A baseline ticks between
- * the EX score row and the footer meta row. That is deliberately NOT
- * implemented — the server score contract has no note count / theoretical
- * max to compute a rate from (see scoresStore.js's matching sort-field
- * note). If the backend later adds those fields, the bar belongs right
- * after the EX/DJ-level row below.
+ * Achievement-rate restore point: the visual spec for this card calls for
+ * an achievement-rate %, a 4px fill bar, and AAA/AA/A baseline ticks
+ * between the EX score row and the footer meta row. That is deliberately
+ * NOT implemented — the server score contract has no note count /
+ * theoretical max to compute a rate from (see scoresStore.js's matching
+ * sort-field note). If the backend later adds those fields, the bar
+ * belongs right after the EX/DJ-level row below.
  *
  * @param {object} score - one row of the server score contract
  * @param {string} [tier] - tier label from tierStore's enrichedTierData;

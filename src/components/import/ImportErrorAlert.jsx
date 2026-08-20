@@ -1,7 +1,7 @@
 /**
  * Inline replacement for the toast-based error messages this screen used
- * to show — see docs/design_handoff_night_sky_redesign, section 5. Renders
- * nothing when there's no error, so callers can mount it unconditionally.
+ * to show. Renders nothing when there's no error, so callers can mount it
+ * unconditionally.
  *
  * @param {{ tag: string, message: string, retryable?: boolean } | null} errorInfo
  *   Produced by utils/importError.js for server failures, or inline by the

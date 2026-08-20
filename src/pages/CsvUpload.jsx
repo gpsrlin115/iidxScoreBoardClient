@@ -18,8 +18,7 @@ const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
  * CSV import screen — state machine + composition only. Every visual piece
  * lives under components/import/*: the drop zone, the inline error alert,
  * the success summary, the prep-steps accordion, and the account-sync
- * card. See docs/design_handoff_night_sky_redesign, section 5, for the
- * full visual spec this follows.
+ * card.
  *
  * State machine: idle (no file) -> idle (file selected, "ready") ->
  * uploading -> success | error. "파일 선택됨" is not a state of its own,

@@ -45,9 +45,9 @@ const FILTER_GROUP_CLASS = 'flex flex-wrap items-center gap-[5px]';
  * enrichedTierData. The key shape mirrors tierStore's private
  * buildScoreKey (JSON.stringify([title, difficulty]) — confirmed by
  * reading fetchTierData in store/tierStore.js) exactly, since that helper
- * isn't exported. Song-title matching is exact-match only project-wide
- * (see memory note on normalizeTitleKey being an intentionally removed
- * dead export) — no fuzzy matching is introduced here.
+ * isn't exported. Song-title matching is exact-match only project-wide —
+ * a prior title-normalizing helper was deliberately removed as dead code
+ * rather than reused here — so no fuzzy matching is introduced.
  */
 const buildTierMap = (enrichedTierData) => {
   const map = new Map();
