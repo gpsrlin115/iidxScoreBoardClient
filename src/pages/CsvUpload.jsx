@@ -1,7 +1,7 @@
 import { useRef, useState } from 'react';
 import clsx from 'clsx';
 import { importApi } from '../api/import';
-import { toAppError } from '../utils/httpError';
+import { classifyImportError } from '../utils/importError';
 import { useScopeStore } from '../store/scopeStore';
 import useTierStore from '../store/tierStore';
 import MonoButton from '../components/common/MonoButton';
@@ -26,13 +26,18 @@ const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
  * it's `uploadState === 'idle' && file != null`.
  */
 const CsvUpload = () => {
-  const playStyle = useScopeStore((state) => state.playStyle);
-  const setPlayStyle = useScopeStore((state) => state.setPlayStyle);
   const level = useScopeStore((state) => state.level);
 
   const fileInputRef = useRef(null);
 
   const [uploadState, setUploadState] = useState('idle'); // 'idle' | 'uploading' | 'success' | 'error'
+  // Deliberately local and deliberately null. Binding this to the global
+  // scope pre-selected whatever the tier table was last showing, so a user
+  // who never touched the control could send a DP export as SP and corrupt
+  // their scores. It also meant picking a style here silently moved the
+  // dashboard and tier table to a different scope. Neither is worth the
+  // convenience: this one choice has to be made on purpose.
+  const [playStyle, setPlayStyle] = useState(null);
   const [file, setFile] = useState(null);
   const [progress, setProgress] = useState(0);
   // True once the request body has fully reached the server, before its
@@ -92,7 +97,7 @@ const CsvUpload = () => {
   };
 
   const handleUpload = async () => {
-    if (!file) return;
+    if (!file || !playStyle) return;
     setUploadState('uploading');
     setProgress(0);
     setUploadComplete(false);
@@ -109,26 +114,14 @@ const CsvUpload = () => {
       const data = await importApi.uploadCsv(file, playStyle, handleProgress);
       setResult(data);
       setUploadState('success');
-      // tierStore memoizes on `${level}:${playStyle}`; without `force` the
-      // tier table and dashboard would keep serving the pre-upload clear
-      // lamps for the current scope. This is the call site that actually
-      // needs it — see fetchTierData's jsdoc in store/tierStore.js.
+      // tierStore memoizes on `${userId}:${level}:${playStyle}`; without
+      // `force` the tier table and dashboard would keep serving the
+      // pre-upload clear lamps. Keyed on the style actually UPLOADED, not on
+      // the global scope, so the refreshed table is the one this import
+      // changed. The global scope is left alone.
       useTierStore.getState().fetchTierData(level, playStyle, { force: true });
     } catch (err) {
-      const { status } = toAppError(err);
-      if (status && status >= 500) {
-        setErrorInfo({
-          tag: 'error 500',
-          message:
-            '서버가 파일을 처리하지 못했습니다. 스코어는 갱신되지 않았습니다. 잠시 후 다시 시도해 주세요.',
-        });
-      } else {
-        setErrorInfo({
-          tag: 'unreadable',
-          message:
-            '내용을 읽을 수 없습니다. 빈 파일이거나 CSV 형식이 아닙니다. 1행에서 version · title 열을 찾지 못했습니다.',
-        });
-      }
+      setErrorInfo(classifyImportError(err));
       setUploadState('error');
     }
   };
@@ -136,12 +129,14 @@ const CsvUpload = () => {
   const openFilePicker = () => fileInputRef.current?.click();
 
   // Client-side validation errors (wrong format / too large) need a new
-  // file, so the button reopens the picker instead of retrying. Only the
-  // 5xx bucket is a transient server problem worth retrying as-is.
-  const isRetryableError = uploadState === 'error' && errorInfo?.tag === 'error 500';
+  // file, so the button reopens the picker instead of retrying. Whether a
+  // server-side failure is worth retrying as-is comes from
+  // classifyImportError, not from a hardcoded tag — network drops and rate
+  // limits are retryable too, and treating them as bad files was the bug.
+  const isRetryableError = uploadState === 'error' && Boolean(errorInfo?.retryable);
 
   const handleUploadButtonClick = () => {
-    if (!file) return;
+    if (!file || !playStyle) return;
     if (uploadState === 'error' && !isRetryableError) {
       openFilePicker();
       return;
@@ -151,11 +146,13 @@ const CsvUpload = () => {
 
   const uploadButtonLabel = !file
     ? '파일을 선택하세요'
-    : uploadState === 'error'
-      ? isRetryableError
-        ? '다시 시도'
-        : '다른 파일 선택'
-      : '업로드';
+    : !playStyle
+      ? 'SP · DP를 선택하세요'
+      : uploadState === 'error'
+        ? isRetryableError
+          ? '다시 시도'
+          : '다른 파일 선택'
+        : '업로드';
 
   const dropZoneStatus = !file
     ? 'empty'
@@ -191,10 +188,17 @@ const CsvUpload = () => {
         )}
 
         <div className="mt-[26px]">
-          <p className="mb-[6px] font-mono text-[8.5px] uppercase tracking-[.2em] text-label">
-            play style
-          </p>
-          <div className="flex">
+          <div className="mb-[6px] flex items-baseline justify-between gap-2">
+            <p id="import-play-style-label" className="font-mono text-[8.5px] uppercase tracking-[.2em] text-label">
+              play style
+            </p>
+            {!playStyle && (
+              <p className="text-[11px] text-muted">
+                업로드할 CSV의 플레이 스타일을 직접 선택해 주세요.
+              </p>
+            )}
+          </div>
+          <div className="flex" role="group" aria-labelledby="import-play-style-label">
             {['SP', 'DP'].map((style) => (
               <button
                 key={style}
@@ -257,7 +261,7 @@ const CsvUpload = () => {
           {uploadState !== 'uploading' && uploadState !== 'success' && (
             <MonoButton
               fullWidth
-              disabled={!file}
+              disabled={!file || !playStyle}
               onClick={handleUploadButtonClick}
               className="mt-[14px]"
             >
