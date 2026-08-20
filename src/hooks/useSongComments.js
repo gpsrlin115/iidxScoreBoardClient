@@ -155,13 +155,26 @@ const useSongComments = (chartId) => {
     // feel a delete action is expected to have.
     setComments((prev) => prev.filter((comment) => comment.id !== commentId));
     setTotalElements((prev) => Math.max(0, prev - 1));
+    // Reserved BEFORE the request settles, not after. loadMore reads this
+    // ref synchronously, so if the user fires "더 보기" while this DELETE is
+    // still in flight, it must already see the shift this row is about to
+    // cause -- deleteComment on the server can (and, tested against the
+    // mock, reliably does) finish before a same-tick page-2 GET does, which
+    // shifts the boundary out from under a rewind computed on the OLD
+    // count. Incrementing only in the `try` block's success branch left
+    // exactly that window open.
+    removedSinceLoadRef.current += 1;
 
     try {
       await songFeedbackApi.deleteComment(chartId, commentId);
-      // Confirmed gone server-side, so every later offset just moved.
-      removedSinceLoadRef.current += 1;
     } catch (err) {
       if (!mountedRef.current) return;
+      // The shift never happened server-side, so the reservation above was
+      // wrong -- give it back. Clamped: a page load that already consumed
+      // it (and reset the counter to 0) may have happened in between: the
+      // resulting redundant one-page rewind is harmless (mergePage
+      // de-dups it), unlike letting the counter run negative.
+      removedSinceLoadRef.current = Math.max(0, removedSinceLoadRef.current - 1);
       // Functional rollback, NOT a whole-array snapshot restore: a snapshot
       // taken before the request would erase any comment posted while the
       // delete was in flight.
