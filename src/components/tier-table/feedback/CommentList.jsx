@@ -30,9 +30,14 @@ const VoteBadge = ({ value, isStale }) => {
 // The viewer's own comment always shows `myVote` instead of the row's own
 // `authorVote` snapshot, so changing your vote updates your past comments'
 // badges immediately instead of waiting for a refetch that never happens.
-const CommentItem = ({ comment, isMine, myVote, onRemove }) => {
+// `myVoteStale` has to travel with it for the same reason: if the viewer's
+// current vote is itself excluded from the aggregate (tier revised since
+// they voted), their own comment must show that too, not the plain "active
+// vote" styling `comment.authorVoteStale` would never have implied here in
+// the first place.
+const CommentItem = ({ comment, isMine, myVote, myVoteStale, onRemove }) => {
   const badgeValue = isMine ? myVote : comment.authorVote;
-  const badgeStale = isMine ? false : comment.authorVoteStale;
+  const badgeStale = isMine ? myVoteStale : comment.authorVoteStale;
 
   return (
     <li className="rounded-lg border border-slate-700 bg-slate-900/60 p-3">
@@ -79,6 +84,8 @@ const CommentItem = ({ comment, isMine, myVote, onRemove }) => {
  * @param {number | null} currentUserId
  * @param {string | null} myVote - The viewer's own current vote. Rendered
  *   in place of `authorVote` on their own row(s); see `CommentItem`.
+ * @param {boolean} myVoteStale - Rendered in place of `authorVoteStale` on
+ *   their own row(s), for the same reason `myVote` replaces `authorVote`.
  * @param {{ message: string } | null} [error] - A failed fetch must not fall
  *   through to the empty state; "no comments yet" would be a lie about a
  *   thread that may well have some.
@@ -93,6 +100,7 @@ const CommentList = ({
   onRemove,
   currentUserId,
   myVote,
+  myVoteStale = false,
   error = null,
 }) => {
   if (isLoading) {
@@ -123,6 +131,7 @@ const CommentList = ({
               comment={comment}
               isMine={currentUserId != null && comment.userId === currentUserId}
               myVote={myVote}
+              myVoteStale={myVoteStale}
               onRemove={onRemove}
             />
           ))}
