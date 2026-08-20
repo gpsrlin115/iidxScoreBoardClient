@@ -9,11 +9,16 @@ import { FullPageSpinner } from '../components/common/Spinner';
 import ErrorView from '../components/common/ErrorView';
 import { CLEAR_ORDER, CLEAR_TYPE_LABELS } from '../utils/clearTypes';
 
+// All five chart types the backend's `chartType` filter accepts, in
+// difficulty order. BEGINNER and NORMAL matter because this screen covers
+// levels 1-12, not just the 10-12 the tier tables do.
 const CHART_FILTERS = [
   { value: '', label: '전체' },
+  { value: 'BEGINNER', label: 'BEGINNER' },
+  { value: 'NORMAL', label: 'NORMAL' },
+  { value: 'HYPER', label: 'HYPER' },
   { value: 'ANOTHER', label: 'ANOTHER' },
   { value: 'LEGGENDARIA', label: 'LEGGENDARIA' },
-  { value: 'HYPER', label: 'HYPER' },
 ];
 
 const CLEAR_FILTERS = [
@@ -29,7 +34,10 @@ const SORTS = [
 
 const LEVELS = Array.from({ length: 12 }, (_, i) => i + 1);
 
-const FILTER_GROUP_CLASS = 'flex items-center gap-[5px]';
+// `flex-wrap` on the group, not just on the row that holds the groups. The
+// clear filter alone is nine chips (~427px); without this the group is one
+// unbreakable line and the page scrolls sideways on a 320px screen.
+const FILTER_GROUP_CLASS = 'flex flex-wrap items-center gap-[5px]';
 
 /**
  * Builds a `title|chartType -> tier` lookup from tierStore's
@@ -87,7 +95,7 @@ const Scores = () => {
   }, [effectiveLevel, playStyle]);
 
   return (
-    <section className="px-[30px] pt-[26px] pb-[70px]">
+    <section className="px-[30px] pt-[26px] pb-[70px] max-md:px-4">
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
           <h1 className="text-[21px] font-normal text-ink">스코어 목록</h1>
@@ -95,14 +103,14 @@ const Scores = () => {
             총 {totalElements.toLocaleString()}개 · {currentPage + 1} / {totalPages} 페이지
           </p>
         </div>
-        <label className="flex items-center gap-[6px] border-b border-line-strong pb-[5px] focus-within:border-accent">
-          <span className="font-mono text-[9px] uppercase tracking-[.1em] text-label">search</span>
+        <label className="flex min-w-0 flex-1 items-center gap-[6px] border-b border-line-strong pb-[5px] focus-within:border-accent sm:flex-none">
+          <span className="shrink-0 font-mono text-[9px] uppercase tracking-[.1em] text-label">search</span>
           <input
             type="text"
             value={q}
             onChange={(e) => setFilter({ q: e.target.value })}
             placeholder="곡 제목 · 아티스트"
-            className="w-[190px] border-0 bg-transparent text-[13px] text-ink placeholder:text-faint2 focus:outline-none"
+            className="w-full min-w-0 border-0 bg-transparent text-[13px] text-ink placeholder:text-faint2 focus:outline-none sm:w-[190px]"
           />
         </label>
       </div>
@@ -148,7 +156,7 @@ const Scores = () => {
           ))}
         </div>
 
-        <div className={`${FILTER_GROUP_CLASS} ml-auto`}>
+        <div className={`${FILTER_GROUP_CLASS} ml-auto max-md:ml-0`}>
           {SORTS.map((opt) => (
             <Tag key={opt.value} active={sort === opt.value} onClick={() => setSort(opt.value)}>
               {opt.label}
@@ -158,8 +166,13 @@ const Scores = () => {
       </div>
 
       {truncated && (
-        <p className="mb-4 font-mono text-[10px] text-danger">
-          이 scope의 스코어가 1,000건을 초과해 일부만 표시됩니다.
+        <p
+          role="status"
+          className="mb-4 rounded-[4px] border border-[rgba(201,96,96,.35)] bg-[rgba(201,96,96,.06)] px-[15px] py-[11px] text-[12.5px] leading-relaxed text-[#dfc3c3]"
+        >
+          이 scope의 스코어가 1,000건을 넘습니다. 검색·정렬·필터는 모두{' '}
+          <strong className="font-semibold">EX 스코어 상위 1,000건 안에서만</strong> 동작합니다.
+          레벨을 좁히면 전체를 볼 수 있습니다.
         </p>
       )}
 
@@ -175,10 +188,20 @@ const Scores = () => {
           onRetry={error.retryable ? refetch : undefined}
         />
       ) : scores.length === 0 ? (
-        <p className="py-20 text-center text-sm text-muted">조건에 맞는 스코어가 없습니다.</p>
+        <div className="py-20 text-center">
+          <p className="text-sm text-muted">조건에 맞는 스코어가 없습니다.</p>
+          {truncated && (
+            // "No results" is ambiguous while the fetch is capped: the row
+            // may simply sit below the top 1,000 by EX score. Say so rather
+            // than letting the user conclude it isn't in their data.
+            <p className="mx-auto mt-2 max-w-[420px] text-[12.5px] leading-relaxed text-faint2">
+              상위 1,000건 안에 없을 수도 있습니다. 레벨을 좁혀서 다시 찾아보세요.
+            </p>
+          )}
+        </div>
       ) : (
         <>
-          <div className="grid grid-cols-[repeat(auto-fill,minmax(316px,1fr))] gap-3">
+          <div className="grid grid-cols-[repeat(auto-fill,minmax(316px,1fr))] gap-3 max-md:grid-cols-1">
             {scores.map((score) => (
               <ScoreCard
                 key={score.id}

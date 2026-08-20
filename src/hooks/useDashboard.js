@@ -33,7 +33,7 @@ const useDashboard = () => {
     hard: 0,
     clear: 0,
   });
-  const [recentScores, setRecentScores] = useState([]);
+  const [topScores, setTopScores] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
 
@@ -58,7 +58,7 @@ const useDashboard = () => {
 
     try {
       const scope = { level, playStyle };
-      const [totalRes, fcRes, exHardRes, hardRes, clearRes, recentRes] = await Promise.all([
+      const [totalRes, fcRes, exHardRes, hardRes, clearRes, topRes] = await Promise.all([
         scoresApi.getScores({ ...scope, size: 1 }),
         // Wire asymmetry, intentional: the backend's clearType query param
         // for full combo is FULL_COMBO, while the normalized display key
@@ -68,6 +68,10 @@ const useDashboard = () => {
         scoresApi.getScores({ ...scope, clearType: 'EX_HARD_CLEAR', size: 1 }),
         scoresApi.getScores({ ...scope, clearType: 'HARD_CLEAR', size: 1 }),
         scoresApi.getScores({ ...scope, clearType: 'CLEAR', size: 1 }),
+        // NOT a recency query. ScoreQueryService pins the order to
+        // `bestScore DESC` and /api/scores takes no `sort` param, so this is
+        // the scope's top 5 by EX score. TopScoreList is labelled to match;
+        // do not relabel it back to "recent" without a backend sort param.
         scoresApi.getScores({ ...scope, page: 0, size: 5 }),
       ]);
 
@@ -80,7 +84,7 @@ const useDashboard = () => {
         hard: hardRes.totalElements,
         clear: clearRes.totalElements,
       });
-      setRecentScores(recentRes.content);
+      setTopScores(topRes.content);
     } catch (err) {
       if (!isCurrentRequest()) return;
       setError(toAppError(err, { fallback: '대시보드 데이터를 불러오는데 실패했습니다.' }));
@@ -148,7 +152,7 @@ const useDashboard = () => {
     distribution,
     tierRows,
     tierTotals,
-    recentScores,
+    topScores,
     isLoading,
     error,
     refetch: fetchDashboardData,

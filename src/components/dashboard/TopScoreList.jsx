@@ -5,19 +5,30 @@ import { normalizeClearType } from '../../utils/clearTypes';
 import { djColor } from '../../utils/djLevels';
 
 /**
- * Dashboard aside: the 5 most recently updated scores.
+ * Dashboard aside: the scope's 5 highest EX scores.
  *
+ * It says "최고 기록", not "최근 갱신", because that is what the data
+ * actually is. `GET /api/scores` orders by `bestScore DESC` — the ordering
+ * is fixed server-side (ScoreQueryService) and the endpoint takes no `sort`
+ * param, so a `size: 5` page is the top 5 by score, never the 5 newest.
+ * Labelling it "recent" was a claim the backend cannot honour.
+ *
+ * Restoring a genuine recency list needs a backend `sort` parameter; the
+ * client-side alternative is pulling 1,000 rows into a dashboard that
+ * already fans out six requests, which is not worth it.
+ *
+ * The date is still shown — it is real information about each row — and
  * `score.bestPlayedAt` can be missing on legacy rows imported before the
- * timestamp was tracked — the date cell is left blank rather than
- * rendering `new Date(undefined)` as "Invalid Date".
+ * timestamp was tracked, so the cell is left blank rather than rendering
+ * `new Date(undefined)` as "Invalid Date".
  *
- * @param {Array} recentScores
+ * @param {Array} topScores
  */
-const RecentList = ({ recentScores }) => {
+const TopScoreList = ({ topScores }) => {
   return (
     <div>
       <div className="mb-[6px] flex items-baseline justify-between">
-        <p className="font-mono text-[9.5px] uppercase tracking-[.24em] text-label">최근 갱신</p>
+        <p className="font-mono text-[9.5px] uppercase tracking-[.24em] text-label">최고 기록</p>
         <Link
           to="/scores"
           className="font-mono text-[9px] uppercase tracking-[.14em] text-faint2 hover:text-accent"
@@ -26,10 +37,10 @@ const RecentList = ({ recentScores }) => {
         </Link>
       </div>
 
-      {recentScores.length === 0 ? (
-        <p className="py-8 text-center text-sm text-muted">최근 플레이 기록이 없습니다.</p>
+      {topScores.length === 0 ? (
+        <p className="py-8 text-center text-sm text-muted">아직 기록이 없습니다.</p>
       ) : (
-        recentScores.map((score) => {
+        topScores.map((score) => {
           const { song, chart } = score;
           const date = score.bestPlayedAt
             ? format(new Date(score.bestPlayedAt), 'yyyy.MM.dd')
@@ -63,4 +74,4 @@ const RecentList = ({ recentScores }) => {
   );
 };
 
-export default RecentList;
+export default TopScoreList;

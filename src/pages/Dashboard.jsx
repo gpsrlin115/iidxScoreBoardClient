@@ -4,7 +4,7 @@ import { FullPageSpinner } from '../components/common/Spinner';
 import ErrorView from '../components/common/ErrorView';
 import TierProgressList from '../components/dashboard/TierProgressList';
 import DistributionBar from '../components/dashboard/DistributionBar';
-import RecentList from '../components/dashboard/RecentList';
+import TopScoreList from '../components/dashboard/TopScoreList';
 
 // Stat strip items, in display order. `color` is omitted for `total` so it
 // falls back to the `text-ink` token class; the other four are exact hex
@@ -21,7 +21,7 @@ const STAT_ITEMS = [
 const Dashboard = () => {
   const level = useScopeStore((state) => state.level);
   const playStyle = useScopeStore((state) => state.playStyle);
-  const { stats, distribution, tierRows, tierTotals, recentScores, isLoading, error, refetch } =
+  const { stats, distribution, tierRows, tierTotals, topScores, isLoading, error, refetch } =
     useDashboard();
 
   if (isLoading) {
@@ -90,7 +90,7 @@ const Dashboard = () => {
         </div>
 
         <aside className="min-w-0 border-l border-line px-[22px] pt-[34px] max-md:border-l-0 max-md:border-t">
-          <RecentList recentScores={recentScores} />
+          <TopScoreList topScores={topScores} />
         </aside>
       </div>
     </div>
