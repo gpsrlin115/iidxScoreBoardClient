@@ -24,32 +24,66 @@ const seedCounts = (chartId) => {
   return { [VOTE_UP]: (n * 7) % 13, [VOTE_KEEP]: (n * 3) % 17, [VOTE_DOWN]: (n * 11) % 7 };
 };
 
+const FILLER_BODIES = [
+  '후반 스크래치 밀도가 이 티어 평균보다 높습니다.',
+  '개인차가 크긴 한데 저는 무난하게 넘겼어요.',
+  '소프란디 구간만 넘기면 나머지는 쉬운 편입니다.',
+  '하드 게이지로는 확실히 한 단계 위 체감입니다.',
+  '노멀 클리어 기준으로는 지금 자리가 맞다고 봅니다.',
+  '동시치기가 익숙하면 표기보다 훨씬 쉽게 느껴집니다.',
+];
+
+const SEED_COMMENT_COUNT = 26;
+
+/**
+ * Seeded thread, deliberately longer than one page (COMMENT_PAGE_SIZE is 20)
+ * so `더 보기` and the delete-then-load-more offset shift are reproducible by
+ * hand in mock mode. Ordered `createdAt DESC` to match the real endpoint's
+ * fixed ordering, and every filler row is `deletable` so the shift can
+ * actually be triggered from the UI.
+ */
 const seedComments = (chartId) => {
   const hoursAgo = (hours) => new Date(Date.now() - hours * 3600_000).toISOString();
-  return [
+  const base = -1000 * (Math.abs(Number(chartId)) || 1);
+
+  const pinned = [
     {
-      id: -1 - Number(chartId) * 2,
+      id: base - 1,
       userId: 901,
       username: 'MOCK_DJ_A',
       avatarUrl: null,
       body: '후살이 유독 심해서 한 단계 위가 맞다고 봅니다. 게이지 관리가 안 되면 그대로 터져요.',
-      createdAt: hoursAgo(26),
+      createdAt: hoursAgo(3),
       authorVote: VOTE_UP,
       authorVoteStale: false,
       deletable: false,
     },
     {
-      id: -2 - Number(chartId) * 2,
+      id: base - 2,
       userId: 902,
       username: 'MOCK_DJ_B',
       avatarUrl: null,
       body: '저는 지금 자리가 적당하다고 느꼈습니다.\n난이도 편차가 큰 채보라 개인차 같아요.',
-      createdAt: hoursAgo(3),
+      createdAt: hoursAgo(5),
       authorVote: VOTE_KEEP,
       authorVoteStale: false,
       deletable: false,
     },
   ];
+
+  const filler = Array.from({ length: SEED_COMMENT_COUNT - pinned.length }, (_, i) => ({
+    id: base - 3 - i,
+    userId: 910 + (i % 5),
+    username: `MOCK_DJ_${String.fromCharCode(67 + (i % 5))}`,
+    avatarUrl: null,
+    body: `${FILLER_BODIES[i % FILLER_BODIES.length]} (#${i + 1})`,
+    createdAt: hoursAgo(8 + i),
+    authorVote: [VOTE_UP, VOTE_KEEP, VOTE_DOWN][i % 3],
+    authorVoteStale: i % 7 === 0,
+    deletable: true,
+  }));
+
+  return [...pinned, ...filler];
 };
 
 const store = new Map();
