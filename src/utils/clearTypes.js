@@ -40,8 +40,8 @@ const CLEAR_TYPES = new Set([
 
 export const isClearTypeCleared = (clearType) => CLEAR_TYPES.has(normalizeClearType(clearType));
 
-// Full clear-type styling palette, ported verbatim from
-// docs/design_handoff_night_sky_redesign/iidx-data.js (CLEAR object, lines 3-14).
+// Full clear-type styling palette, ported verbatim from an internal design
+// prototype's CLEAR object.
 // `bg` is the chip/badge background (FULLCOMBO_CLEAR uses a gold gradient
 // string, every other type is a flat color or rgba string); `solid` is a
 // single flat color for bar segments, legend swatches, and glow bases; `fg`
@@ -115,8 +115,8 @@ export const clearGlow = (clearType) => {
   return `0 0 9px ${solid}66`;
 };
 
-// Dashboard clear-distribution groups, ported verbatim from
-// docs/design_handoff_night_sky_redesign/iidx-data.js (DIST_GROUPS, ~lines 222-228).
+// Dashboard clear-distribution groups, ported verbatim from an internal
+// design prototype's DIST_GROUPS.
 export const DIST_GROUPS = [
   {
     key: 'FC',
@@ -140,8 +140,7 @@ export const DIST_GROUPS = [
 /**
  * Builds one tier row's clear-type stack: counts songs by clear type, keeps
  * CLEAR_ORDER's best-to-worst order, and drops any type with zero songs.
- * Ported from stackFor() in
- * docs/design_handoff_night_sky_redesign/iidx-data.js (lines 238-244).
+ * Ported from an internal design prototype's stackFor().
  *
  * @param {Array<{ clearType?: string }>} songs
  * @returns {Array<{ key: string, count: number, pct: number, label: string, solid: string }>}
