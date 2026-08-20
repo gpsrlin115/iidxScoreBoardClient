@@ -15,7 +15,7 @@ const NOTICE_CLASS =
 // notice sits inside the panel's `space-y-6` stack, which already owns the
 // spacing between the two halves.
 const INLINE_NOTICE_CLASS =
-  'rounded-xl border border-dashed border-slate-700 bg-slate-950/50 px-5 py-6 text-center text-sm text-slate-400';
+  'rounded-[4px] border border-dashed border-line-strong bg-night/50 px-5 py-6 text-center text-sm text-muted';
 
 /**
  * Tier-appropriateness voting + discussion panel for one chart, mounted
