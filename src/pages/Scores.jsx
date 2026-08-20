@@ -1,13 +1,14 @@
 import { useEffect, useMemo } from 'react';
 import { useScoresStore } from '../store/scoresStore';
 import useScores from '../hooks/useScores';
-import useTierStore from '../store/tierStore';
+import useTierStore, { buildFetchedKey } from '../store/tierStore';
 import Tag from '../components/common/Tag';
 import ScoreCard from '../components/scores/ScoreCard';
 import ScorePagination from '../components/scores/ScorePagination';
 import { FullPageSpinner } from '../components/common/Spinner';
 import ErrorView from '../components/common/ErrorView';
 import { CLEAR_ORDER, CLEAR_TYPE_LABELS } from '../utils/clearTypes';
+import { isTierDataUsable } from '../utils/tierScopeKey';
 
 // All five chart types the backend's `chartType` filter accepts, in
 // difficulty order. BEGINNER and NORMAL matter because this screen covers
@@ -82,7 +83,20 @@ const Scores = () => {
   } = useScores();
 
   const enrichedTierData = useTierStore((state) => state.enrichedTierData);
-  const tierMap = useMemo(() => buildTierMap(enrichedTierData), [enrichedTierData]);
+  const tierFetchedKey = useTierStore((state) => state.fetchedKey);
+  // Gated the same way useDashboard.js gates tierRows: fetchTierData below
+  // is fired without awaiting it, so enrichedTierData can still hold a
+  // DIFFERENT numeric level's rows while this screen's own fetch is still in
+  // flight (or forever, if it fails). Without the gate, switching level
+  // could tag a card with a tier badge that belongs to the level just left.
+  // "all levels" (effectiveLevel === '') is exempt -- see isTierDataUsable's
+  // doc comment.
+  const tierMap = useMemo(() => {
+    if (!isTierDataUsable(tierFetchedKey, buildFetchedKey(effectiveLevel, playStyle), effectiveLevel)) {
+      return new Map();
+    }
+    return buildTierMap(enrichedTierData);
+  }, [tierFetchedKey, enrichedTierData, effectiveLevel, playStyle]);
 
   // The TIER tags read tierStore, so this screen has to load it too — landing
   // here directly (bookmark, refresh) never passes through the dashboard or the

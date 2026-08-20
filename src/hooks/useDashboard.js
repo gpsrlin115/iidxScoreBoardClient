@@ -2,9 +2,10 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { scoresApi } from '../api/scores';
 import { useAuthStore } from '../store/authStore';
 import { useScopeStore } from '../store/scopeStore';
-import useTierStore from '../store/tierStore';
+import useTierStore, { buildFetchedKey } from '../store/tierStore';
 import { toAppError } from '../utils/httpError';
 import { isClearTypeCleared, DIST_GROUPS } from '../utils/clearTypes';
+import { isTierDataUsable } from '../utils/tierScopeKey';
 
 /**
  * Dashboard data hook.
@@ -25,6 +26,10 @@ const useDashboard = () => {
   // Subscribed (not read once via getState()) so a later fetchTierData
   // resolution re-renders this hook's derived tierRows/tierTotals.
   const enrichedTierData = useTierStore((state) => state.enrichedTierData);
+  // Subscribed alongside enrichedTierData for the same reason: this is what
+  // lets tierScopeReady below re-derive on every fetch settle, not just on
+  // mount.
+  const tierFetchedKey = useTierStore((state) => state.fetchedKey);
 
   const [stats, setStats] = useState({
     total: 0,
@@ -104,8 +109,17 @@ const useDashboard = () => {
     }
   }, [fetchDashboardData, isAuthenticated, level, playStyle]);
 
+  // tierStore's fetchTierData is fire-and-forget from this hook's own
+  // request lifecycle (see below) and can resolve well after -- or never,
+  // on a failed request -- the 6-query stats fetch above does. Without this
+  // gate, switching SP -> DP could show DP's stat strip next to SP's
+  // tier-clear percentage for however long the tier fetch takes, or
+  // indefinitely if it errors, since tierStore's own isLoading/error are
+  // never consulted here.
+  const tierScopeReady = isTierDataUsable(tierFetchedKey, buildFetchedKey(level, playStyle), level);
+
   // Per-tier progress rows, derived from the subscribed enrichedTierData.
-  const tierRows = enrichedTierData.map(({ tier, songs }) => {
+  const tierRows = !tierScopeReady ? [] : enrichedTierData.map(({ tier, songs }) => {
     const total = songs.length;
     const cleared = songs.filter((song) => isClearTypeCleared(song.clearType)).length;
     const pct = total > 0 ? Math.round((cleared / total) * 100) : 0;

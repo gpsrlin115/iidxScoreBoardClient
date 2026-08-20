@@ -17,7 +17,13 @@ const gate = createTierFetchGate();
 // logout -> different login serve the previous user's records. store/
 // sessionReset.js also clears this store on identity change; both layers are
 // deliberate, since a leak here is a privacy failure, not a stale render.
-const buildFetchedKey = (level, playStyle) => {
+//
+// Exported so readers other than this store (useDashboard, Scores.jsx) can
+// build the SAME key for their own (level, playStyle) and compare it against
+// `state.fetchedKey` via utils/tierScopeKey.js's isTierDataUsable, instead of
+// reading `enrichedTierData` on faith. See that module's doc comment for why
+// that comparison has to exist at all.
+export const buildFetchedKey = (level, playStyle) => {
   const userId = useAuthStore.getState().user?.id ?? 'anon';
   return `${userId}:${level}:${playStyle}`;
 };
