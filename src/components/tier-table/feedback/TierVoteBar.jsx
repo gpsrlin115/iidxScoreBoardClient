@@ -37,10 +37,20 @@ const buildLiveSummary = (counts, total) => (
  * @param {string | null} myVote
  * @param {boolean} myVoteStale
  * @param {{ category: string | null, tier: string } | null} currentTier
- * @param {boolean} isPending
+ * @param {boolean} isPending - a vote write is in flight
+ * @param {boolean} isLoading - the bootstrap aggregate has not arrived yet
  * @param {(value: string) => void} onVote
  */
-const TierVoteBar = ({ counts, total, myVote, myVoteStale, currentTier, isPending, onVote }) => (
+const TierVoteBar = ({
+  counts,
+  total,
+  myVote,
+  myVoteStale,
+  currentTier,
+  isPending,
+  isLoading = false,
+  onVote,
+}) => (
   <div>
     {currentTier && (
       <p className="text-xs text-slate-400">
@@ -61,7 +71,19 @@ const TierVoteBar = ({ counts, total, myVote, myVoteStale, currentTier, isPendin
     >
       {VOTE_ORDER.map((value) => {
         const Icon = VOTE_ICONS[value];
-        const isSelected = myVote === value;
+        // Mirrors `useTierVote.submitVote`'s own guard. Keeping the buttons
+        // live while a write is in flight is what let two clicks reach the
+        // server out of order, leaving the stored vote and the screen
+        // disagreeing; `isLoading` blocks voting before the bootstrap
+        // aggregate reveals whether the user already has a vote.
+        const isDisabled = isPending || isLoading;
+        // A stale vote is excluded from the aggregate and `submitVote`
+        // treats it as "no active vote" (re-clicking it saves rather than
+        // cancels). Showing it as selected would contradict both the
+        // banner above and what the next click actually does, so it reads
+        // as unselected-but-remembered instead.
+        const isSelected = myVote === value && !myVoteStale;
+        const isPreviousVote = myVote === value && myVoteStale;
         const count = counts[value] ?? 0;
         const ratio = ratioOf(count, total);
 
@@ -75,10 +97,15 @@ const TierVoteBar = ({ counts, total, myVote, myVoteStale, currentTier, isPendin
             // a plain button + aria-pressed communicates.
             aria-pressed={isSelected}
             aria-label={`${VOTE_LABELS[value]} ${count}표`}
+            title={isPreviousVote ? '개정 전 투표' : undefined}
+            disabled={isDisabled}
+            aria-busy={isPending}
             onClick={() => onVote(value)}
             className={`flex flex-col items-start gap-1 rounded-lg border px-3 py-2.5 text-left transition focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-400 ${
               isSelected ? VOTE_STYLES[value].selected : VOTE_IDLE_STYLE
-            } ${isPending ? 'opacity-80' : ''}`}
+            } ${isPreviousVote ? 'ring-1 ring-inset ring-amber-500/40' : ''} ${
+              isDisabled ? 'cursor-not-allowed opacity-60' : ''
+            }`}
           >
             <span className="flex items-center gap-1.5 text-sm font-semibold">
               <Icon aria-hidden="true" size={15} />

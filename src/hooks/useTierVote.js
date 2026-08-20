@@ -2,7 +2,8 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import toast from 'react-hot-toast';
 import { songFeedbackApi } from '../api/songFeedback';
 import { toAppError } from '../utils/httpError';
-import { EMPTY_VOTE_COUNTS, VOTE_ORDER } from '../constants/feedback';
+import { EMPTY_VOTE_COUNTS } from '../constants/feedback';
+import { computeOptimisticVote } from '../utils/voteTally';
 
 const isNotDeployedStatus = (status) => status === 404 || status === 501;
 
@@ -38,6 +39,18 @@ const useTierVote = (chartId) => {
   // hook, not just for the fetch. Bumping it once more on unmount
   // invalidates any response still in flight, which doubles as the
   // "no setState after unmount" guard without a separate mounted ref.
+  //
+  // INVARIANT: at most ONE request is ever in flight, because `submitVote`
+  // refuses to start while `isLoading` or `isPending` is set and the UI
+  // disables the buttons for both. Two consequences depend on it:
+  //   1. The server's arrival order matches the click order, so the stored
+  //      vote can no longer diverge from what the screen shows. Without the
+  //      guard, "latest response wins" still leaves the SERVER holding
+  //      whichever write landed last.
+  //   2. `fetchFeedback`'s stale-response `return` fires before its
+  //      `setIsLoading(false)`, so a fetch invalidated by a concurrent vote
+  //      would strand `isLoading` at true forever. Serialization makes that
+  //      pairing unreachable rather than papering over it in a `finally`.
   const requestIdRef = useRef(0);
 
   useEffect(() => () => {
@@ -95,32 +108,16 @@ const useTierVote = (chartId) => {
   }, [fetchFeedback]);
 
   const submitVote = useCallback(async (value) => {
-    if (chartId == null || unavailable) return;
+    // isLoading/isPending are part of the guard, not just cosmetics on the
+    // buttons -- see the INVARIANT above. Voting before the bootstrap
+    // settles would also read `myVote` as null and turn a cancel-my-vote
+    // re-click into a brand new save.
+    if (chartId == null || unavailable || isLoading || isPending) return;
 
     const snapshot = state;
-    // Re-clicking the currently active choice cancels it, but only while
-    // that choice is actually live. A stale vote is already excluded from
-    // the aggregate, so clicking the same label again means "count this
-    // again" -- a fresh save, not a toggle-off.
-    const hadActiveVote = Boolean(state.myVote) && !state.myVoteStale;
-    const isTogglingOff = hadActiveVote && state.myVote === value;
+    const { isTogglingOff, ...optimistic } = computeOptimisticVote(state, value);
 
-    const nextCounts = { ...state.counts };
-    if (hadActiveVote) {
-      nextCounts[state.myVote] = Math.max(0, nextCounts[state.myVote] - 1);
-    }
-    if (!isTogglingOff) {
-      nextCounts[value] = (nextCounts[value] ?? 0) + 1;
-    }
-    const nextTotal = VOTE_ORDER.reduce((sum, key) => sum + nextCounts[key], 0);
-
-    setState((prev) => ({
-      ...prev,
-      counts: nextCounts,
-      total: nextTotal,
-      myVote: isTogglingOff ? null : value,
-      myVoteStale: false,
-    }));
+    setState((prev) => ({ ...prev, ...optimistic }));
     setIsPending(true);
 
     const requestId = ++requestIdRef.current;
@@ -146,7 +143,7 @@ const useTierVote = (chartId) => {
     } finally {
       if (requestId === requestIdRef.current) setIsPending(false);
     }
-  }, [chartId, unavailable, state]);
+  }, [chartId, unavailable, isLoading, isPending, state]);
 
   return {
     ...state,
