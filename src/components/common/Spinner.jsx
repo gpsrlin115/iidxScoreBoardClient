@@ -25,7 +25,7 @@ const Spinner = ({ size = 'md', className = '' }) => {
 
   return (
     <svg
-      className={clsx('animate-spin text-primary-500', sizeClasses[size], className)}
+      className={clsx('animate-spin text-accent', sizeClasses[size], className)}
       xmlns="http://www.w3.org/2000/svg"
       fill="none"
       viewBox="0 0 24 24"
@@ -56,10 +56,10 @@ const Spinner = ({ size = 'md', className = '' }) => {
  * 페이지 전환이나 세션 복원 중에 사용합니다.
  */
 export const FullPageSpinner = () => (
-  <div className="flex items-center justify-center min-h-screen bg-bg-darker">
+  <div className="flex items-center justify-center min-h-screen bg-night">
     <div className="flex flex-col items-center gap-4">
       <Spinner size="lg" />
-      <p className="text-slate-400 text-sm animate-pulse">Loading...</p>
+      <p className="text-muted text-sm animate-pulse">Loading...</p>
     </div>
   </div>
 );
@@ -71,7 +71,7 @@ export const RouteContentSpinner = () => (
   <div className="flex items-center justify-center min-h-[50vh]">
     <div className="flex flex-col items-center gap-3">
       <Spinner size="md" />
-      <p className="text-slate-400 text-sm animate-pulse">페이지를 불러오는 중...</p>
+      <p className="text-muted text-sm animate-pulse">페이지를 불러오는 중...</p>
     </div>
   </div>
 );

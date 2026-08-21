@@ -45,19 +45,19 @@ const ResetPasswordConfirm = () => {
   if (!token) return null; // useEffect에서 리다이렉트 처리됨
 
   return (
-    <div className="min-h-screen bg-bg-darker flex items-center justify-center px-4">
+    <div className="min-h-screen bg-night flex items-center justify-center px-4">
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
-          <h1 className="text-4xl font-bold text-white mb-2">🎵 IIDX</h1>
-          <p className="text-slate-400 text-sm">새 비밀번호 설정</p>
+          <h1 className="text-4xl font-bold text-ink mb-2">🎵 IIDX</h1>
+          <p className="text-muted text-sm">새 비밀번호 설정</p>
         </div>
 
-        <div className="bg-slate-800 rounded-2xl p-8 shadow-2xl border border-slate-700">
-          <h2 className="text-xl font-semibold text-white mb-6">비밀번호 재설정</h2>
+        <div className="bg-panel/90 rounded-2xl p-8 shadow-2xl border border-line">
+          <h2 className="text-xl font-semibold text-ink mb-6">비밀번호 재설정</h2>
 
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
-              <label className="block text-sm text-slate-400 mb-1" htmlFor="password">
+              <label className="block text-sm text-muted mb-1" htmlFor="password">
                 새 비밀번호
               </label>
               <input
@@ -65,8 +65,8 @@ const ResetPasswordConfirm = () => {
                 type="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                className="w-full bg-slate-700 text-white rounded-lg px-4 py-3 text-sm
-                           border border-slate-600 focus:outline-none focus:border-primary-500
+                className="w-full bg-night/60 text-ink rounded-lg px-4 py-3 text-sm
+                           border border-line-strong focus:outline-none focus:border-accent
                            transition"
                 placeholder="새로운 비밀번호를 입력하세요"
                 required
@@ -75,7 +75,7 @@ const ResetPasswordConfirm = () => {
             </div>
 
             <div>
-              <label className="block text-sm text-slate-400 mb-1" htmlFor="passwordConfirm">
+              <label className="block text-sm text-muted mb-1" htmlFor="passwordConfirm">
                 새 비밀번호 확인
               </label>
               <input
@@ -83,8 +83,8 @@ const ResetPasswordConfirm = () => {
                 type="password"
                 value={passwordConfirm}
                 onChange={(e) => setPasswordConfirm(e.target.value)}
-                className="w-full bg-slate-700 text-white rounded-lg px-4 py-3 text-sm
-                           border border-slate-600 focus:outline-none focus:border-primary-500
+                className="w-full bg-night/60 text-ink rounded-lg px-4 py-3 text-sm
+                           border border-line-strong focus:outline-none focus:border-accent
                            transition"
                 placeholder="비밀번호를 한 번 더 입력하세요"
                 required
@@ -102,8 +102,8 @@ const ResetPasswordConfirm = () => {
             </button>
           </form>
 
-          <div className="mt-6 pt-6 border-t border-slate-700 text-center">
-            <Link to="/login" className="text-sm text-slate-400 hover:text-white transition">
+          <div className="mt-6 pt-6 border-t border-line text-center">
+            <Link to="/login" className="text-sm text-muted hover:text-ink transition">
               &larr; 로그인 화면으로 돌아가기
             </Link>
           </div>

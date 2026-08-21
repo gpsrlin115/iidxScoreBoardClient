@@ -9,13 +9,13 @@ import CommentList from './CommentList';
 // Same dashed-border "nothing here yet" tone as SongScoreSection's empty
 // state, reused so the dialog reads as one design rather than two.
 const NOTICE_CLASS =
-  'mt-4 rounded-xl border border-dashed border-slate-700 bg-slate-950/50 px-5 py-8 text-center text-sm text-slate-400';
+  'mt-4 rounded-[4px] border border-dashed border-line-strong bg-night/50 px-5 py-8 text-center text-sm text-muted';
 
 // Same notice, minus the top margin. When only one half is unavailable the
 // notice sits inside the panel's `space-y-6` stack, which already owns the
 // spacing between the two halves.
 const INLINE_NOTICE_CLASS =
-  'rounded-xl border border-dashed border-slate-700 bg-slate-950/50 px-5 py-6 text-center text-sm text-slate-400';
+  'rounded-[4px] border border-dashed border-line-strong bg-night/50 px-5 py-6 text-center text-sm text-muted';
 
 /**
  * Tier-appropriateness voting + discussion panel for one chart, mounted
@@ -46,8 +46,8 @@ const SongFeedbackPanel = ({ chartId, hasDifficulty = false }) => {
   const allUnavailable = vote.unavailable && commentsState.unavailable;
 
   return (
-    <div className="mt-6 border-t border-slate-700 pt-5">
-      <h3 className="text-base font-bold text-white">이 곡의 티어, 적절한가요?</h3>
+    <div className="mt-6 border-t border-line pt-5">
+      <h3 className="text-base font-bold text-ink">이 곡의 티어, 적절한가요?</h3>
 
       {allUnavailable ? (
         <p className={NOTICE_CLASS}>

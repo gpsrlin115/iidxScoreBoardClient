@@ -1,22 +1,30 @@
 import { formatClearType, formatDateTime, formatNumber } from './scoreFormat';
 
-const DetailValue = ({ label, value, emphasis = false, className = '' }) => (
-  <div className={`rounded-lg border border-slate-700 bg-slate-950/60 px-3 py-2 ${className}`}>
-    <dt className="text-xs text-slate-400">{label}</dt>
-    <dd className={`mt-1 font-mono ${emphasis ? 'text-lg font-bold text-white' : 'text-sm text-slate-200'}`}>
+// `numeric` picks font-num/tnum (tabular figures) for the four measured
+// values — score, BP, PGREAT, GREAT — while clear type / DJ LEVEL / played-at
+// stay on font-mono, matching how the rest of the app renders label-like
+// metadata rather than a measurement.
+const DetailValue = ({ label, value, emphasis = false, numeric = false, className = '' }) => (
+  <div className={`rounded-[3px] border border-line bg-night/60 px-3 py-2 ${className}`}>
+    <dt className="text-xs text-muted">{label}</dt>
+    <dd
+      className={`mt-1 ${numeric ? 'font-num tnum' : 'font-mono'} ${
+        emphasis ? 'text-lg font-bold text-ink' : 'text-sm text-text2'
+      }`}
+    >
       {value}
     </dd>
   </div>
 );
 
 const RecordSection = ({ title, tone, score, missCount, pGreat, great, clearType, djLevel, playedAt, isBest }) => (
-  <section className="rounded-xl border border-slate-700 bg-slate-900/70 p-4">
+  <section className="rounded-[4px] border border-line bg-surface p-4">
     <h3 className={`mb-3 text-sm font-bold ${tone}`}>{title}</h3>
     <dl className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-      <DetailValue label={isBest ? '역대 최고 점수' : '최근 수집 점수'} value={formatNumber(score)} emphasis />
-      <DetailValue label={isBest ? '최고점 당시 BP' : '최근 수집 BP'} value={formatNumber(missCount)} emphasis />
-      <DetailValue label="PGREAT" value={formatNumber(pGreat)} />
-      <DetailValue label="GREAT" value={formatNumber(great)} />
+      <DetailValue label={isBest ? '역대 최고 점수' : '최근 수집 점수'} value={formatNumber(score)} emphasis numeric />
+      <DetailValue label={isBest ? '최고점 당시 BP' : '최근 수집 BP'} value={formatNumber(missCount)} emphasis numeric />
+      <DetailValue label="PGREAT" value={formatNumber(pGreat)} numeric />
+      <DetailValue label="GREAT" value={formatNumber(great)} numeric />
       <DetailValue label="클리어" value={formatClearType(clearType)} />
       <DetailValue label="DJ LEVEL" value={djLevel ?? '-'} />
       <DetailValue label="기록 시각" value={formatDateTime(playedAt)} className="col-span-2" />
@@ -37,9 +45,9 @@ const RecordSection = ({ title, tone, score, missCount, pGreat, great, clearType
 const SongScoreSection = ({ details, isFallbackScore = false }) => {
   if (!details) {
     return (
-      <div className="mt-5 rounded-xl border border-dashed border-slate-700 bg-slate-950/50 px-5 py-10 text-center">
-        <p className="font-medium text-slate-300">이 채보의 플레이 기록이 없습니다.</p>
-        <p className="mt-1 text-sm text-slate-400">CSV를 가져온 뒤 다시 확인해 주세요.</p>
+      <div className="mt-5 rounded-[4px] border border-dashed border-line-strong bg-night/50 px-5 py-10 text-center">
+        <p className="font-medium text-text2">이 채보의 플레이 기록이 없습니다.</p>
+        <p className="mt-1 text-sm text-muted">CSV를 가져온 뒤 다시 확인해 주세요.</p>
       </div>
     );
   }
@@ -54,7 +62,7 @@ const SongScoreSection = ({ details, isFallbackScore = false }) => {
       )}
       <RecordSection
         title="역대 최고 기록"
-        tone="text-primary-400"
+        tone="text-info"
         score={details.bestScore}
         missCount={details.bestMissCount}
         pGreat={details.bestPGreat}
@@ -66,7 +74,7 @@ const SongScoreSection = ({ details, isFallbackScore = false }) => {
       />
       <RecordSection
         title="최근 수집 기록"
-        tone="text-accent-500"
+        tone="text-accent"
         score={details.lastScore}
         missCount={details.lastMissCount}
         pGreat={details.lastPGreat}
@@ -75,7 +83,7 @@ const SongScoreSection = ({ details, isFallbackScore = false }) => {
         djLevel={details.lastDjLevel}
         playedAt={details.lastPlayedAt}
       />
-      <p className="px-1 text-xs leading-relaxed text-slate-400">
+      <p className="px-1 text-xs leading-relaxed text-muted">
         BP는 백엔드의 MISS COUNT입니다. 최고점 BP는 최저 BP가 아니라 최고 점수를 기록했을 당시 값입니다.
       </p>
     </div>

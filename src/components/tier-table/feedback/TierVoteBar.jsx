@@ -53,7 +53,7 @@ const TierVoteBar = ({
 }) => (
   <div>
     {currentTier && (
-      <p className="text-xs text-slate-400">
+      <p className="text-xs text-muted">
         {[normalizeTierCategory(currentTier.category), currentTier.tier].filter(Boolean).join(' ')} 기준 집계
       </p>
     )}
@@ -101,7 +101,7 @@ const TierVoteBar = ({
             disabled={isDisabled}
             aria-busy={isPending}
             onClick={() => onVote(value)}
-            className={`flex flex-col items-start gap-1 rounded-lg border px-3 py-2.5 text-left transition focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-400 ${
+            className={`flex flex-col items-start gap-1 rounded-lg border px-3 py-2.5 text-left transition focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent ${
               isSelected ? VOTE_STYLES[value].selected : VOTE_IDLE_STYLE
             } ${isPreviousVote ? 'ring-1 ring-inset ring-amber-500/40' : ''} ${
               isDisabled ? 'cursor-not-allowed opacity-60' : ''
@@ -112,8 +112,8 @@ const TierVoteBar = ({
               {VOTE_LABELS[value]}
               <span className="font-mono">{count}</span>
             </span>
-            <span className="text-[11px] text-slate-400">{VOTE_HINTS[value]}</span>
-            <span className="h-1 w-full overflow-hidden rounded-full bg-slate-800">
+            <span className="text-[11px] text-muted">{VOTE_HINTS[value]}</span>
+            <span className="h-1 w-full overflow-hidden rounded-full bg-ink/6">
               <span
                 className={`block h-full rounded-full ${VOTE_STYLES[value].bar}`}
                 style={{ width: `${ratio}%` }}
@@ -124,7 +124,7 @@ const TierVoteBar = ({
       })}
     </div>
 
-    <p className="mt-2 text-xs text-slate-500">
+    <p className="mt-2 text-xs text-faint2">
       {total > 0 ? `총 ${total}표` : '아직 투표가 없습니다'}
     </p>
 

@@ -13,12 +13,12 @@ import SongFeedbackPanel from './feedback/SongFeedbackPanel';
  * one per tile (a Lv.12 table holds ~1000 tiles), and makes unmount the single
  * place where focus restore and cache teardown happen.
  *
- * Layer scale in this app: header 50 (Header.jsx), this dialog 100,
- * GlobalLoadingOverlay 9999. The dialog now sits above the header — the two
- * used to share z-50 and only DOM order kept this on top — but stays below the
- * global overlay, which is meant to block everything. So any async work owned
- * by this dialog must use local pending state, never useLoading().run(): that
- * overlay would cover the dialog the user is looking at.
+ * Layer scale in this app: app shell 1 (ProtectedLayout grid) with the top bar
+ * at 4 (TopBar.jsx) and the sidebar at auto, this dialog 100, and
+ * GlobalLoadingOverlay 9999. The dialog clears the whole shell but stays below
+ * the global overlay, which is meant to block everything. So any async work
+ * owned by this dialog must use local pending state, never useLoading().run():
+ * that overlay would cover the dialog the user is looking at.
  */
 const SongScoreDialog = ({ id, song, difficultyLabel, onClose }) => {
   const closeButtonRef = useRef(null);
@@ -29,7 +29,7 @@ const SongScoreDialog = ({ id, song, difficultyLabel, onClose }) => {
 
   return createPortal(
     <div
-      className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/80 p-4 backdrop-blur-sm"
+      className="fixed inset-0 z-[100] flex items-center justify-center bg-night/80 p-4 backdrop-blur-sm"
       onMouseDown={(event) => {
         if (event.target === event.currentTarget) onClose();
       }}
@@ -41,17 +41,17 @@ const SongScoreDialog = ({ id, song, difficultyLabel, onClose }) => {
         aria-modal="true"
         aria-labelledby={titleId}
         aria-describedby={descriptionId}
-        className="max-h-[90vh] w-full max-w-3xl overflow-y-auto rounded-2xl border border-slate-700 bg-slate-900 p-5 text-left shadow-2xl sm:p-6"
+        className="max-h-[90vh] w-full max-w-3xl overflow-y-auto rounded-[4px] border border-line bg-panel p-5 text-left shadow-2xl sm:p-6"
       >
         <div className="flex items-start justify-between gap-4">
           <div className="min-w-0">
-            <h2 id={titleId} className="break-words text-xl font-bold text-white sm:text-2xl">
+            <h2 id={titleId} className="break-words text-xl font-bold text-ink sm:text-2xl">
               {song.title}
               {difficultyLabel && (
-                <span className="ml-2 font-mono text-base text-primary-400">[{difficultyLabel}]</span>
+                <span className="ml-2 font-mono text-base text-info">[{difficultyLabel}]</span>
               )}
             </h2>
-            <p id={descriptionId} className="mt-1 text-sm text-slate-400">
+            <p id={descriptionId} className="mt-1 text-sm text-muted">
               {song.playStyle} · Lv.{song.level} · 개인 상세 기록
             </p>
           </div>
@@ -59,7 +59,7 @@ const SongScoreDialog = ({ id, song, difficultyLabel, onClose }) => {
             ref={closeButtonRef}
             type="button"
             onClick={onClose}
-            className="shrink-0 rounded-lg p-2 text-slate-400 transition hover:bg-slate-800 hover:text-white focus-visible:outline-2 focus-visible:outline-primary-400"
+            className="shrink-0 rounded-lg p-2 text-muted transition hover:bg-ink/6 hover:text-ink focus-visible:outline-2 focus-visible:outline-accent"
             aria-label="상세 점수 닫기"
           >
             <FiX size={22} />

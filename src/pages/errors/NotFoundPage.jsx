@@ -8,7 +8,7 @@ import ErrorView from '../../components/common/ErrorView';
  * background instead of relying on a parent layout.
  */
 const NotFoundPage = () => (
-  <div className="min-h-screen bg-bg-darker flex items-center justify-center px-4">
+  <div className="min-h-screen bg-night flex items-center justify-center px-4">
     <ErrorView status={404} variant="page" />
   </div>
 );

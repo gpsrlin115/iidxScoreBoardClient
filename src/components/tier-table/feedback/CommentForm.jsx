@@ -58,14 +58,14 @@ const CommentForm = ({ isSubmitting, onSubmit }) => {
         aria-describedby={hintId}
         placeholder="왜 그렇게 투표했는지 알려주세요."
         rows={3}
-        className="w-full resize-none rounded-lg border border-slate-700 bg-slate-950/60 px-3 py-2 text-sm text-slate-100 placeholder:text-slate-500 focus-visible:outline-2 focus-visible:outline-primary-400"
+        className="w-full resize-none rounded-lg border border-line bg-night/60 px-3 py-2 text-sm text-text2 placeholder:text-faint2 focus-visible:outline-2 focus-visible:outline-accent"
       />
 
       <div className="mt-1.5 flex items-center justify-between">
-        <p id={hintId} className="text-[11px] text-slate-500">
+        <p id={hintId} className="text-[11px] text-faint2">
           Ctrl/Cmd+Enter로 등록됩니다.
         </p>
-        <span aria-hidden="true" className="text-[11px] text-slate-500">
+        <span aria-hidden="true" className="text-[11px] text-faint2">
           {body.length}/{COMMENT_MAX_LENGTH}
         </span>
       </div>
