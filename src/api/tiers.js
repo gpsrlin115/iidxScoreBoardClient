@@ -61,7 +61,6 @@ export const tierApi = {
     } catch (error) {
       // Rethrow instead of returning []: swallowing the error here made a 403
       // look identical to "no tier data exists" on screen.
-      // See docs/retro-2026-05-10-tier-table-403-and-history-cleanup.md
       console.error(`Failed to fetch tier data for Lv.${level} ${playStyle}`, error);
       throw error;
     }
