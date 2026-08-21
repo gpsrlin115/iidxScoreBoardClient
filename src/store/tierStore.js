@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { tierApi } from '../api/tiers';
 import { scoresApi } from '../api/scores';
+import { resolveMockChartId } from '../api/songFeedback';
 import toast from 'react-hot-toast';
 import { normalizeClearType } from '../utils/clearTypes';
 import { toAppError } from '../utils/httpError';
@@ -9,7 +10,7 @@ let latestTierRequestId = 0;
 
 const normalizeTierSong = (song) => {
   if (typeof song === 'string') {
-    return { title: song, difficulty: null };
+    return { title: song, difficulty: null, chartId: null };
   }
 
   return {
@@ -18,6 +19,7 @@ const normalizeTierSong = (song) => {
     category: song.category ?? null,
     tier: song.tier ?? null,
     sortOrder: song.sortOrder ?? null,
+    chartId: song.chartId ?? null,
   };
 };
 
@@ -134,9 +136,25 @@ const useTierStore = create((set, get) => ({
 
           return {
             ...tierSong,
+            level: selectedLevel,
+            playStyle: selectedPlayStyle,
             clearType,
             score: score ? score.bestScore : 0,
             djLevel: score ? score.bestDjLevel : '-',
+            // Carry whichever score drove the lamp above. Using exactScore only
+            // made the tile light up while the dialog claimed "no play record",
+            // because a tier item without a difficulty falls back to a
+            // title-only match. `isFallbackScore` lets the dialog say the
+            // record belongs to another chart of the same song.
+            scoreDetails: score ?? null,
+            isFallbackScore: Boolean(!exactScore && fallbackScore),
+            // Backfill from exactScore only. A fallback match is a *different*
+            // chart of the same song, so its id would attach per-chart
+            // feedback to the wrong chart. Null here disables that feature
+            // rather than pointing it somewhere plausible but wrong.
+            chartId: tierSong.chartId
+              ?? exactScore?.chart?.id
+              ?? resolveMockChartId(tierSong.title, tierSong.difficulty),
           };
         })
       }));

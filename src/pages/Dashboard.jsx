@@ -162,6 +162,7 @@ const Dashboard = () => {
                         clearType === 'CLEAR' ? 'bg-blue-900/30 text-blue-400 border-blue-700/50' :
                         clearType === 'EASY_CLEAR' ? 'bg-green-900/30 text-green-400 border-green-700/50' :
                         clearType === 'ASSIST_CLEAR' ? 'bg-purple-900/30 text-purple-400 border-purple-700/50' :
+                        clearType === 'FAILED' ? 'bg-slate-700/50 text-slate-300 border-slate-500/50' :
                         'bg-slate-800 text-slate-400 border-slate-600'}
                     `}>
                       {CLEAR_TYPE_LABELS[clearType] ?? clearType}

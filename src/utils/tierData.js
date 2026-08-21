@@ -7,6 +7,12 @@ const CATEGORY_LABELS = {
 
 export const normalizeTierCategory = (category) => CATEGORY_LABELS[category] ?? category ?? null;
 
+// This is a field whitelist: anything not listed here is dropped before the
+// viewer ever sees it. `chartId` is the only stable identity a tier item has
+// (title + difficulty are matched loosely and can be re-spelled), so per-chart
+// features such as tier voting break silently if it stops being carried here.
+// It stays null for legacy payloads and for items the backend could not
+// resolve to a chart.
 const normalizeTierItem = (item) => {
   if (typeof item === 'string') {
     return {
@@ -15,6 +21,7 @@ const normalizeTierItem = (item) => {
       category: null,
       tier: null,
       sortOrder: null,
+      chartId: null,
     };
   }
 
@@ -24,6 +31,7 @@ const normalizeTierItem = (item) => {
     category: normalizeTierCategory(item.category),
     tier: item.tier ?? null,
     sortOrder: item.sortOrder ?? null,
+    chartId: item.chartId ?? null,
   };
 };
 
