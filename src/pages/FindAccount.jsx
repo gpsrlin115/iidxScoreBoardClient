@@ -54,21 +54,21 @@ const FindAccount = () => {
   };
 
   return (
-    <div className="min-h-screen bg-bg-darker flex items-center justify-center px-4">
+    <div className="min-h-screen bg-night flex items-center justify-center px-4">
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
-          <h1 className="text-4xl font-bold text-white mb-2">🎵 IIDX</h1>
-          <p className="text-slate-400 text-sm">ScoreBoard 계정 찾기</p>
+          <h1 className="text-4xl font-bold text-ink mb-2">🎵 IIDX</h1>
+          <p className="text-muted text-sm">ScoreBoard 계정 찾기</p>
         </div>
 
-        <div className="bg-slate-800 rounded-2xl shadow-2xl border border-slate-700 overflow-hidden">
+        <div className="bg-panel/90 rounded-2xl shadow-2xl border border-line overflow-hidden">
           {/* 탭 헤더 */}
-          <div className="flex border-b border-slate-700">
+          <div className="flex border-b border-line">
             <button
               className={`flex-1 py-4 text-sm font-semibold transition ${
                 activeTab === 'id'
                   ? 'text-primary-500 border-b-2 border-primary-500'
-                  : 'text-slate-400 hover:text-slate-300 bg-slate-800/50'
+                  : 'text-muted hover:text-text2 bg-panel/50'
               }`}
               onClick={() => setActiveTab('id')}
               type="button"
@@ -79,7 +79,7 @@ const FindAccount = () => {
               className={`flex-1 py-4 text-sm font-semibold transition ${
                 activeTab === 'password'
                   ? 'text-primary-500 border-b-2 border-primary-500'
-                  : 'text-slate-400 hover:text-slate-300 bg-slate-800/50'
+                  : 'text-muted hover:text-text2 bg-panel/50'
               }`}
               onClick={() => setActiveTab('password')}
               type="button"
@@ -93,7 +93,7 @@ const FindAccount = () => {
             {activeTab === 'id' && (
               <form onSubmit={handleFindId} className="space-y-4">
                 <div>
-                  <label className="block text-sm text-slate-400 mb-1" htmlFor="idEmail">
+                  <label className="block text-sm text-muted mb-1" htmlFor="idEmail">
                     가입한 이메일
                   </label>
                   <input
@@ -101,7 +101,7 @@ const FindAccount = () => {
                     type="email"
                     value={idEmail}
                     onChange={(e) => setIdEmail(e.target.value)}
-                    className="w-full bg-slate-700 text-white rounded-lg px-4 py-3 text-sm border border-slate-600 focus:outline-none focus:border-primary-500 transition"
+                    className="w-full bg-night/60 text-ink rounded-lg px-4 py-3 text-sm border border-line-strong focus:outline-none focus:border-accent transition"
                     placeholder="example@email.com"
                     required
                   />
@@ -117,7 +117,7 @@ const FindAccount = () => {
                 {maskedId && (
                   <div className="mt-4 p-4 bg-green-900/30 border border-green-800 rounded-lg text-center">
                     <p className="text-sm text-green-400 mb-1">회원님의 아이디는 다음과 같습니다.</p>
-                    <p className="text-xl font-bold text-white tracking-widest">{maskedId}</p>
+                    <p className="text-xl font-bold text-ink tracking-widest">{maskedId}</p>
                   </div>
                 )}
               </form>
@@ -127,7 +127,7 @@ const FindAccount = () => {
             {activeTab === 'password' && (
               <form onSubmit={handleResetPassword} className="space-y-4">
                 <div>
-                  <label className="block text-sm text-slate-400 mb-1" htmlFor="pwUsername">
+                  <label className="block text-sm text-muted mb-1" htmlFor="pwUsername">
                     아이디
                   </label>
                   <input
@@ -135,13 +135,13 @@ const FindAccount = () => {
                     type="text"
                     value={pwUsername}
                     onChange={(e) => setPwUsername(e.target.value)}
-                    className="w-full bg-slate-700 text-white rounded-lg px-4 py-3 text-sm border border-slate-600 focus:outline-none focus:border-primary-500 transition"
+                    className="w-full bg-night/60 text-ink rounded-lg px-4 py-3 text-sm border border-line-strong focus:outline-none focus:border-accent transition"
                     placeholder="아이디를 입력하세요"
                     required
                   />
                 </div>
                 <div>
-                  <label className="block text-sm text-slate-400 mb-1" htmlFor="pwEmail">
+                  <label className="block text-sm text-muted mb-1" htmlFor="pwEmail">
                     가입한 이메일
                   </label>
                   <input
@@ -149,7 +149,7 @@ const FindAccount = () => {
                     type="email"
                     value={pwEmail}
                     onChange={(e) => setPwEmail(e.target.value)}
-                    className="w-full bg-slate-700 text-white rounded-lg px-4 py-3 text-sm border border-slate-600 focus:outline-none focus:border-primary-500 transition"
+                    className="w-full bg-night/60 text-ink rounded-lg px-4 py-3 text-sm border border-line-strong focus:outline-none focus:border-accent transition"
                     placeholder="example@email.com"
                     required
                   />
@@ -167,7 +167,7 @@ const FindAccount = () => {
                     <p className="text-sm text-amber-500 mb-2 font-medium">
                       🛠️ [개발 환경] 메일 발송 대신 토큰이 직접 반환되었습니다.
                     </p>
-                    <p className="text-xs text-slate-400 break-all mb-3 bg-slate-900 p-2 rounded">
+                    <p className="text-xs text-muted break-all mb-3 bg-night p-2 rounded">
                       토큰: {resetToken}
                     </p>
                     <Link
@@ -181,8 +181,8 @@ const FindAccount = () => {
               </form>
             )}
 
-            <div className="mt-6 pt-6 border-t border-slate-700 text-center">
-              <Link to="/login" className="text-sm text-slate-400 hover:text-white transition">
+            <div className="mt-6 pt-6 border-t border-line text-center">
+              <Link to="/login" className="text-sm text-muted hover:text-ink transition">
                 &larr; 로그인 화면으로 돌아가기
               </Link>
             </div>

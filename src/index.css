@@ -1,74 +1,84 @@
 @import "tailwindcss";
 
 @theme {
-  --color-primary-50: var(--color-primary-50);
-  --color-primary-500: var(--color-primary-500);
-  --color-primary-700: var(--color-primary-700);
-  --color-primary-900: var(--color-primary-900);
-  --color-accent-500: var(--color-accent-500);
-  --color-accent-700: var(--color-accent-700);
-  --color-bg-dark: var(--color-bg-dark);
-  --color-bg-darker: var(--color-bg-darker);
-  --color-text-light: var(--color-text-light);
+  /* Night sky palette */
+  --color-night: #050813;
+  --color-panel: #0a0e1d;
+  --color-ink: #eceaf4;
+  --color-accent: #e79bbb;
+  --color-text2: #c3c8da;
+  --color-text3: #b6bccf;
+  --color-label: #98a0ba;
+  --color-muted: #8f96b0;
+  --color-faint: #7f86a0;
+  --color-faint2: #5b6280;
+  --color-dim: #454c66;
+  --color-danger: #c96060;
+  --color-info: #4c9aff;
+
+  --color-line: rgba(236, 234, 244, 0.08);
+  --color-line-weak: rgba(236, 234, 244, 0.05);
+  --color-line-strong: rgba(236, 234, 244, 0.14);
+  --color-surface: rgba(236, 234, 244, 0.022);
+  --color-surface-weak: rgba(236, 234, 244, 0.018);
+
+  --font-sans: 'Gothic A1', sans-serif;
+  --font-num: 'Space Grotesk', sans-serif;
+  --font-mono: 'Space Mono', monospace;
+
+  /* Legacy aliases kept for not-yet-migrated admin/auth pages and Button.jsx */
+  --color-primary-50: #eef4ff;
+  --color-primary-400: #6aabff;
+  --color-primary-500: #4c9aff;
+  --color-primary-700: #2c5aa9;
+  --color-primary-900: #12244a;
+
+  --color-accent-400: #efb6cd;
+  --color-accent-500: #e79bbb;
+  --color-accent-700: #c07697;
+
+  --color-bg-dark: #0a0e1d;
+  --color-bg-darker: #050813;
+  --color-text-light: #eceaf4;
+}
+
+@utility tnum {
+  font-feature-settings: 'tnum' 1;
 }
 
 @layer base {
-  :root {
-    /* Primary (Electric Blue) */
-    --color-primary-50: #e0f2fe;
-    --color-primary-500: #0ea5e9;
-    --color-primary-700: #0369a1;
-    --color-primary-900: #0c4a6e;
-
-    /* Accent (Neon Pink) */
-    --color-accent-500: #ec4899;
-    --color-accent-700: #be185d;
-
-    /* Clear Type Colors */
-    --color-failed: #6b7280;
-    --color-assist: #a855f7;
-    --color-easy: #22c55e;
-    --color-clear: #3b82f6;
-    --color-hard: #ffffff;
-    --color-exhard: #fbbf24;
-    --color-fullcombo: linear-gradient(90deg, #fde047, #ffffff, #fde047);
-
-    /* DJ Level Colors */
-    --color-dj-aaa: #fbbf24;
-    --color-dj-aa: #d1d5db;
-    --color-dj-a: #cd7f32;
-
-    /* Dark Theme */
-    --color-bg-dark: #0f172a;
-    --color-bg-darker: #020617;
-    --color-text-light: #f1f5f9;
-  }
-
   body {
-    @apply bg-bg-darker text-text-light font-sans antialiased;
+    background: var(--color-night);
+    color: var(--color-ink);
+    font-family: var(--font-sans);
+    font-weight: 300;
+    font-size: 14px;
+    line-height: 1.55;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
   }
-}
 
-@layer components {
-  .heading-1 {
-    @apply text-4xl font-bold;
+  ::selection {
+    background: rgba(231, 155, 187, 0.28);
   }
-  .heading-2 {
-    @apply text-3xl font-semibold;
+
+  ::-webkit-scrollbar {
+    width: 9px;
   }
-  .heading-3 {
-    @apply text-2xl font-semibold;
+
+  ::-webkit-scrollbar-thumb {
+    background: rgba(236, 234, 244, 0.14);
   }
-  .body-large {
-    @apply text-lg;
+
+  ::-webkit-scrollbar-track {
+    background: #050813;
   }
-  .body-normal {
-    @apply text-base;
+
+  a {
+    color: var(--color-accent);
   }
-  .body-small {
-    @apply text-sm;
-  }
-  .score-text {
-    @apply font-mono text-2xl font-bold;
+
+  a:hover {
+    color: var(--color-ink);
   }
 }

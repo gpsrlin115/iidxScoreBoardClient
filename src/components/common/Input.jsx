@@ -46,7 +46,7 @@ const Input = forwardRef(
         {label && (
           <label
             htmlFor={id}
-            className="text-sm font-medium text-slate-400"
+            className="text-sm font-medium text-label"
           >
             {label}
           </label>
@@ -56,12 +56,12 @@ const Input = forwardRef(
           ref={ref}
           id={id}
           className={clsx(
-            'w-full bg-slate-700 text-white placeholder-slate-500 rounded-lg px-4 py-3 text-sm',
-            'border transition focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-offset-bg-darker',
+            'w-full bg-night/60 text-ink placeholder-faint rounded-lg px-4 py-3 text-sm',
+            'border transition focus:outline-none',
             // error prop 유무에 따라 테두리 색상 변경
             error
-              ? 'border-red-500 focus:border-red-500 focus:ring-red-500'
-              : 'border-slate-600 focus:border-primary-500 focus:ring-primary-500',
+              ? 'border-danger focus:border-danger'
+              : 'border-line-strong focus:border-accent',
             className
           )}
           {...props}
@@ -69,10 +69,10 @@ const Input = forwardRef(
 
         {/* 에러 메시지 or 도움말 텍스트 */}
         {error && (
-          <p className="text-xs text-red-400">{error}</p>
+          <p className="text-xs text-danger">{error}</p>
         )}
         {!error && helperText && (
-          <p className="text-xs text-slate-500">{helperText}</p>
+          <p className="text-xs text-faint">{helperText}</p>
         )}
       </div>
     );

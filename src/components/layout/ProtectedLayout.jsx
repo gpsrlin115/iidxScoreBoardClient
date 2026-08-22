@@ -1,57 +1,73 @@
-import { Suspense } from 'react';
+import { Suspense, useEffect, useMemo } from 'react';
 import { Outlet, useLocation } from 'react-router-dom';
 import { RouteContentSpinner } from '../common/Spinner';
 import ErrorBoundary from '../common/ErrorBoundary';
-import Header from './Header';
+import Starfield from '../background/Starfield';
+import Sidebar from './Sidebar';
+import TopBar from './TopBar';
+import useTierStore from '../../store/tierStore';
+import { isClearTypeCleared } from '../../utils/clearTypes';
 
 /**
- * 🎓 학습 포인트: Layout 컴포넌트 패턴
+ * App shell for every authenticated route: night-sky background, the
+ * left sidebar nav, the top bar, and the routed page in <main>.
  *
- * 모든 보호된 페이지는 공통적으로 Header를 가집니다.
- * 이를 매 페이지마다 <Header />를 쓰지 않고,
- * ProtectedLayout 하나로 묶어 관리합니다.
- *
- * 구조:
- * <ProtectedLayout>
- *   ├── <Header />           ← 모든 페이지에 공통
- *   └── <main>               ← 페이지마다 다른 콘텐츠
- *         <Outlet />          ← 자식 라우트가 여기에 렌더링
- *       </main>
- *
- * 🎓 Outlet이란?
- * React Router v6의 핵심 개념입니다.
- * 중첩 라우트(Nested Routes)에서 자식 컴포넌트를 표시하는 "자리 표시자"입니다.
- *
- * App.jsx에서:
- *   <Route element={<ProtectedLayout />}>
- *     <Route path="/" element={<Dashboard />} />       ← Outlet 위치에 렌더링
- *     <Route path="/scores" element={<Scores />} />    ← Outlet 위치에 렌더링
- *   </Route>
+ * ErrorBoundary + Suspense stay inside <main> (not wrapping the whole
+ * shell) so a page-level render error still leaves the sidebar usable —
+ * the user can navigate away instead of losing the whole app.
  */
 const ProtectedLayout = () => {
   const location = useLocation();
+  const enrichedTierData = useTierStore((state) => state.enrichedTierData);
+
+  // Share of songs currently cleared, used to light up the background
+  // starfield. Reads whatever tierStore already has — this layout never
+  // triggers the fetch itself, that's each page's own responsibility.
+  // React Router keeps the scroll position across navigations, so arriving at a
+  // new page from halfway down a long list would drop you mid-page. Reset here
+  // rather than in Sidebar so it also covers in-page links (a dashboard tier row
+  // opening the tier table, pagination jumps) and not just the nav.
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, [location.pathname]);
+
+  const litRatio = useMemo(() => {
+    if (!enrichedTierData || enrichedTierData.length === 0) return 0.5;
+
+    let total = 0;
+    let cleared = 0;
+    enrichedTierData.forEach((tierGroup) => {
+      tierGroup.songs.forEach((song) => {
+        total += 1;
+        if (isClearTypeCleared(song.clearType)) cleared += 1;
+      });
+    });
+
+    return total > 0 ? cleared / total : 0.5;
+  }, [enrichedTierData]);
 
   return (
-    <div className="min-h-screen bg-bg-darker flex flex-col">
-      <Header />
-      <main className="flex-1 max-w-7xl w-full mx-auto px-4 py-8">
-        {/**
-         * 🎓 Outlet = "이 자리에 자식 라우트가 들어옵니다"
-         * /scores 접속 시 → Scores 컴포넌트가 Outlet 자리에 렌더링됩니다.
-         * /profile 접속 시 → Profile 컴포넌트가 Outlet 자리에 렌더링됩니다.
-         * Header는 공통으로 유지됩니다.
-         *
-         * 🎓 ErrorBoundary가 왜 여기(Header 바깥이 아니라 main 안)에 있나요?
-         * 페이지 렌더 중 에러가 나도 Header는 살아 있어야 사용자가 다른 메뉴로
-         * 빠져나갈 수 있습니다. App.jsx 최상위에도 백스톱 ErrorBoundary가
-         * 있지만, 그건 Header까지 통째로 날아갑니다.
-         */}
-        <ErrorBoundary resetKey={`${location.pathname}${location.search}`}>
-          <Suspense fallback={<RouteContentSpinner />}>
-            <Outlet />
-          </Suspense>
-        </ErrorBoundary>
-      </main>
+    <div className="relative min-h-screen">
+      <Starfield litRatio={litRatio} flareable />
+      <div
+        className="relative z-[1] grid min-h-screen grid-cols-[186px_minmax(0,1fr)] max-md:grid-cols-1"
+        style={{
+          background:
+            'linear-gradient(180deg,rgba(5,8,19,.34),rgba(5,8,19,.8) 55%,rgba(5,8,19,.9))',
+        }}
+      >
+        <Sidebar />
+        <div className="min-w-0">
+          <TopBar />
+          <main>
+            <ErrorBoundary resetKey={`${location.pathname}${location.search}`}>
+              <Suspense fallback={<RouteContentSpinner />}>
+                <Outlet />
+              </Suspense>
+            </ErrorBoundary>
+          </main>
+        </div>
+      </div>
     </div>
   );
 };

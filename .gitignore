@@ -23,7 +23,11 @@ dist-ssr
 *.sln
 *.sw?
 
-./docs
+# Local-only notes: retrospectives, design handoffs, the backend API contract.
+# Must be `docs/`, not `./docs` — gitignore does not support a `./` prefix, so
+# that pattern silently matches nothing. Until this was fixed the directory was
+# held back only by .git/info/exclude, which is per-clone and not shared.
+docs/
 
 # Local agent/runtime configuration
 .codex/

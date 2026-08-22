@@ -1,64 +1,37 @@
 import { create } from 'zustand';
 
+// Cards per page in the client-side pagination (see utils/scoreQuery.js#paginate).
+export const PAGE_SIZE = 12;
+
 /**
- * 🎓 학습 포인트: 왜 필터 상태를 Store에 둘까요?
+ * Scores screen filter/sort/pagination state.
  *
- * useState를 쓰면 컴포넌트가 언마운트될 때 상태가 사라집니다.
- * 즉, "레벨 12 필터" 적용 후 다른 페이지 갔다가 돌아오면 필터가 초기화됩니다.
+ * `level` has three states, all distinct from each other:
+ * - null: no local override — follow the global scope's level (useScopeStore).
+ * - '' (empty string): "all levels", a score-screen-only option. The global
+ *   scope itself only ever holds 10/11/12, but this screen has always
+ *   supported the full 1-12 range plus "all" and that must not regress.
+ * - 1..12 (number): an explicit per-screen override, independent of scope.
  *
- * Zustand Store에 두면:
- * - 페이지를 이동했다 돌아와도 필터가 유지됩니다
- * - 필터 상태를 URL 쿼리 파라미터로 동기화하기도 쉽습니다
+ * playStyle is intentionally NOT duplicated here — useScopeStore is its
+ * single source of truth, and this store only ever reads it.
  */
 export const useScoresStore = create((set) => ({
-  // ─── 필터 상태 ───
-  filters: {
-    playStyle: '',     // 'SP' | 'DP' | '' (전체)
-    level: '',         // 1~12 | '' (전체)
-    chartType: '',     // 'BEGINNER' | 'NORMAL' | 'HYPER' | 'ANOTHER' | 'LEGGENDARIA' | ''
-    clearType: '',     // 'FAILED' | 'ASSIST_CLEAR' | 'EASY_CLEAR' | ... | ''
-  },
+  level: null,
+  chart: '',
+  clear: '',
+  q: '',
+  sort: 'ex', // 'ex' | 'clear' | 'date' — see docs decision: no achievement-rate sort.
+  page: 0,
 
-  // ─── 페이지네이션 상태 ───
-  /**
-   * 🎓 Spring의 Page 응답 구조
-   * 백엔드(Spring Data)는 페이지 응답을 다음 형식으로 보냅니다:
-   * {
-   *   content: [...],     ← 실제 데이터 배열
-   *   totalElements: 100,  ← 전체 항목 수
-   *   totalPages: 5,       ← 전체 페이지 수
-   *   number: 0,           ← 현재 페이지 번호 (0부터 시작!)
-   *   size: 20,            ← 페이지 크기
-   * }
-   * Spring은 0부터 시작하는 페이지 번호를 사용합니다.
-   */
-  pagination: {
-    page: 0,   // 현재 페이지 (0-indexed)
-    size: 20,  // 페이지당 항목 수
-  },
+  // Merges patch into state and resets to the first page, since any filter
+  // change can shrink or reorder the result set.
+  setFilter: (patch) => set(() => ({ ...patch, page: 0 })),
 
-  // ─── 액션 ───
-  setFilters: (newFilters) =>
-    set((state) => ({
-      filters: { ...state.filters, ...newFilters },
-      pagination: { ...state.pagination, page: 0 }, // 필터 변경 시 첫 페이지로 돌아감
-    })),
+  setSort: (sort) => set({ sort, page: 0 }),
 
-  setPage: (page) =>
-    set((state) => ({
-      pagination: { ...state.pagination, page },
-    })),
+  setPage: (page) => set({ page }),
 
-  /**
-   * 🎓 스프레드 연산자(...)로 부분 업데이트
-   * setFilters({ level: 12 }) 호출 시:
-   * - ...state.filters: 기존 필터를 모두 유지
-   * - ...newFilters: 새로운 값으로 해당 필드만 덮어씀
-   * 결과: { playStyle: 'SP', level: 12, chartType: '', clearType: '' }
-   */
   resetFilters: () =>
-    set({
-      filters: { playStyle: '', level: '', chartType: '', clearType: '' },
-      pagination: { page: 0, size: 20 },
-    }),
+    set({ level: null, chart: '', clear: '', q: '', sort: 'ex', page: 0 }),
 }));

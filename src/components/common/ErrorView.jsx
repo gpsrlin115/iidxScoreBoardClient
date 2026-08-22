@@ -61,7 +61,7 @@ const ErrorView = ({
       className={
         isPage
           ? 'flex items-center justify-center min-h-[60vh] px-4'
-          : 'flex items-center justify-center bg-slate-800/50 border border-slate-700 rounded-lg px-6 py-10'
+          : 'flex items-center justify-center bg-panel/50 border border-line rounded-lg px-6 py-10'
       }
     >
       <div
@@ -70,7 +70,7 @@ const ErrorView = ({
         }`}
       >
         {status !== null && (
-          <span className="text-xs font-mono text-slate-500 tracking-wide">
+          <span className="text-xs font-mono text-faint tracking-wide">
             HTTP {status}
           </span>
         )}
@@ -80,15 +80,15 @@ const ErrorView = ({
         <h2
           className={
             isPage
-              ? 'text-2xl font-bold text-white'
-              : 'text-lg font-semibold text-white'
+              ? 'text-2xl font-bold text-ink'
+              : 'text-lg font-semibold text-ink'
           }
         >
           {preset.title}
         </h2>
 
         {description && (
-          <p className="text-sm text-slate-400">{description}</p>
+          <p className="text-sm text-muted">{description}</p>
         )}
 
         {hasActions && (

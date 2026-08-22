@@ -41,7 +41,7 @@ const GlobalLoadingOverlay = () => {
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        background: 'rgba(2, 6, 23, 0.82)',
+        background: 'rgba(5, 8, 19, 0.85)',
         backdropFilter: 'blur(6px)',
         WebkitBackdropFilter: 'blur(6px)',
         animation: 'overlayFadeIn 0.2s ease',
@@ -59,10 +59,10 @@ const GlobalLoadingOverlay = () => {
           gap: '20px',
           padding: '40px 48px',
           borderRadius: '20px',
-          background: 'rgba(15, 23, 42, 0.95)',
-          border: '1px solid rgba(14, 165, 233, 0.25)',
+          background: 'rgba(10, 14, 29, 0.95)',
+          border: '1px solid rgba(76, 154, 255, 0.25)',
           boxShadow:
-            '0 0 0 1px rgba(14, 165, 233, 0.1), 0 25px 50px rgba(0,0,0,0.6)',
+            '0 0 0 1px rgba(76, 154, 255, 0.1), 0 25px 50px rgba(0,0,0,0.6)',
           animation: 'cardSlideUp 0.25s cubic-bezier(0.34, 1.56, 0.64, 1)',
         }}
       >
@@ -82,12 +82,12 @@ const GlobalLoadingOverlay = () => {
               cx="32"
               cy="32"
               r="28"
-              stroke="rgba(14, 165, 233, 0.2)"
+              stroke="rgba(76, 154, 255, 0.2)"
               strokeWidth="4"
             />
             <path
               d="M32 4 A28 28 0 0 1 60 32"
-              stroke="#0ea5e9"
+              stroke="#4c9aff"
               strokeWidth="4"
               strokeLinecap="round"
             />
@@ -107,12 +107,12 @@ const GlobalLoadingOverlay = () => {
               cx="20"
               cy="20"
               r="16"
-              stroke="rgba(236, 72, 153, 0.2)"
+              stroke="rgba(231, 155, 187, 0.2)"
               strokeWidth="3"
             />
             <path
               d="M20 4 A16 16 0 0 0 4 20"
-              stroke="#ec4899"
+              stroke="#e79bbb"
               strokeWidth="3"
               strokeLinecap="round"
             />
@@ -133,8 +133,8 @@ const GlobalLoadingOverlay = () => {
                 width: 8,
                 height: 8,
                 borderRadius: '50%',
-                background: '#0ea5e9',
-                boxShadow: '0 0 8px #0ea5e9',
+                background: '#4c9aff',
+                boxShadow: '0 0 8px #4c9aff',
                 animation: 'pulse 1s ease-in-out infinite',
               }}
             />
@@ -145,7 +145,7 @@ const GlobalLoadingOverlay = () => {
         <div style={{ textAlign: 'center' }}>
           <p
             style={{
-              color: '#f1f5f9',
+              color: '#eceaf4',
               fontSize: '0.9375rem',
               fontWeight: 500,
               margin: 0,
@@ -157,7 +157,7 @@ const GlobalLoadingOverlay = () => {
           {/* 점 세 개 애니메이션 */}
           <p
             style={{
-              color: '#64748b',
+              color: '#5b6280',
               fontSize: '0.75rem',
               marginTop: 6,
               marginBottom: 0,

@@ -61,4 +61,14 @@ export const importApi = {
     });
     return response.data;
   },
+
+  // Future account-sync entry point for the "basic course" quick-import
+  // card (components/import/BasicCourseCard.jsx). No backend endpoint
+  // exists yet, so the card only shows an inline "coming soon" message
+  // and never calls this. Once the backend ships, add something like:
+  //
+  //   bootstrapFromAccount: async (playStyle) => {
+  //     const response = await apiClient.post('/import/iidx/account', { playStyle });
+  //     return response.data;
+  //   },
 };
