@@ -7,6 +7,14 @@ import clsx from 'clsx';
  * Used for the login submit button and the score-import upload/result
  * actions.
  *
+ * Uses font-mono-ko, not font-mono: every real call site passes Korean
+ * text, which Space Mono has no glyphs for. See the utility in index.css.
+ * A mixed label like 'SP · DP를 선택하세요' keeps its Latin in mono and
+ * only shifts the Hangul.
+ *
+ * Tracking is .12em rather than the .2em used for Latin-only mono captions:
+ * wide tracking breaks Hangul into loose characters instead of readable words.
+ *
  * @param {'accent' | 'ghost'} [variant]
  * @param {boolean} [disabled]
  * @param {React.ReactNode} [trailing] - optional trailing element (e.g. an arrow)
@@ -40,7 +48,7 @@ const MonoButton = forwardRef(
         type={type}
         disabled={disabled}
         className={clsx(
-          'font-mono text-[11px] uppercase tracking-[.2em] px-[18px] py-[15px] border transition-colors duration-[250ms] inline-flex items-center',
+          'font-mono-ko text-[12px] font-medium uppercase tracking-[.12em] px-[18px] py-[15px] border transition-colors duration-[250ms] inline-flex items-center',
           'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent',
           trailing ? 'justify-between' : 'justify-center',
           fullWidth && 'w-full',

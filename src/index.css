@@ -46,6 +46,24 @@
   font-feature-settings: 'tnum' 1;
 }
 
+/*
+ * Mono for Latin, sans for Hangul, in one stack.
+ *
+ * Font fallback resolves per glyph, so Space Mono keeps the Latin while
+ * Hangul — which Space Mono has no glyphs for, and which otherwise drops to
+ * the browser default — resolves to Gothic A1. Use this instead of font-mono
+ * on any element that can hold Korean text.
+ *
+ * The families are spelled out rather than composed from --font-mono and
+ * --font-sans: those already end in the generic `monospace` / `sans-serif`,
+ * so concatenating them would put generic monospace ahead of Gothic A1 and
+ * send Hangul right back to the browser default. Stacking `font-mono
+ * font-sans` as two utilities does not work either — one overrides the other.
+ */
+@utility font-mono-ko {
+  font-family: 'Space Mono', 'Gothic A1', sans-serif;
+}
+
 @layer base {
   body {
     background: var(--color-night);
