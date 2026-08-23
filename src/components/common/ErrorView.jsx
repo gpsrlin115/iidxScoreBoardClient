@@ -34,6 +34,8 @@ const resolveDescription = (message, preset) => {
  *   network/timeout failure (no response received at all).
  * @param {string} [message] - Pre-normalized user-facing message. When
  *   provided, it replaces the preset's default description in the body.
+ * @param {import('react').ReactNode} [illustration] - Optional artwork shown
+ *   in place of the preset emoji.
  * @param {'page' | 'inline'} [variant='inline'] - 'page' centers the
  *   content with generous spacing for a dedicated error screen; 'inline'
  *   renders a compact card meant to sit inside existing page content.
@@ -45,6 +47,7 @@ const resolveDescription = (message, preset) => {
 const ErrorView = ({
   status = null,
   message,
+  illustration,
   variant = 'inline',
   onRetry,
   showHomeLink = true,
@@ -75,7 +78,9 @@ const ErrorView = ({
           </span>
         )}
 
-        <div className={isPage ? 'text-6xl' : 'text-3xl'}>{preset.emoji}</div>
+        {illustration ?? (
+          <div className={isPage ? 'text-6xl' : 'text-3xl'}>{preset.emoji}</div>
+        )}
 
         <h2
           className={
