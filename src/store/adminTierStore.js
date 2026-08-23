@@ -1,12 +1,9 @@
 import { create } from 'zustand';
 import { tierApi } from '../api/tiers';
 import toast from 'react-hot-toast';
-import { normalizeTierCategory, sortSongsByTitle } from '../utils/tierData';
+import { CATEGORIES, TIERS, normalizeTierCategory, sortSongsByTitle } from '../utils/tierData';
 import { toAppError } from '../utils/httpError';
 import { DEFAULT_DIFFICULTY, loadAdminTierSources } from './adminTierLoader';
-
-const TIERS = ['S+', 'S', 'A+', 'A', 'B+', 'B', 'C', 'D', 'E', 'F'];
-const CATEGORIES = ['地力', '個人差'];
 
 let latestAdminTierRequestId = 0;
 

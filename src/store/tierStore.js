@@ -4,6 +4,7 @@ import { scoresApi } from '../api/scores';
 import { resolveMockChartId } from '../api/songFeedback';
 import toast from 'react-hot-toast';
 import { normalizeClearType } from '../utils/clearTypes';
+import { sortTierRows } from '../utils/tierData';
 import { toAppError } from '../utils/httpError';
 import { useAuthStore } from './authStore';
 import { createTierFetchGate } from '../utils/tierFetchGate';
@@ -172,7 +173,14 @@ const useTierStore = create((set, get) => ({
 
       // 3. Enrich the raw tier data with user scores
       // Convert grouped tier data into clear-lamp-aware song rows.
-      const enriched = Object.entries(rawTierData).map(([tier, songs]) => ({
+      //
+      // sortTierRows is what fixes row order. Object.entries hands back keys
+      // in insertion order -- i.e. whatever sequence the backend array
+      // produced -- so without it 未定 lands wherever it happens to appear and
+      // the grades come out scrambled. Sorting the ARRAY rather than rebuilding
+      // the object keeps the order explicit; object key order would go back to
+      // being accidental the moment someone spreads or rebuilds rawTierData.
+      const enriched = sortTierRows(Object.entries(rawTierData).map(([tier, songs]) => ({
         tier,
         songs: songs.map(song => {
           const tierSong = normalizeTierSong(song);
@@ -208,7 +216,7 @@ const useTierStore = create((set, get) => ({
               ?? resolveMockChartId(tierSong.title, tierSong.difficulty),
           };
         })
-      }));
+      })));
 
       set({
         tierData: rawTierData,
