@@ -2,13 +2,13 @@ import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import { authApi } from '../api/auth';
+import FieldLabel from '../components/auth/FieldLabel';
 import LoginArtwork from '../components/auth/LoginArtwork';
 import Starfield from '../components/background/Starfield';
 import MonoButton from '../components/common/MonoButton';
 import { useAuthStore } from '../store/authStore';
 import { toAppError } from '../utils/httpError';
 
-const LABEL_CLASS = 'block mb-[9px] font-mono text-[9.5px] tracking-[.22em] uppercase text-label';
 // The handoff contradicts itself on this underline: its token table lists .14
 // for input underlines, but the login section (and the prototype) specify .16
 // for this field specifically. The per-screen spec wins.
@@ -65,9 +65,9 @@ const Login = () => {
 
           <form onSubmit={handleSubmit} className="flex flex-col gap-6">
             <div>
-              <label className={LABEL_CLASS} htmlFor="username">
+              <FieldLabel htmlFor="username" caption="username">
                 아이디
-              </label>
+              </FieldLabel>
               <input
                 id="username"
                 type="text"
@@ -81,9 +81,9 @@ const Login = () => {
             </div>
 
             <div>
-              <label className={LABEL_CLASS} htmlFor="password">
+              <FieldLabel htmlFor="password" caption="password">
                 비밀번호
-              </label>
+              </FieldLabel>
               <input
                 id="password"
                 type="password"

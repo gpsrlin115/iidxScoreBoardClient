@@ -4,13 +4,12 @@ import toast from 'react-hot-toast';
 import { authApi } from '../api/auth';
 import { toAppError } from '../utils/httpError';
 import Starfield from '../components/background/Starfield';
+import FieldLabel from '../components/auth/FieldLabel';
 import LoginArtwork from '../components/auth/LoginArtwork';
 import MonoButton from '../components/common/MonoButton';
 
 // Shares the login screen's visual language: same underline fields, same
 // left-aligned block over the artwork, so the two auth screens read as one flow.
-const LABEL_CLASS = 'block mb-[9px] font-mono text-[9.5px] tracking-[.22em] uppercase text-label';
-
 const inputClass = (hasError, isPassword) =>
   [
     'w-full bg-transparent border-0 border-b pb-[9px] text-[15px] text-ink',
@@ -26,6 +25,7 @@ const inputClass = (hasError, isPassword) =>
 const FIELDS = [
   {
     name: 'username',
+    caption: 'username',
     label: '아이디',
     type: 'text',
     placeholder: '3자 이상',
@@ -34,6 +34,7 @@ const FIELDS = [
   },
   {
     name: 'email',
+    caption: 'email',
     label: '이메일',
     type: 'email',
     placeholder: 'you@example.com',
@@ -41,6 +42,7 @@ const FIELDS = [
   },
   {
     name: 'password',
+    caption: 'password',
     label: '비밀번호',
     type: 'password',
     placeholder: '8자 이상',
@@ -48,6 +50,7 @@ const FIELDS = [
   },
   {
     name: 'passwordConfirm',
+    caption: 'confirm',
     label: '비밀번호 확인',
     type: 'password',
     placeholder: '',
@@ -176,11 +179,11 @@ const Signup = () => {
           </p>
 
           <form onSubmit={handleSubmit} className="flex flex-col gap-6" noValidate>
-            {FIELDS.map(({ name, label, type, placeholder, autoComplete, autoFocus }) => (
+            {FIELDS.map(({ name, caption, label, type, placeholder, autoComplete, autoFocus }) => (
               <div key={name}>
-                <label className={LABEL_CLASS} htmlFor={name}>
+                <FieldLabel htmlFor={name} caption={caption}>
                   {label}
-                </label>
+                </FieldLabel>
                 <input
                   id={name}
                   name={name}
