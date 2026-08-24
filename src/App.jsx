@@ -17,12 +17,14 @@ import Signup from './pages/Signup';
 import FindAccount from './pages/FindAccount';
 import ResetPasswordConfirm from './pages/ResetPasswordConfirm';
 import Ddr from './pages/Ddr';
+import { ENABLE_LAYOUT_ANALYSIS } from './config/features';
 
 const Dashboard = lazy(() => import('./pages/Dashboard'));
 const Scores = lazy(() => import('./pages/Scores'));
 const TierTable = lazy(() => import('./pages/TierTable'));
 const CsvUpload = lazy(() => import('./pages/CsvUpload'));
 const AdminTierTable = lazy(() => import('./pages/AdminTierTable'));
+const LayoutAnalysis = lazy(() => import('./pages/LayoutAnalysis'));
 
 /**
  * 🎓 학습 포인트: 중첩 라우트 (Nested Routes) 패턴
@@ -101,6 +103,7 @@ function AppRoutes() {
           <Route path="/tier-table/:level" element={<Navigate to="/tier-table" replace />} />
           <Route path="/import" element={<Navigate to="/import/csv" replace />} />
           <Route path="/import/csv" element={<CsvUpload />} />
+          {ENABLE_LAYOUT_ANALYSIS && <Route path="/layout-analysis" element={<LayoutAnalysis />} />}
           <Route path="/profile/*" element={<PlaceholderPage title="프로필" />} />
           <Route
             path="/admin/tier-table"
