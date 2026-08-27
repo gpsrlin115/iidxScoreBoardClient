@@ -145,7 +145,7 @@ const AdminTierTable = () => {
             <DragOverlay>
               {activeItem ? (
                 <div className="opacity-90 scale-105 shadow-2xl pointer-events-none rotate-2">
-                  <SongTileChip title={activeItem.title} />
+                  <SongTileChip title={activeItem.title} difficulty={activeItem.difficulty} />
                 </div>
               ) : null}
             </DragOverlay>
