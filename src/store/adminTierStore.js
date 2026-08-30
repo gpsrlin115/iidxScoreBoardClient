@@ -4,6 +4,8 @@ import toast from 'react-hot-toast';
 import { CATEGORIES, TIERS, normalizeTierCategory, sortSongsByTitle } from '../utils/tierData';
 import { toAppError } from '../utils/httpError';
 import { DEFAULT_DIFFICULTY, loadAdminTierSources } from './adminTierLoader';
+import useTierStore from './tierStore';
+import { refreshTierAfterAdminSave } from '../utils/tierMutationRefresh';
 
 let latestAdminTierRequestId = 0;
 
@@ -189,6 +191,13 @@ const useAdminTierStore = create((set, get) => ({
       const payload = get().buildArrayPayload();
       // saveAdminTierDraft writes directly to live; no separate publish step required
       await tierApi.saveAdminTierDraft(selectedLevel, selectedPlayStyle, payload);
+      // Refresh the public store without awaiting it. The save already succeeded,
+      // so a later read failure must not be reported as a failed admin mutation.
+      void refreshTierAfterAdminSave(
+        useTierStore.getState().fetchTierData,
+        selectedLevel,
+        selectedPlayStyle
+      );
       toast.success('Changes saved! Now live.');
       set({ isSaving: false, hasChanges: false, rawTierData: payload });
     } catch (error) {
