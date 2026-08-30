@@ -4,6 +4,12 @@ import { songFeedbackApi } from '../api/songFeedback';
 import { toAppError } from '../utils/httpError';
 import { COMMENT_PAGE_SIZE } from '../constants/feedback';
 import { hasMorePages, mergePage, nextPageToFetch, restoreAt } from '../utils/commentThread';
+import {
+  getRateLimitEndTime,
+  getRemainingRateLimitSeconds,
+  parseRetryAfterSeconds,
+} from '../utils/commentSubmission';
+import { useCommentRateLimitStore } from '../store/commentRateLimitStore';
 
 const isNotDeployedStatus = (status) => status === 404 || status === 501;
 
@@ -24,8 +30,9 @@ const isNotDeployedStatus = (status) => status === 404 || status === 501;
  * the rules themselves live in utils/commentThread.js.
  *
  * @param {number | null} chartId
+ * @param {number | null} currentUserId
  */
-const useSongComments = (chartId) => {
+const useSongComments = (chartId, currentUserId) => {
   const [comments, setComments] = useState([]);
   const [totalElements, setTotalElements] = useState(0);
   const [page, setPage] = useState(0);
@@ -35,6 +42,10 @@ const useSongComments = (chartId) => {
   const [error, setError] = useState(null);
   const [unavailable, setUnavailable] = useState(chartId == null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const rateLimitEndsAt = useCommentRateLimitStore((state) => (
+    currentUserId == null ? 0 : (state.endsAtByUserId[currentUserId] ?? 0)
+  ));
+  const recordRateLimit = useCommentRateLimitStore((state) => state.recordRateLimit);
 
   // Guards page fetches against out-of-order arrival (e.g. a slow page-1
   // response landing after a faster page-2 one). Kept separate from
@@ -135,14 +146,28 @@ const useSongComments = (chartId) => {
       setTotalElements((prev) => prev + 1);
       return true;
     } catch (err) {
-      if (mountedRef.current) {
-        toast.error(toAppError(err, { fallback: '댓글 등록에 실패했습니다.' }).message);
+      const appError = toAppError(err, { fallback: '댓글 등록에 실패했습니다.' });
+      if (appError.status === 429) {
+        const nowMs = Date.now();
+        const retryAfterSeconds = parseRetryAfterSeconds(err?.response?.headers);
+        const candidateEndsAt = getRateLimitEndTime(retryAfterSeconds, nowMs);
+        recordRateLimit(currentUserId, candidateEndsAt);
+
+        if (mountedRef.current) {
+          const storedEndsAt = currentUserId == null
+            ? candidateEndsAt
+            : (useCommentRateLimitStore.getState().endsAtByUserId[currentUserId] ?? candidateEndsAt);
+          const remainingSeconds = getRemainingRateLimitSeconds(storedEndsAt, nowMs);
+          toast.error(`${appError.message} ${remainingSeconds}초 후 다시 시도해주세요.`);
+        }
+      } else if (mountedRef.current) {
+        toast.error(appError.message);
       }
       return false;
     } finally {
       if (mountedRef.current) setIsSubmitting(false);
     }
-  }, [chartId]);
+  }, [chartId, currentUserId, recordRateLimit]);
 
   const removeComment = useCallback(async (commentId) => {
     if (chartId == null) return;
@@ -193,6 +218,7 @@ const useSongComments = (chartId) => {
     error,
     unavailable,
     isSubmitting,
+    rateLimitEndsAt,
     loadMore,
     addComment,
     removeComment,
