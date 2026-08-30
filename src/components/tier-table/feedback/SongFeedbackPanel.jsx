@@ -38,7 +38,7 @@ const INLINE_NOTICE_CLASS =
 const SongFeedbackPanel = ({ chartId, hasDifficulty = false }) => {
   const currentUserId = useAuthStore((state) => state.user?.id ?? null);
   const vote = useTierVote(chartId);
-  const commentsState = useSongComments(chartId);
+  const commentsState = useSongComments(chartId, currentUserId);
 
   // Only when BOTH halves are dark does the panel collapse to a single
   // notice — the "no chart identity at all" case, and the pre-deployment
@@ -84,7 +84,11 @@ const SongFeedbackPanel = ({ chartId, hasDifficulty = false }) => {
             <p className={INLINE_NOTICE_CLASS}>댓글 기능은 준비 중입니다.</p>
           ) : (
             <div>
-              <CommentForm isSubmitting={commentsState.isSubmitting} onSubmit={commentsState.addComment} />
+              <CommentForm
+                isSubmitting={commentsState.isSubmitting}
+                rateLimitEndsAt={commentsState.rateLimitEndsAt}
+                onSubmit={commentsState.addComment}
+              />
               <div className="mt-4">
                 <CommentList
                   comments={commentsState.comments}
