@@ -42,3 +42,4 @@ export const EMPTY_VOTE_COUNTS = Object.freeze({ [VOTE_UP]: 0, [VOTE_KEEP]: 0, [
 
 export const COMMENT_MAX_LENGTH = 500;
 export const COMMENT_PAGE_SIZE = 20;
+export const COMMENT_RATE_LIMIT_FALLBACK_SECONDS = 15;
