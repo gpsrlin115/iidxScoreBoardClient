@@ -7,7 +7,7 @@ import { useGooglePending, useGoogleProvider } from '../hooks/useGoogleAuth';
 import { ENDED_GOOGLE_FLOWS, googleAuthError } from '../utils/googleAuth';
 import GoogleButton from '../components/auth/GoogleButton';
 import GoogleCallbackError from '../components/auth/GoogleCallbackError';
-import InitialPasswordForm from '../components/auth/InitialPasswordForm';
+import GooglePendingConfirm from '../components/auth/GooglePendingConfirm';
 import MonoButton from '../components/common/MonoButton';
 
 export default function Profile() {
@@ -66,6 +66,10 @@ export default function Profile() {
     } finally {
       setBusy(false);
     }
+    // Report whether the mutation itself landed. Everything after it is a
+    // refresh, so once `saved` is true the submitted value has been consumed
+    // either way — and while it is false the form must keep what was typed.
+    return saved;
   };
 
   const failure = error || flow.error;
@@ -84,6 +88,8 @@ export default function Profile() {
           <div><dt className="text-muted">가입 이메일</dt><dd className="mt-1 break-all text-ink">{user?.email || '등록된 이메일 없음'}</dd></div>
         </dl>
       </section>
+      {flow.loading && <p role="status" className="mb-6 text-sm text-muted">Google 인증 결과를 확인하고 있습니다…</p>}
+      <GooglePendingConfirm pending={pending} username={user?.username} busy={busy} onConfirm={confirm} />
       {!methods && !loadError && <p role="status" className="text-sm text-muted">로그인 수단을 확인하고 있습니다…</p>}
       {loadError && <div role="alert" className="border border-line-strong p-5 text-sm text-muted">
         <p>로그인 수단을 불러오지 못했습니다. 잠시 후 다시 확인해주세요.</p>
@@ -110,22 +116,12 @@ export default function Profile() {
             )}
             {(!google?.enabled || !google.enrollmentEnabled) && <p className="mt-4 text-xs text-muted">현재 새로운 Google 계정 연결을 제공하지 않습니다.</p>}
           </>}
-          {flow.loading && <p role="status" className="mt-5 text-sm text-muted">Google 인증 결과를 확인하고 있습니다…</p>}
-          {pending?.intent === 'link' && <div className="mt-6 border-t border-line-strong pt-5">
-            <h3 className="text-base text-ink">이 Google 계정을 연결할까요?</h3>
-            <p className="mt-3 break-all text-sm text-accent">{pending.email}</p>
-            <p className="mt-3 text-sm leading-6 text-muted">현재 사이트 계정 {user?.username}에 연결합니다. 가입 이메일과 기록은 변경되지 않습니다. 연결 해제·교체는 아직 지원하지 않습니다.</p>
-            <MonoButton onClick={() => confirm()} disabled={busy} fullWidth className="mt-5">{busy ? '연결 중…' : '이 Google 계정 연결 확정'}</MonoButton>
-          </div>}
         </section>
         <section className="border border-line-strong bg-panel p-5 sm:p-7" aria-labelledby="password-title">
           <h2 id="password-title" className="mb-3 text-lg text-ink">비밀번호 로그인</h2>
           {methods.passwordEnabled ? <p className="text-sm text-muted">사용 중입니다. 기존 아이디와 비밀번호로 계속 로그인할 수 있습니다.</p> : <>
             <p className="text-sm leading-6 text-muted">Google로 로그인 중입니다. 비밀번호를 추가하려면 연결된 Google 계정으로 다시 인증해주세요. 이메일 비밀번호 재설정으로는 최초 비밀번호를 만들 수 없습니다.</p>
-            {pending?.intent === 'set_password' ? <>
-              <p className="mt-4 break-all text-sm text-accent">인증한 계정: {pending.email}</p>
-              <InitialPasswordForm busy={busy} onSubmit={confirm} />
-            </> : !pending && !flow.loading && google?.enabled && methods.googleLinked && (
+            {!pending && !flow.loading && google?.enabled && methods.googleLinked && (
               <div className="mt-5"><GoogleButton onClick={() => start('set_password')} busy={busy} /></div>
             )}
             {!google?.enabled && <p className="mt-4 text-xs text-muted">Google 인증을 사용할 수 없어 비밀번호를 추가할 수 없습니다. 잠시 후 다시 시도해주세요.</p>}
