@@ -11,7 +11,11 @@ export default function InitialPasswordForm({ busy, onSubmit }) {
     const message = googlePasswordError(password, confirmation);
     setError(message);
     if (message) return;
-    await onSubmit(password);
+    // `onSubmit` reports its outcome instead of throwing, so a rejected save
+    // (rate limit, network drop, server refusal) must leave both fields as the
+    // user typed them — the form stays mounted and would otherwise be blanked.
+    const saved = await onSubmit(password);
+    if (!saved) return;
     setPassword('');
     setConfirmation('');
   };
