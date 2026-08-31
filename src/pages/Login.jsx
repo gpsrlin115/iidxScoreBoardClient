@@ -8,6 +8,8 @@ import Starfield from '../components/background/Starfield';
 import MonoButton from '../components/common/MonoButton';
 import { useAuthStore } from '../store/authStore';
 import { toAppError } from '../utils/httpError';
+import GoogleEntry from '../components/auth/GoogleEntry';
+import GoogleCallbackError from '../components/auth/GoogleCallbackError';
 
 // The handoff contradicts itself on this underline: its token table lists .14
 // for input underlines, but the login section (and the prototype) specify .16
@@ -20,11 +22,13 @@ const Login = () => {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [googleBusy, setGoogleBusy] = useState(false);
   const navigate = useNavigate();
   const { setUser } = useAuthStore();
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (isSubmitting || googleBusy) return;
     setIsSubmitting(true);
 
     try {
@@ -50,7 +54,7 @@ const Login = () => {
       <Starfield litRatio={0.5} />
       <LoginArtwork />
 
-      <div className="relative z-[1] w-full max-w-[1180px] mx-auto px-14">
+      <div className="relative z-[1] w-full max-w-[1180px] mx-auto px-6 py-12 sm:px-14">
         <div className="max-w-[400px]">
           <div className="flex items-center gap-[11px] mb-14">
             <img src="/favicon.png" alt="" width={22} height={22} className="block rounded-[3px]" />
@@ -63,6 +67,7 @@ const Login = () => {
             score archive · sp / dp
           </p>
 
+          <GoogleCallbackError />
           <form onSubmit={handleSubmit} className="flex flex-col gap-6">
             <div>
               <FieldLabel htmlFor="username" caption="username">
@@ -99,13 +104,14 @@ const Login = () => {
               type="submit"
               variant="accent"
               fullWidth
-              disabled={isSubmitting}
+              disabled={isSubmitting || googleBusy}
               trailing={<span>→</span>}
               className="mt-2"
             >
               {isSubmitting ? '로그인 중...' : '로그인'}
             </MonoButton>
           </form>
+          <GoogleEntry disabled={isSubmitting} onBusyChange={setGoogleBusy} />
 
           <div className="mt-6 flex items-center gap-4 text-[12.5px]">
             <Link to="/find-account" className="text-faint hover:text-ink transition-colors">

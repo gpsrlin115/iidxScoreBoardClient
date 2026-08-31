@@ -1,5 +1,9 @@
 @import "tailwindcss";
 
+.google-button {
+  font-family: 'Google Sans', 'Gothic A1', sans-serif;
+}
+
 @theme {
   /* Night sky palette */
   --color-night: #050813;

@@ -1,6 +1,7 @@
 import toast from 'react-hot-toast';
 import { useAuthStore } from '../store/authStore';
 import { navigateTo } from '../utils/navigation';
+import { isGoogleCredentialRecheck } from '../utils/googleAuth';
 
 /**
  * Global 401 handler.
@@ -44,8 +45,8 @@ function isExemptUrl(requestUrl) {
  *
  * @param {string | undefined} requestUrl - relative request URL (no baseURL)
  */
-export function handleSessionExpired(requestUrl) {
-  if (isExemptUrl(requestUrl) || redirecting) return;
+export function handleSessionExpired(requestUrl, code) {
+  if (isExemptUrl(requestUrl) || isGoogleCredentialRecheck(requestUrl, code) || redirecting) return;
 
   redirecting = true;
   useAuthStore.getState().logout();

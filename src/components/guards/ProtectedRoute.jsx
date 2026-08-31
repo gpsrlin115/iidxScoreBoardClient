@@ -1,6 +1,7 @@
-import { Navigate } from 'react-router-dom';
+import { Navigate, useLocation } from 'react-router-dom';
 import { useAuthStore } from '../../store/authStore';
 import ForbiddenPage from '../../pages/errors/ForbiddenPage';
+import { googleProtectedRedirect } from '../../utils/googleAuth';
 
 /**
  * 🎓 학습 포인트: Route Guard (라우트 가드)란?
@@ -24,6 +25,7 @@ import ForbiddenPage from '../../pages/errors/ForbiddenPage';
 const ProtectedRoute = ({ children, allowedRoles }) => {
   // authStore에서 상태를 읽어옵니다
   const { user, isLoading } = useAuthStore();
+  const location = useLocation();
 
   /**
    * 🎓 왜 isLoading 처리가 필요할까요?
@@ -56,7 +58,7 @@ const ProtectedRoute = ({ children, allowedRoles }) => {
    * - 즉, 뒤로가기를 눌러도 보호된 페이지로 돌아오지 못합니다
    */
   if (!user) {
-    return <Navigate to="/login" replace />;
+    return <Navigate to={googleProtectedRedirect(location.pathname, location.search)} replace />;
   }
 
   /**
