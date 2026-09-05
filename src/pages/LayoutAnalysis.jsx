@@ -4,6 +4,7 @@ import { layoutAnalysisApi } from '../api/layoutAnalysis';
 import { attachStream, parseYouTubeVideoId, requestYouTubeTab, stopCapture, youtubeEmbedUrl } from '../features/layoutAnalysis/capture';
 import { defaultGeometry, detectGeometry, sanitizeGeometry } from '../features/layoutAnalysis/detector';
 import { recognizeChartText } from '../features/layoutAnalysis/ocr';
+import { candidateKey, describeMatch } from '../features/layoutAnalysis/candidates';
 
 const fieldClass = 'w-full border border-line-strong bg-night px-3 py-2 text-sm text-ink outline-none focus:border-accent';
 const buttonClass = 'border border-line-strong px-3 py-2 text-xs text-text2 transition hover:border-accent hover:text-ink disabled:cursor-not-allowed disabled:opacity-40';
@@ -49,6 +50,9 @@ const LayoutAnalysis = () => {
   const frameCallbackRef = useRef(null);
   const finishingRef = useRef(false);
   const objectUrlRef = useRef(null);
+  // Kept so a DIFFICULTY_MISMATCH can be re-matched against the suggested chart
+  // without re-analysing the video, which would cost another tab share.
+  const observedNotesRef = useRef(null);
 
   const [mode, setMode] = useState('file');
   const [fileUrl, setFileUrl] = useState('');
@@ -62,7 +66,7 @@ const LayoutAnalysis = () => {
   const [search, setSearch] = useState('');
   const [manualDifficulty, setManualDifficulty] = useState('');
   const [candidates, setCandidates] = useState([]);
-  const [selectedChartId, setSelectedChartId] = useState(null);
+  const [selected, setSelected] = useState(null);
   const [status, setStatus] = useState('로컬 MP4 파일 또는 YouTube 링크를 준비하세요.');
   const [progress, setProgress] = useState(0);
   const [running, setRunning] = useState(false);
@@ -111,7 +115,7 @@ const LayoutAnalysis = () => {
     setFileUrl(objectUrlRef.current);
     setResult(null);
     setCandidates([]);
-    setSelectedChartId(null);
+    setSelected(null);
     setStatus('영상 정보를 읽는 중입니다…');
   };
 
@@ -137,7 +141,7 @@ const LayoutAnalysis = () => {
       setYoutube(metadata);
       setSearch(metadata.title || '');
       setCandidates([]);
-      setSelectedChartId(null);
+      setSelected(null);
       setStatus(metadata.metadataAvailable
         ? '영상을 처음부터 재생한 뒤 현재 탭 공유를 누르세요.'
         : '메타데이터를 가져오지 못했습니다. 영상 재생 후 OCR 또는 직접 검색을 사용하세요.');
@@ -209,7 +213,7 @@ const LayoutAnalysis = () => {
       const difficulties = [...new Set([...ocr.difficulties, manualDifficulty].filter(Boolean))];
       const response = await layoutAnalysisApi.findCandidates({ videoId: youtube?.videoId, query: search, titles: ocr.titles, difficulties });
       setCandidates(response.candidates || []);
-      setSelectedChartId(null);
+      setSelected(null);
       setStatus(response.candidates?.length ? '정확한 곡과 채보를 선택하세요.' : response.warnings?.[0] || '후보를 찾지 못했습니다.');
     } catch (error) {
       setStatus(errorMessage(error));
@@ -229,7 +233,7 @@ const LayoutAnalysis = () => {
 
   const analyze = async () => {
     const video = activeVideo();
-    if (!video || !geometry || !selectedChartId || (mode === 'youtube' && !captureReady)) {
+    if (!video || !geometry || !candidateKey(selected) || (mode === 'youtube' && !captureReady)) {
       setStatus('영상, 분석 영역과 정확한 채보를 모두 준비하세요.');
       return;
     }
@@ -257,16 +261,18 @@ const LayoutAnalysis = () => {
       if (data.type === 'progress') setProgress(Math.min(100, data.timestampMs / durationMs * 100));
       if (data.type === 'error') { setStatus(data.message); stopWorker(); }
       if (data.type === 'result') {
+        observedNotesRef.current = data.observedNotes;
         try {
           const match = await layoutAnalysisApi.match({
             inputSource: mode === 'file' ? 'LOCAL_FILE' : 'YOUTUBE_TAB',
             videoId: youtube?.videoId,
-            chartId: selectedChartId,
+            chartId: selected.chartId ?? null,
+            songKey: selected.songKey ?? null,
             observedNotes: data.observedNotes,
           });
           setResult(match);
           setProgress(100);
-          setStatus(match.status === 'MATCHED' ? '배치 분석이 완료됐습니다.' : `분석 결과: ${match.status}`);
+          setStatus(describeMatch(match));
         } catch (error) {
           setStatus(errorMessage(error));
         } finally {
@@ -288,6 +294,26 @@ const LayoutAnalysis = () => {
     video.addEventListener('ended', finishWorker, { once: true });
     setStatus('영상은 브라우저에 둔 채 노트 이벤트를 추출하는 중입니다…');
     try { await video.play(); } catch (error) { setStatus(errorMessage(error)); stopWorker(); }
+  };
+
+  const rematchSuggested = async () => {
+    const observedNotes = observedNotesRef.current;
+    const songKey = result?.suggestedSongKey;
+    if (!observedNotes || !songKey) return;
+    setStatus('제안된 채보로 다시 대조하는 중입니다…');
+    try {
+      const match = await layoutAnalysisApi.match({
+        inputSource: mode === 'file' ? 'LOCAL_FILE' : 'YOUTUBE_TAB',
+        videoId: youtube?.videoId,
+        chartId: result.suggestedChartId ?? null,
+        songKey,
+        observedNotes,
+      });
+      setResult(match);
+      setStatus(describeMatch(match));
+    } catch (error) {
+      setStatus(errorMessage(error));
+    }
   };
 
   const cancel = () => {
@@ -340,8 +366,8 @@ const LayoutAnalysis = () => {
         </div>
 
         {candidates.length > 0 && <div className="grid gap-2 md:grid-cols-3">{candidates.map((candidate) => (
-          <label key={candidate.chartId} className={clsx('cursor-pointer border bg-panel p-4', selectedChartId === candidate.chartId ? 'border-accent' : 'border-line')}>
-            <input type="radio" className="mr-2 accent-accent" checked={selectedChartId === candidate.chartId} onChange={() => setSelectedChartId(candidate.chartId)} />
+          <label key={candidateKey(candidate)} className={clsx('cursor-pointer border bg-panel p-4', candidateKey(selected) === candidateKey(candidate) ? 'border-accent' : 'border-line')}>
+            <input type="radio" name="layout-analysis-candidate" className="mr-2 accent-accent" checked={candidateKey(selected) === candidateKey(candidate)} onChange={() => setSelected(candidate)} />
             <strong className="text-sm text-ink">{candidate.title}</strong>
             <span className="mt-2 block font-mono text-[10px] text-muted">{candidate.chartType} · ☆{candidate.level} · {Math.round(candidate.score * 100)}%</span>
           </label>
@@ -356,6 +382,12 @@ const LayoutAnalysis = () => {
           <span className="font-mono text-xs font-bold text-accent">{result.status}</span>
           <h2 className="mt-3 text-lg text-ink">{result.chart?.title} · {result.chart?.chartType}</h2>
           {result.candidates?.map((candidate) => <div key={candidate.regularToPlayed} className="mt-3 border border-line bg-night p-4"><strong className="font-mono text-xl text-ink">{candidate.display || `S+1234567 → S+${candidate.playedLaneSources}`}</strong><p className="mt-1 text-xs text-muted">실제 각 레인에 들어온 정규 채보 키 순서 · 신뢰도 {candidate.confidenceBand}</p></div>)}
+          {(result.laneMapping?.side || result.side) && <p className="mt-2 font-mono text-[11px] text-muted">플레이 사이드 {result.laneMapping?.side || result.side}</p>}
+          {result.reason === 'DIFFICULTY_MISMATCH' && result.suggestedSongKey && observedNotesRef.current && (
+            <button className={clsx(buttonClass, 'mt-3')} type="button" onClick={rematchSuggested}>
+              제안된 채보({result.suggestedSongKey})로 다시 대조 · 분석 횟수 1회 사용
+            </button>
+          )}
           {result.warnings?.map((warning) => <p key={warning} className="mt-2 text-xs text-danger">{warning}</p>)}
           {result.reference && <p className="mt-4 break-all text-[11px] text-faint"><a href={result.reference.sourceUrl} target="_blank" rel="noreferrer">Textage 출처</a> · SHA-256 {result.reference.sourceSha256}</p>}
         </div>}

@@ -25,12 +25,16 @@ const cleanGeometry = (geometry) => ({
   confidence: geometry.confidence ?? 1,
 });
 
-export const buildLayoutMatchPayload = ({ inputSource, videoId = null, chartId, observedNotes }) => {
+export const buildLayoutMatchPayload = ({ inputSource, videoId = null, chartId = null, songKey = null, observedNotes }) => {
   assertObservedNotes(observedNotes);
   return {
     inputSource,
     videoId,
     chartId,
+    // Emitted only when the catalogue supplied one. The server rejects unknown
+    // request fields outright, so a backend that predates the textage catalogue
+    // must not receive this key at all.
+    ...(typeof songKey === 'string' && songKey ? { songKey } : {}),
     observedNotes: {
       schemaVersion: observedNotes.schemaVersion,
       fps: observedNotes.fps,

@@ -16,8 +16,8 @@ export const layoutAnalysisApi = {
     return response.data;
   },
 
-  async match({ inputSource, videoId = null, chartId, observedNotes }) {
-    const payload = buildLayoutMatchPayload({ inputSource, videoId, chartId, observedNotes });
+  async match({ inputSource, videoId = null, chartId = null, songKey = null, observedNotes }) {
+    const payload = buildLayoutMatchPayload({ inputSource, videoId, chartId, songKey, observedNotes });
     const serialized = JSON.stringify(payload);
     if (new TextEncoder().encode(serialized).length > 1_000_000) {
       throw new Error('배열 분석 요청은 1MB 이하여야 합니다.');
