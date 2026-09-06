@@ -2,10 +2,20 @@ let state = null;
 
 const closeFrame = (frame) => frame?.close?.();
 
-const laneBrightness = (image, lane) => {
-  const laneWidth = image.width / 8;
-  const left = Math.round(lane * laneWidth + laneWidth * 0.2);
-  const right = Math.round((lane + 1) * laneWidth - laneWidth * 0.2);
+/**
+ * Samples the middle of one lane.
+ *
+ * The lane centres and widths come from the geometry rather than from dividing
+ * the field into eight. IIDX draws white keys wider than black ones and the
+ * turntable lane wider than either, so equal bins drift across the field: on a
+ * 290 px playfield the eighth bin centre landed 26 px from the real lane, and
+ * the lanes there are 28-36 px wide, so it was reading the neighbouring lane.
+ */
+const laneBrightness = (image, lane, laneCenters, laneWidths) => {
+  const middle = laneCenters[lane] * image.width;
+  const reach = laneWidths[lane] * image.width * 0.3;
+  const left = Math.max(0, Math.round(middle - reach));
+  const right = Math.min(image.width, Math.round(middle + reach));
   const center = Math.round(image.height / 2);
   const band = Math.max(2, Math.round(image.height * 0.08));
   let sum = 0;
@@ -28,8 +38,15 @@ self.onmessage = ({ data }) => {
     if (data.type === 'init') {
       const geometry = data.geometry;
       const bandHeight = Math.max(12, Math.round(geometry.height * 0.035));
+      if (geometry.laneCenters?.length !== 8 || geometry.laneWidths?.length !== 8) {
+        // Refusing beats guessing. Falling back to eight equal bins is what
+        // made the right of the field read a lane off, and it did so silently.
+        throw new Error('레인 좌표가 없는 지오메트리로는 분석할 수 없습니다.');
+      }
       state = {
         ...data,
+        laneCenters: geometry.laneCenters,
+        laneWidths: geometry.laneWidths,
         crop: { x: geometry.x, y: geometry.analysisY - Math.round(bandHeight / 2), width: geometry.width, height: bandHeight },
         canvas: new OffscreenCanvas(geometry.width, bandHeight),
         samples: Array.from({ length: 8 }, () => []),
@@ -50,7 +67,10 @@ self.onmessage = ({ data }) => {
       state.context.drawImage(data.frame, state.crop.x, state.crop.y, state.crop.width, state.crop.height, 0, 0, state.crop.width, state.crop.height);
       closeFrame(data.frame);
       const image = state.context.getImageData(0, 0, state.crop.width, state.crop.height);
-      const values = Array.from({ length: 8 }, (_, lane) => laneBrightness(image, lane));
+      const values = Array.from(
+        { length: 8 },
+        (_, lane) => laneBrightness(image, lane, state.laneCenters, state.laneWidths),
+      );
       state.timestamps.push(data.timestampMs);
       if (data.timestampMs <= state.calibrationUntil) {
         values.forEach((value, lane) => state.samples[lane].push(value));

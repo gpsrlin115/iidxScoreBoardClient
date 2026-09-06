@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { parseYouTubeVideoId, requestYouTubeTab, stopCapture } from '../src/features/layoutAnalysis/capture.js';
-import { defaultGeometry, sanitizeGeometry } from '../src/features/layoutAnalysis/detector.js';
+import { defaultGeometry, laneLayout, sanitizeGeometry } from '../src/features/layoutAnalysis/detector.js';
 import { ocrCrop } from '../src/features/layoutAnalysis/ocr.js';
 import { buildLayoutMatchPayload } from '../src/features/layoutAnalysis/payload.js';
 import { candidateKey, describeMatch } from '../src/features/layoutAnalysis/candidates.js';
@@ -122,4 +122,69 @@ test('a non-string song key is dropped rather than forwarded', () => {
 
   assert.ok(!('songKey' in payload));
   assert.doesNotMatch(JSON.stringify(payload), /forbidden/);
+});
+
+test('lane geometry reproduces the lane centres measured off a real 2P capture', () => {
+  // Measured on IIDX33 Sparkle Shower captures: the playfield spans x 940..1230
+  // and the note-area dividers fall at 940, 976, 1004, 1040, 1068, 1104, 1132,
+  // 1168, with the turntable lane running 1168..1230. Both clips gave the same
+  // numbers, so these are the values the ratio table has to land on.
+  const left = 940;
+  const width = 290;
+  const measured = [958, 990, 1022, 1054, 1086, 1118, 1150, 1199];
+
+  const { laneCenters, laneWidths } = laneLayout('P2');
+  const pixels = laneCenters.map((value) => Math.round(left + value * width));
+
+  assert.deepEqual(pixels, measured);
+  assert.ok(Math.abs(laneWidths.reduce((sum, value) => sum + value, 0) - 1) < 1e-9);
+  // The turntable is the widest lane and sits on the right for 2P.
+  assert.equal(laneWidths.indexOf(Math.max(...laneWidths)), 7);
+});
+
+test('splitting the field into eight equal lanes misses by most of a lane', () => {
+  // This is the bug the ratio table replaces, kept as a measurement so the
+  // reason survives: equal bins agree at the left edge and drift from there.
+  const width = 290;
+  const measured = [958, 990, 1022, 1054, 1086, 1118, 1150, 1199];
+  const equal = Array.from({ length: 8 }, (_, lane) => Math.round(940 + (lane + 0.5) * (width / 8)));
+
+  const drift = equal.map((value, lane) => Math.abs(value - measured[lane]));
+
+  assert.equal(drift[0], 0);
+  assert.ok(Math.max(...drift) >= 25, `expected the equal split to drift, saw ${Math.max(...drift)}px`);
+});
+
+test('the turntable lane changes ends with the play side', () => {
+  const first = laneLayout('P1');
+  const second = laneLayout('P2');
+
+  assert.equal(first.laneWidths.indexOf(Math.max(...first.laneWidths)), 0);
+  assert.equal(second.laneWidths.indexOf(Math.max(...second.laneWidths)), 7);
+  // Mirroring one gives the other: the playfields are reflections.
+  assert.deepEqual(second.laneWidths, [...first.laneWidths].reverse());
+});
+
+test('the fallback geometry follows the play side across the frame', () => {
+  const one = defaultGeometry(1280, 720, 'P1');
+  const two = defaultGeometry(1280, 720, 'P2');
+
+  assert.ok(one.x < 1280 * 0.1, 'the 1P fallback belongs on the left');
+  assert.ok(two.x + two.width > 1280 * 0.9, 'the 2P fallback belongs on the right');
+  assert.equal(one.laneCenters.length, 8);
+  assert.equal(two.laneWidths.length, 8);
+});
+
+test('sanitising a geometry without a lane layout supplies one', () => {
+  // A manual ROI, or anything stored before the lane layout existed, still has
+  // to reach the worker with lanes; the worker refuses geometry without them.
+  const sanitized = sanitizeGeometry(
+    { x: 940, y: 30, width: 290, height: 440, judgementY: 400, visibleTopY: 100, visibleBottomY: 380, side: 'P2' },
+    1280,
+    720,
+  );
+
+  assert.equal(sanitized.laneCenters.length, 8);
+  assert.equal(sanitized.side, 'P2');
+  assert.equal(sanitized.laneWidths.indexOf(Math.max(...sanitized.laneWidths)), 7);
 });
