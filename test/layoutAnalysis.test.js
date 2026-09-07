@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { parseYouTubeVideoId, requestYouTubeTab, stopCapture } from '../src/features/layoutAnalysis/capture.js';
-import { defaultGeometry, laneLayout, sanitizeGeometry } from '../src/features/layoutAnalysis/detector.js';
+import { defaultGeometry, detectGeometry, laneLayout, sanitizeGeometry } from '../src/features/layoutAnalysis/detector.js';
 import { ocrCrop } from '../src/features/layoutAnalysis/ocr.js';
 import { buildLayoutMatchPayload } from '../src/features/layoutAnalysis/payload.js';
 import { candidateKey, describeMatch } from '../src/features/layoutAnalysis/candidates.js';
@@ -187,4 +187,73 @@ test('sanitising a geometry without a lane layout supplies one', () => {
   assert.equal(sanitized.laneCenters.length, 8);
   assert.equal(sanitized.side, 'P2');
   assert.equal(sanitized.laneWidths.indexOf(Math.max(...sanitized.laneWidths)), 7);
+});
+
+const frameWithFieldAt = (left, width, side) => {
+  // 960x540 RGBA. detectGeometry 는 세로 엣지만 보므로 레인 경계에만 밝은 기둥을
+  // 세우면 된다. 좌표는 축소 배율(1280 -> 960)을 반영한다.
+  const [w, h] = [960, 540];
+  const data = new Uint8ClampedArray(w * h * 4);
+  const { laneWidths } = laneLayout(side);
+  const edges = [0];
+  for (const value of laneWidths) edges.push(edges[edges.length - 1] + value);
+  // 바깥 테두리를 안쪽 구분선보다 밝게 둔다. 실제 플레이필드도 그렇고, 균일하게
+  // 그리면 한 레인 밀린 배치가 동점이 되어 합성 입력이 실제보다 어려워진다.
+  const columns = new Map();
+  edges.forEach((edge, index) => {
+    const x = Math.round(left + edge * width);
+    const outer = index === 0 || index === edges.length - 1;
+    columns.set(x, outer ? 250 : 150);
+    if (outer) columns.set(x + 1, 250);
+  });
+  for (let y = 0; y < h; y += 1) {
+    for (let x = 0; x < w; x += 1) {
+      const value = columns.get(x) ?? 20;
+      const at = (y * w + x) * 4;
+      data[at] = data[at + 1] = data[at + 2] = value;
+      data[at + 3] = 255;
+    }
+  }
+  return { data, width: w, height: h };
+};
+
+const withStubbedCanvas = (image, run) => {
+  const previous = globalThis.document;
+  globalThis.document = {
+    createElement: () => ({
+      width: 0, height: 0,
+      getContext: () => ({ drawImage: () => {}, getImageData: () => image }),
+    }),
+  };
+  try {
+    return run();
+  } finally {
+    globalThis.document = previous;
+  }
+};
+
+test('the playfield search reaches the right of the frame, where a 2P field sits', () => {
+  // The search used to stop at 58% of the width. Measured against real captures
+  // the 2P playfield spans 73%-96% of the frame, so it was never even looked at.
+  // Verified against those captures too: detectGeometry returns x=941 width=291
+  // where the measurement says 940 and 290, and reports P2.
+  const image = frameWithFieldAt(705, 218, 'P2');
+
+  const geometry = withStubbedCanvas(image, () => detectGeometry({ videoWidth: 1280, videoHeight: 720 }));
+
+  assert.equal(geometry.side, 'P2');
+  // The property under test is reach, not pixel accuracy: the field has to be
+  // found in the right half of the frame at all. Accuracy is pinned separately
+  // against the real captures, where this returns x=941 width=291.
+  assert.ok(geometry.x > 1280 * 0.5, `expected a field in the right half, got x=${geometry.x}`);
+  assert.ok(geometry.x + geometry.width <= 1280, 'the field must stay inside the frame');
+});
+
+test('a 1P field on the left is still found and named', () => {
+  const image = frameWithFieldAt(29, 218, 'P1');
+
+  const geometry = withStubbedCanvas(image, () => detectGeometry({ videoWidth: 1280, videoHeight: 720 }));
+
+  assert.equal(geometry.side, 'P1');
+  assert.ok(geometry.x < 1280 * 0.5, `expected a field in the left half, got x=${geometry.x}`);
 });
