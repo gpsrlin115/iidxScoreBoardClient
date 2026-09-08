@@ -29,7 +29,7 @@ export const SongTileChip = React.forwardRef(({
   ...rest
 }, ref) => {
   const difficultyDisplay = getDifficultyDisplay(difficulty);
-  const difficultyDescription = difficultyDisplay.label === '?'
+  const difficultyDescription = difficultyDisplay.isMissing
     ? difficultyDisplay.fullLabel
     : `난이도 ${difficultyDisplay.fullLabel}`;
 
@@ -38,7 +38,7 @@ export const SongTileChip = React.forwardRef(({
       ref={ref}
       style={style}
       {...rest}
-      title={`${title} · ${difficultyDisplay.fullLabel}`}
+      title={title}
       className={`
         inline-flex items-center gap-2 px-3 py-1.5 m-1 rounded text-sm font-semibold border shadow-sm
         cursor-grab active:cursor-grabbing select-none transition-colors

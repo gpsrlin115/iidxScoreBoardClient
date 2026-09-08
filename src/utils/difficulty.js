@@ -1,15 +1,16 @@
 const DIFFICULTY_DISPLAYS = Object.freeze({
-  BEGINNER: Object.freeze({ key: 'BEGINNER', label: 'B', fullLabel: 'BEGINNER' }),
-  NORMAL: Object.freeze({ key: 'NORMAL', label: 'N', fullLabel: 'NORMAL' }),
-  HYPER: Object.freeze({ key: 'HYPER', label: 'H', fullLabel: 'HYPER' }),
-  ANOTHER: Object.freeze({ key: 'ANOTHER', label: 'A', fullLabel: 'ANOTHER' }),
-  LEGGENDARIA: Object.freeze({ key: 'LEGGENDARIA', label: 'L', fullLabel: 'LEGGENDARIA' }),
+  BEGINNER: Object.freeze({ key: 'BEGINNER', label: 'B', fullLabel: 'BEGINNER', isMissing: false }),
+  NORMAL: Object.freeze({ key: 'NORMAL', label: 'N', fullLabel: 'NORMAL', isMissing: false }),
+  HYPER: Object.freeze({ key: 'HYPER', label: 'H', fullLabel: 'HYPER', isMissing: false }),
+  ANOTHER: Object.freeze({ key: 'ANOTHER', label: 'A', fullLabel: 'ANOTHER', isMissing: false }),
+  LEGGENDARIA: Object.freeze({ key: 'LEGGENDARIA', label: 'L', fullLabel: 'LEGGENDARIA', isMissing: false }),
 });
 
 const MISSING_DIFFICULTY_DISPLAY = Object.freeze({
   key: null,
   label: '?',
   fullLabel: '난이도 정보 없음',
+  isMissing: true,
 });
 
 /**
@@ -29,5 +30,5 @@ export const getDifficultyDisplay = (difficulty) => {
   const knownDisplay = DIFFICULTY_DISPLAYS[value.toUpperCase()];
   if (knownDisplay) return knownDisplay;
 
-  return { key: null, label: value, fullLabel: value };
+  return { key: null, label: value, fullLabel: value, isMissing: false };
 };

@@ -26,6 +26,12 @@ const SongTile = ({ song, dense = false }) => {
   const difficulty = getDifficultyDisplay(song.difficulty);
   const isLeggendaria = difficulty.key === 'LEGGENDARIA';
 
+  // Viewer dialog titles only abbreviate HYPER, ANOTHER and LEGGENDARIA.
+  // Missing difficulty is omitted instead of exposing the admin placeholder.
+  const difficultyLabel = difficulty.isMissing
+    ? undefined
+    : ['BEGINNER', 'NORMAL'].includes(difficulty.key) ? difficulty.fullLabel : difficulty.label;
+
   // Focus returns to this button on its own: useFocusTrap inside the dialog
   // restores whatever was focused when it mounted. Restoring here too would
   // fight that and only work for this one trigger.
@@ -51,7 +57,7 @@ const SongTile = ({ song, dense = false }) => {
           boxShadow: clearType === 'FULLCOMBO_CLEAR' ? FC_CHIP_GLOW : undefined,
         }}
         title={`${songTitle} · ${CLEAR_TYPE_LABELS[clearType]}`}
-        aria-label={`${songTitle} ${difficulty.label} 채보 상세 점수 보기`}
+        aria-label={`${songTitle}${difficulty.isMissing ? '' : ` ${difficulty.fullLabel} 채보`} 상세 점수 보기`}
         aria-haspopup="dialog"
         aria-expanded={isDialogOpen}
         aria-controls={isDialogOpen ? dialogId : undefined}
@@ -71,7 +77,7 @@ const SongTile = ({ song, dense = false }) => {
         <SongScoreDialog
           id={dialogId}
           song={song}
-          difficultyLabel={difficulty.label}
+          difficultyLabel={difficultyLabel}
           onClose={closeDialog}
         />
       )}
