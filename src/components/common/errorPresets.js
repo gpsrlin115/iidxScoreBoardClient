@@ -2,21 +2,50 @@
  * Status code -> page-level error presentation table.
  *
  * IMPORTANT: This file only holds page-level presentation data
- * (emoji / title / description) for full-page and inline error UIs.
+ * (illustration / emoji / title / description) for full-page and inline
+ * error UIs.
  * One-line, already-normalized user-facing messages (e.g. toast copy)
  * belong in `src/utils/httpError.js` — do not duplicate them here.
  */
 
+/**
+ * Illustrations live in `public/assets` with a `-vN` suffix: the files are
+ * served with a long cache lifetime, so a redrawn illustration ships under a
+ * new version rather than replacing bytes at the same URL.
+ *
+ * `width`/`height` are the files' intrinsic pixel sizes. They are passed to
+ * the <img> so the browser can reserve the right box before the image
+ * arrives, which keeps the centered error layout from jumping.
+ */
+const illustration = (status, width, height) => ({
+  src: `/assets/error-${status}-v1.webp`,
+  width,
+  height,
+});
+
 const PRESETS_BY_STATUS = {
   403: {
     emoji: '🔒',
+    image: illustration(403, 508, 512),
     title: '접근 권한이 없습니다',
     description: '이 페이지를 볼 수 있는 권한이 없습니다.',
   },
   404: {
     emoji: '🔍',
+    image: illustration(404, 384, 512),
     title: '페이지를 찾을 수 없습니다',
     description: '주소가 잘못되었거나 삭제된 페이지입니다.',
+  },
+  /**
+   * RFC 2324's teapot status. Nothing in the app returns it today — it is
+   * here so that if the API ever does, the screen renders the joke properly
+   * instead of falling through to the generic "오류가 발생했습니다" preset.
+   */
+  418: {
+    emoji: '🫖',
+    image: illustration(418, 486, 512),
+    title: '저는 찻주전자입니다',
+    description: '커피는 내릴 수 없어요. 차 한 잔 하며 기다려주세요.',
   },
 };
 
@@ -44,7 +73,10 @@ const DEFAULT_PRESET = {
  *
  * @param {number | null} status - HTTP status code, or null when there is
  *   no response at all (network failure, timeout).
- * @returns {{ emoji: string, title: string, description: string | null }}
+ * @returns {{ emoji: string, title: string, description: string | null,
+ *   image?: { src: string, width: number, height: number } }} - `image` is
+ *   present only for the statuses that have a drawn illustration; the rest
+ *   fall back to `emoji`.
  */
 export function getErrorPreset(status) {
   if (status === null || status === undefined) {
