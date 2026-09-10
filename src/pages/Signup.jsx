@@ -7,6 +7,7 @@ import Starfield from '../components/background/Starfield';
 import FieldLabel from '../components/auth/FieldLabel';
 import LoginArtwork from '../components/auth/LoginArtwork';
 import MonoButton from '../components/common/MonoButton';
+import GoogleEntry from '../components/auth/GoogleEntry';
 
 // Shares the login screen's visual language: same underline fields, same
 // left-aligned block over the artwork, so the two auth screens read as one flow.
@@ -90,6 +91,7 @@ const Signup = () => {
   });
   const [errors, setErrors] = useState({});
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [googleBusy, setGoogleBusy] = useState(false);
 
   /**
    * 🎓 단일 onChange 핸들러 패턴
@@ -135,6 +137,7 @@ const Signup = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (isSubmitting || googleBusy) return;
 
     // 유효성 검사 실패 시 에러 표시 후 중단
     const validationErrors = validate();
@@ -165,7 +168,7 @@ const Signup = () => {
       <Starfield litRatio={0.5} />
       <LoginArtwork />
 
-      <div className="relative mx-auto w-full max-w-[1180px] px-14">
+      <div className="relative mx-auto w-full max-w-[1180px] px-6 py-12 sm:px-14">
         <div className="max-w-[400px]">
           <div className="mb-14 flex items-center gap-[11px]">
             <img src="/favicon.png" alt="" width={22} height={22} className="block rounded-[3px]" />
@@ -209,13 +212,14 @@ const Signup = () => {
               type="submit"
               variant="accent"
               fullWidth
-              disabled={isSubmitting}
+              disabled={isSubmitting || googleBusy}
               trailing={<span>&#8594;</span>}
               className="mt-2"
             >
               {isSubmitting ? '가입 중...' : '회원가입'}
             </MonoButton>
           </form>
+          <GoogleEntry signup disabled={isSubmitting} onBusyChange={setGoogleBusy} />
 
           <div className="mt-6 flex items-center gap-4 text-[12.5px]">
             <span className="text-faint">이미 계정이 있으신가요?</span>
