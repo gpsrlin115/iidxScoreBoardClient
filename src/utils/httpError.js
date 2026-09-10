@@ -67,7 +67,6 @@ function statusFallbackMessage(status) {
  *   code: string | null,
  *   message: string,
  *   serverMessage: string | null,
- *   fatal: boolean,
  *   retryable: boolean,
  *   raw: unknown,
  * }}
@@ -97,7 +96,6 @@ export function toAppError(error, { fallback } = {}) {
     code,
     message,
     serverMessage,
-    fatal: status === 403 || status >= 500 || status === null,
     retryable: status === null || status >= 500 || status === 429,
     raw: error,
   };
