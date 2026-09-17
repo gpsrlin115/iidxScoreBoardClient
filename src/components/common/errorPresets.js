@@ -37,8 +37,9 @@ const PRESETS_BY_STATUS = {
     description: '주소가 잘못되었거나 삭제된 페이지입니다.',
   },
   /**
-   * RFC 2324's teapot status. Nothing in the app returns it today — it is
-   * here so that if the API ever does, the screen renders the joke properly
+   * RFC 2324's teapot status. The Konami-code easter egg lands on it:
+   * TEAPOT_PATH (`src/constants/teapot.js`) is served with a real 418 and
+   * renders this preset. An API that ever returns 418 gets the joke too,
    * instead of falling through to the generic "오류가 발생했습니다" preset.
    */
   418: {
