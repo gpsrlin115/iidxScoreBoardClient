@@ -47,9 +47,9 @@ def main() -> int:
             fps=wire["fps"], frame_count=wire["frameCount"], duration_ms=wire["durationMs"],
             geometry=PlayfieldGeometry(
                 geometry["x"], geometry["y"], geometry["width"], geometry["height"],
-                geometry["judgementY"], geometry["analysisY"], "browser-auto-multi", 0.85,
+                geometry["judgementY"], wire.get("bandY", geometry["analysisY"]), "browser-auto-multi", 0.85,
                 geometry["visibleTopY"], geometry["visibleBottomY"],
-                tuple(geometry["analysisBandsY"]), (),
+                (wire.get("bandY", geometry["analysisY"]),), (),
                 tuple(geometry["laneCenters"]), tuple(geometry["laneWidths"])),
             detector_version="browser-worker-node-harness",
             lane_event_counts=tuple(wire["laneEventCounts"]))
@@ -65,7 +65,7 @@ def main() -> int:
         failures += 0 if ok else 1
         if result.candidates:
             best = result.candidates[0]
-            print(f"{video_id} {'ok  ' if ok else 'FAIL'} status {result.status}"
+            print(f"{video_id} {'ok  ' if ok else 'FAIL'} 밴드 y={wire.get('bandY')} status {result.status}"
                   f" side {result.side} (라벨 {label.get('expectedSide')})"
                   f" 배치 {recovered} (라벨 {expected})"
                   f" score {best.match_score:.4f} band {best.confidence_band}"

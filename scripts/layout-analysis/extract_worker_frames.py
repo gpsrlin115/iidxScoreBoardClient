@@ -41,23 +41,34 @@ def main() -> int:
 
         geometry = row["geometry"]
         band_height = max(12, round(geometry["height"] * 0.035))
-        top = geometry["analysisY"] - round(band_height / 2)
+        # Every candidate band, not just the one the sidecar settled on. Which
+        # band is usable depends on the video, so the client has to be able to
+        # compare them.
+        band_positions = geometry.get("analysisBandsY") or [geometry["analysisY"]]
         capture = cv2.VideoCapture(str(source))
         fps = capture.get(cv2.CAP_PROP_FPS) or 60.0
         capture.set(cv2.CAP_PROP_POS_FRAMES, int(starts.get(video_id, 0) * fps))
 
         frames = 0
+        # One file per clip, bands stacked within each frame in the order given,
+        # which is how the worker reads them back off a single canvas.
         with (TARGET / f"{video_id}.band.bin").open("wb") as out:
             while frames < int(SECONDS * fps):
                 ok, frame = capture.read()
                 if not ok:
                     break
-                band = frame[top:top + band_height, geometry["x"]:geometry["x"] + geometry["width"]]
-                if band.shape[0] != band_height or band.shape[1] != geometry["width"]:
+                stacked = []
+                for band_y in band_positions:
+                    top = band_y - round(band_height / 2)
+                    band = frame[top:top + band_height, geometry["x"]:geometry["x"] + geometry["width"]]
+                    if band.shape[0] != band_height or band.shape[1] != geometry["width"]:
+                        stacked = []
+                        break
+                    # BGR to RGBA, which is what getImageData hands the detector.
+                    stacked.append(np.dstack([band[:, :, ::-1], np.full(band.shape[:2], 255, dtype=np.uint8)]))
+                if not stacked:
                     break
-                # BGR to RGBA, which is what getImageData hands the detector.
-                rgba = np.dstack([band[:, :, ::-1], np.full(band.shape[:2], 255, dtype=np.uint8)])
-                out.write(np.ascontiguousarray(rgba).tobytes())
+                out.write(np.ascontiguousarray(np.vstack(stacked)).tobytes())
                 frames += 1
         capture.release()
 
@@ -66,6 +77,13 @@ def main() -> int:
             "frames": frames,
             "fps": fps,
             "band": {"width": geometry["width"], "height": band_height},
+            "bandPositions": list(band_positions),
+            "judgementY": geometry["judgementY"],
+            "fieldY": geometry["y"],
+            "fieldHeight": geometry["height"],
+            "visibleTopY": geometry["visibleTopY"],
+            "visibleBottomY": geometry["visibleBottomY"],
+            "sidecarAnalysisY": geometry["analysisY"],
             "laneCenters": geometry["laneCenters"],
             "laneWidths": geometry["laneWidths"],
             "durationMs": round(frames / fps * 1000),
@@ -73,7 +91,8 @@ def main() -> int:
             "expectedRegularToPlayed": expected[video_id].get("expectedRegularToPlayed"),
             "sidecarEvents": row["events"],
         })
-        print(f"{video_id}: {frames} frames at {fps:.1f}fps, band {geometry['width']}x{band_height}")
+        print(f"{video_id}: {frames} frames at {fps:.1f}fps,"
+              f" {len(band_positions)} bands {geometry['width']}x{band_height} at {band_positions}")
 
     (TARGET / "manifest.json").write_text(json.dumps({"clips": entries}, indent=2) + "\n")
     print(f"wrote {TARGET}")

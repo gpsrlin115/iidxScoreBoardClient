@@ -1,6 +1,7 @@
 import { createEventDetector } from './laneEvents.js';
 import { detectStableSegments } from './stableSegments.js';
 import { detectJudgementRow, redRowOccupancy } from './judgementLine.js';
+import { candidateBandsY, pickBand, scoreBand } from './analysisBands.js';
 
 // The note band is read every frame; the playfield's geometry is re-checked
 // twice a second, which is often enough to place a cover change within half a
@@ -50,16 +51,21 @@ self.onmessage = ({ data }) => {
         throw new Error('레인 좌표가 없는 지오메트리로는 분석할 수 없습니다.');
       }
       const fieldHeight = Math.max(24, geometry.judgementY - geometry.y);
+      const bandsY = candidateBandsY(geometry);
       state = {
         ...data,
-        crop: { x: geometry.x, y: geometry.analysisY - Math.round(bandHeight / 2), width: geometry.width, height: bandHeight },
-        canvas: new OffscreenCanvas(geometry.width, bandHeight),
+        bandsY,
+        bandHeight,
+        // Every band is stacked into one canvas so the frame is read back once.
+        // Reading each band separately would multiply the readback, which is
+        // the expensive half of sampling a frame.
+        canvas: new OffscreenCanvas(geometry.width, bandHeight * bandsY.length),
         field: { x: geometry.x, y: geometry.y, width: geometry.width, height: fieldHeight },
         fieldCanvas: new OffscreenCanvas(geometry.width, fieldHeight),
-        detector: createEventDetector({
+        detectors: bandsY.map(() => createEventDetector({
           laneCenters: geometry.laneCenters, laneWidths: geometry.laneWidths,
           durationMs: data.durationMs, fps: data.fps,
-        }),
+        })),
         samples: [],
         occupancies: [],
         nextGeometrySampleMs: 0,
@@ -74,13 +80,29 @@ self.onmessage = ({ data }) => {
       return;
     }
     if (data.type === 'frame') {
-      state.context.drawImage(data.frame, state.crop.x, state.crop.y, state.crop.width, state.crop.height, 0, 0, state.crop.width, state.crop.height);
+      const width = state.geometry.width;
+      const height = state.bandHeight;
+      state.bandsY.forEach((bandY, index) => {
+        state.context.drawImage(
+          data.frame, state.geometry.x, bandY - Math.round(height / 2), width, height,
+          0, index * height, width, height,
+        );
+      });
       const due = data.timestampMs >= state.nextGeometrySampleMs;
       if (due) {
         state.fieldContext.drawImage(data.frame, state.field.x, state.field.y, state.field.width, state.field.height, 0, 0, state.field.width, state.field.height);
       }
       closeFrame(data.frame);
-      state.detector.push(state.context.getImageData(0, 0, state.crop.width, state.crop.height), data.timestampMs);
+      const stacked = state.context.getImageData(0, 0, width, height * state.bandsY.length);
+      const bandBytes = width * height * 4;
+      state.detectors.forEach((detector, index) => {
+        // A view into the frame that was already read back, not a copy.
+        detector.push({
+          data: stacked.data.subarray(index * bandBytes, (index + 1) * bandBytes),
+          width,
+          height,
+        }, data.timestampMs);
+      });
       if (due) {
         sampleGeometry(data.timestampMs);
         state.nextGeometrySampleMs = data.timestampMs + GEOMETRY_SAMPLE_MS;
@@ -89,10 +111,24 @@ self.onmessage = ({ data }) => {
       return;
     }
     if (data.type === 'finish') {
-      const { events, laneEventCounts, fps, durationMs } = state.detector.finish();
+      const read = state.detectors.map((detector, index) => {
+        const result = detector.finish();
+        return {
+          ...result,
+          bandY: state.bandsY[index],
+          score: scoreBand({
+            laneEventCounts: result.laneEventCounts, events: result.events,
+            bandY: state.bandsY[index], judgementY: state.geometry.judgementY,
+            height: state.geometry.height,
+          }),
+        };
+      });
+      const chosen = pickBand(read);
+      const { events, laneEventCounts, fps, durationMs } = chosen;
       self.postMessage({ type: 'result', observedNotes: {
         schemaVersion: 'observed-notes-v1', fps, durationMs,
-        geometry: state.geometry,
+        // The band that was actually read, so the answer says where it looked.
+        geometry: { ...state.geometry, analysisY: chosen.bandY },
         stableSegments: detectStableSegments({ samples: state.samples, durationMs, roiHeight: state.field.height }),
         normalizationProfile: fps >= 50 ? 'BROWSER_STANDARD_RATE' : 'BROWSER_LOW_RATE',
         laneEventCounts, events,
