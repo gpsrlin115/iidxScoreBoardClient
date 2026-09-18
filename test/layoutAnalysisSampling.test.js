@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { analysisStartSeconds, isSeekable, searchTimesSeconds } from '../src/features/layoutAnalysis/geometryPipeline.js';
+import { analysisStartSeconds, isSeekable, searchTimesSeconds } from '../src/features/layoutAnalysis/videoSampling.js';
 import { GEOMETRY_SOURCE_LABEL } from '../src/features/layoutAnalysis/detector.js';
 
 const recording = (duration, currentTime = 0) => ({
@@ -18,7 +18,7 @@ test('a recording can be stepped through; a live capture cannot', () => {
 test('the search skips both ends of a recording', () => {
   // A capture of a play opens on a splash screen and closes on the results.
   // Measuring either produces coordinates that look measured but are not.
-  const times = searchTimesSeconds(100);
+  const times = searchTimesSeconds(100, 7);
 
   assert.equal(times.length, 7);
   assert.equal(times[0], 20);

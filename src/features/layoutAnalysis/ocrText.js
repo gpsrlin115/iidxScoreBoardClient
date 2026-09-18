@@ -31,6 +31,9 @@ const MIN_TRIMMED_LENGTH = 5;
 // reads best: a timer fragment or a score can outrank it.
 const LINES_CONSIDERED = 3;
 const CORE_WORD_LENGTH = 3;
+// A line this Latin is a Latin title, so a lone character from another script
+// in the middle of it is a misread symbol rather than part of the name.
+const LATIN_SHARE = 0.6;
 
 const isSymbolsOnly = (word) => !/[\p{L}\p{N}]/u.test(word);
 
@@ -49,6 +52,26 @@ const digitRatio = (text) => (text.match(/\d/g) || []).length / Math.max(1, text
  * letters break the stretch, so what survives is the readable part —
  * "You o229 Sweet Clap" gives up "Sweet Clap".
  */
+const isLatin = (word) => /^[\p{Script=Latin}\p{N}\p{P}\p{S}]+$/u.test(word);
+
+/**
+ * The same words with a stray character from another script dropped.
+ *
+ * IIDX writes symbols into titles — "feat.a☆ru" — and the recogniser returns
+ * them as whatever character they resemble; a star came back as 文. The server
+ * normalises symbols away, so the reading matches exactly once the impostor is
+ * gone: "Close the World feat.a 文 ru" scores 0.789 against the wrong song and
+ * 1.0 against the right one without it. Only tried on a line that is otherwise
+ * Latin, so a Japanese title the recogniser split into single characters is
+ * left alone.
+ */
+export const withoutStrayScript = (words) => {
+  const latin = words.filter(isLatin).length;
+  if (latin / Math.max(1, words.length) < LATIN_SHARE) return null;
+  const kept = words.filter((word) => isLatin(word) || [...word].length > 1);
+  return kept.length === words.length ? null : kept;
+};
+
 export const wordCore = (words) => {
   let best = [];
   let run = [];
@@ -114,6 +137,8 @@ export const titleCandidates = (lines) => {
   const considered = scored.slice(0, LINES_CONSIDERED);
   for (const line of considered) {
     add(line.text);
+    const cleaned = withoutStrayScript(line.words);
+    if (cleaned) addTrimmed(cleaned);
     addTrimmed(wordCore(line.words));
   }
   // Then the best line is also offered with words trimmed off either end, for

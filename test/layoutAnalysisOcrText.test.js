@@ -54,3 +54,24 @@ test('a screen with nothing readable offers no title', () => {
   assert.deepEqual(titleCandidates([line('|| =', 40, [['||', 40], ['=', 30]])]), []);
   assert.deepEqual(titleCandidates([]), []);
 });
+
+test('a symbol the recogniser read as another script is also offered removed', () => {
+  // IIDX writes "feat.a☆ru"; the star came back as 文. The server normalises
+  // symbols away, so the reading matches exactly once the impostor is gone —
+  // with it, the query matches a one-character song instead.
+  const candidates = titleCandidates([
+    line('Close the World feat.a 文 ru', 70, [['Close', 90], ['the', 90], ['World', 88], ['feat.a', 70], ['文', 60], ['ru', 65]]),
+  ]);
+
+  assert.ok(candidates.includes('Close the World feat.a ru'), candidates.join(' | '));
+});
+
+test('a Japanese title split into single characters is left alone', () => {
+  // The same removal applied here would delete the title itself.
+  const candidates = titleCandidates([
+    line('Raison 交 差す る 宿 角', 60, [['Raison', 80], ['交', 55], ['差す', 55], ['る', 55], ['宿', 55], ['角', 55]]),
+  ]);
+
+  assert.ok(candidates.some((candidate) => candidate.includes('交')), candidates.join(' | '));
+  assert.ok(candidates.includes('Raison'), candidates.join(' | '));
+});

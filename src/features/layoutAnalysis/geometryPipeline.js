@@ -4,53 +4,12 @@ import { detectLaneColumns } from './laneColumns.js';
 import { detectVerticalExtent } from './roiVertical.js';
 import { detectVisibleBounds } from './verticalBounds.js';
 import { defaultGeometry } from './detector.js';
+import { isSeekable, sampleAcross } from './videoSampling.js';
 
-// Enough samples for a percentile to mean something, over a short enough span
-// that the player has not changed anything mid-measurement.
+// Enough samples for a percentile to mean something.
 const SAMPLES = 7;
-const SPACING_MS = 320;
-// Where to look in a recording. A capture of a play starts on a splash screen
-// and ends on the results, so both ends are skipped: there is no playfield
-// there, and measuring one of those screens produces coordinates that look
-// measured. The middle is gameplay.
-const SEARCH_FROM = 0.2;
-const SEARCH_TO = 0.8;
 // The grid search runs downscaled; the red line does not. See sampleFrames.
 const SEARCH_WIDTH = 960;
-
-const nextFrame = (video, delayMs) => new Promise((resolve) => {
-  if ('requestVideoFrameCallback' in video && !video.paused) video.requestVideoFrameCallback(() => resolve());
-  else window.setTimeout(resolve, delayMs);
-});
-
-/** True for a file the browser can jump around in, false for a live capture. */
-export const isSeekable = (video) => Number.isFinite(video?.duration) && video.duration > 0
-  && video.seekable?.length > 0;
-
-const seekTo = (video, seconds) => new Promise((resolve, reject) => {
-  const timeout = window.setTimeout(() => reject(new Error('영상 위치를 옮기지 못했습니다.')), 5_000);
-  const done = () => { window.clearTimeout(timeout); resolve(); };
-  video.addEventListener('seeked', done, { once: true });
-  video.currentTime = seconds;
-});
-
-/**
- * The rows to sample a recording at.
- *
- * Spread across the middle of the video rather than taken one after another, so
- * a cover that moves or a section the notes thin out in cannot decide the
- * answer on its own.
- */
-export const searchTimesSeconds = (duration, samples = SAMPLES) => {
-  const from = duration * SEARCH_FROM;
-  const span = duration * (SEARCH_TO - SEARCH_FROM);
-  return Array.from({ length: samples }, (unused, index) => from + (span * index) / Math.max(1, samples - 1));
-};
-
-/** Where a capture should start when the viewer has not chosen a position. */
-export const analysisStartSeconds = (video) => (
-  isSeekable(video) && video.currentTime < 1 ? video.duration * SEARCH_FROM : video.currentTime
-);
 
 const drawTo = (video, width, height) => {
   const canvas = document.createElement('canvas');
@@ -77,26 +36,16 @@ const sampleFrames = async (video, onProgress) => {
   const searchHeight = Math.round(height * scale);
   const full = [];
   const grays = [];
-  // A recording is stepped through; a live capture can only be watched. Asking
-  // the viewer to find gameplay themselves is what this avoids — the first
-  // frame of a recording is a splash screen, which has no playfield in it.
-  const times = isSeekable(video) ? searchTimesSeconds(video.duration) : null;
-  const resume = { time: video.currentTime, paused: video.paused };
-  try {
-    for (let index = 0; index < SAMPLES; index += 1) {
-      if (times) await seekTo(video, times[index]);
-      else await nextFrame(video, SPACING_MS);
-      full.push(drawTo(video, width, height));
-      grays.push(toGray(drawTo(video, searchWidth, searchHeight)));
-      onProgress((index + 1) / SAMPLES);
-    }
-  } finally {
-    // Put the viewer back where they were rather than wherever sampling ended.
-    if (times) {
-      try { await seekTo(video, resume.time); } catch { /* leaving it is harmless */ }
-      if (!resume.paused) video.play().catch(() => {});
-    }
-  }
+  await sampleAcross(video, SAMPLES, (index) => {
+    // Two views of the same frame. The lane grid is found on a downscaled copy
+    // because the search is quadratic in candidate columns. The judgement line
+    // is read at capture resolution: it is one to three pixels tall, and
+    // area-averaging it into a smaller frame thins it until no threshold
+    // separates it from the red judgement text.
+    full.push(drawTo(video, width, height));
+    grays.push(toGray(drawTo(video, searchWidth, searchHeight)));
+    onProgress((index + 1) / SAMPLES);
+  });
   return { full, grays, scale, searchWidth, searchHeight };
 };
 

@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { buildLayoutMatchPayload } from '../src/features/layoutAnalysis/payload.js';
 import { candidateKey, candidateQueryParams, SUPPORTED_DIFFICULTIES } from '../src/features/layoutAnalysis/candidates.js';
-import { clampObservedNotes } from '../src/features/layoutAnalysis/observedNotes.js';
+import { clampObservedNotes, extractionProblem } from '../src/features/layoutAnalysis/observedNotes.js';
 
 const observedNotesFixture = (overrides = {}) => ({
   schemaVersion: 'observed-notes-v1', fps: 60, durationMs: 1000,
@@ -65,4 +65,22 @@ test('the candidate request always names the textage catalogue', () => {
   assert.deepEqual(candidateQueryParams('ANOTHER'), { catalog: 'TEXTAGE', difficulty: 'ANOTHER' });
   assert.deepEqual(candidateQueryParams('BEGINNER'), { catalog: 'TEXTAGE' });
   assert.ok(!SUPPORTED_DIFFICULTIES.includes('BEGINNER'));
+});
+
+test('a capture with a lane the area never covered is not sent', () => {
+  // The server answers this with AMBIGUOUS and a note that extraction was
+  // incomplete. That costs one of ten daily attempts and does not say what to
+  // change, so the lane numbers are named here instead.
+  const problem = extractionProblem({ laneEventCounts: [10, 0, 5, 0, 8, 9, 7, 6], durationMs: 30_000 });
+
+  assert.match(problem, /레인 2·4번/);
+  assert.match(problem, /어긋나/);
+});
+
+test('a capture with almost no notes is not sent either', () => {
+  assert.match(extractionProblem({ laneEventCounts: [2, 1, 2, 1, 2, 2, 2, 2], durationMs: 30_000 }), /14개만/);
+});
+
+test('a capture that read every lane goes through', () => {
+  assert.equal(extractionProblem({ laneEventCounts: [79, 59, 55, 61, 67, 60, 44, 15], durationMs: 30_000 }), null);
 });

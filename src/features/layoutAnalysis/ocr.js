@@ -1,4 +1,5 @@
 import { extractChartText } from './ocrText.js';
+import { sampleAcross } from './videoSampling.js';
 
 export const ocrCrop = (width, height) => ({
   x: Math.round(width * 0.16),
@@ -24,27 +25,24 @@ const informationScore = (context, width, height) => {
   return contrast + (visible / Math.max(1, count)) * 30 - (mean < 8 ? 80 : 0);
 };
 
-const nextFrame = (video) => new Promise((resolve) => {
-  if ('requestVideoFrameCallback' in video && !video.paused) video.requestVideoFrameCallback(resolve);
-  else window.setTimeout(resolve, 120);
-});
-
 export const recognizeChartText = async (video, onProgress = () => {}) => {
   if (!video.videoWidth || video.videoWidth < 1280 || video.videoHeight < 720) {
     throw new Error('OCR에는 최소 720p 영상 프레임이 필요합니다.');
   }
   const region = ocrCrop(video.videoWidth, video.videoHeight);
   const frames = [];
-  for (let index = 0; index < 5; index += 1) {
-    await nextFrame(video);
+  // Stepped through the recording rather than read off whatever frame is on
+  // screen. The banner is not on the first frame — a recording opens on a
+  // splash screen — and finding it was left to the viewer scrubbing for it.
+  await sampleAcross(video, 5, () => {
     const canvas = document.createElement('canvas');
     canvas.width = Math.min(1200, region.width);
     canvas.height = Math.round(region.height * (canvas.width / region.width));
     const context = canvas.getContext('2d', { willReadFrequently: true });
     context.drawImage(video, region.x, region.y, region.width, region.height, 0, 0, canvas.width, canvas.height);
     frames.push({ canvas, score: informationScore(context, canvas.width, canvas.height) });
-    onProgress((index + 1) / 10);
-  }
+    onProgress(frames.length / 10);
+  });
   frames.sort((left, right) => right.score - left.score);
   const { createWorker } = await import('tesseract.js');
   const worker = await createWorker(['eng', 'jpn'], undefined, {

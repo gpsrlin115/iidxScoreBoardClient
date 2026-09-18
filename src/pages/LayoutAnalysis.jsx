@@ -3,11 +3,13 @@ import clsx from 'clsx';
 import { layoutAnalysisApi } from '../api/layoutAnalysis';
 import { attachStream, parseYouTubeVideoId, requestYouTubeTab, stopCapture, youtubeEmbedUrl } from '../features/layoutAnalysis/capture';
 import { defaultGeometry, GEOMETRY_SOURCE_LABEL, sanitizeGeometry } from '../features/layoutAnalysis/detector';
-import { analysisStartSeconds, detectGeometryMultiFrame } from '../features/layoutAnalysis/geometryPipeline';
+import { detectGeometryMultiFrame } from '../features/layoutAnalysis/geometryPipeline';
+import { analysisStartSeconds } from '../features/layoutAnalysis/videoSampling';
 import { recognizeChartText } from '../features/layoutAnalysis/ocr';
 import { candidateKey, chartIdentity, SUPPORTED_DIFFICULTIES } from '../features/layoutAnalysis/candidates';
 import { describeMatch, selectionAfterRematch } from '../features/layoutAnalysis/matchResult';
 import { resetAnalysisArtifacts } from '../features/layoutAnalysis/sessionReset';
+import { extractionProblem } from '../features/layoutAnalysis/observedNotes';
 import ResultPanel from '../components/layout-analysis/ResultPanel';
 
 const fieldClass = 'w-full border border-line-strong bg-night px-3 py-2 text-sm text-ink outline-none focus:border-accent';
@@ -295,6 +297,15 @@ const LayoutAnalysis = () => {
       if (data.type === 'error') { setStatus(data.message); stopWorker(); }
       if (data.type === 'result') {
         observedNotesRef.current = data.observedNotes;
+        const problem = extractionProblem(data.observedNotes);
+        if (problem) {
+          // Sending this costs one of ten daily attempts and comes back as
+          // AMBIGUOUS without saying what to change.
+          setStatus(problem);
+          stopWorker();
+          if (mode === 'youtube') stopTab();
+          return;
+        }
         try {
           const match = await layoutAnalysisApi.match({
             inputSource: mode === 'file' ? 'LOCAL_FILE' : 'YOUTUBE_TAB',
