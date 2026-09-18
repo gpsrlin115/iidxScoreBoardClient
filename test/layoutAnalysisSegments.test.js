@@ -76,15 +76,15 @@ const bandFrame = (lit) => {
   return { data, width, height };
 };
 
-test('a lane lighting up after calibration is counted once per press', () => {
+test('a lane lighting up is counted once per press', () => {
   const { laneCenters, laneWidths } = laneLayout('P1');
   const detector = createEventDetector({ laneCenters, laneWidths, durationMs: 10_000, fps: 60 });
-  // The opening is spent measuring each lane at rest.
   for (let timeMs = 0; timeMs <= 1_800; timeMs += 100) detector.push(bandFrame([]), timeMs);
   // One press held across three frames, then released and pressed again.
   for (const timeMs of [2_000, 2_050, 2_100]) detector.push(bandFrame([3]), timeMs);
   detector.push(bandFrame([]), 2_150);
   detector.push(bandFrame([3]), 2_200);
+  for (let timeMs = 2_300; timeMs <= 4_000; timeMs += 100) detector.push(bandFrame([]), timeMs);
   const { events, laneEventCounts } = detector.finish();
 
   assert.equal(events.length, 2);
@@ -93,7 +93,47 @@ test('a lane lighting up after calibration is counted once per press', () => {
   assert.equal(laneEventCounts.reduce((sum, count) => sum + count, 0), 2);
 });
 
-test('lanes lit during calibration set the baseline instead of raising events', () => {
+test('notes played at the very start of the capture are judged too', () => {
+  // The opening used to be spent building a baseline, and nothing played during
+  // it was ever judged. On a thirty second capture that silently dropped the
+  // first five seconds — about a sixth of the notes on real clips.
+  const { laneCenters, laneWidths } = laneLayout('P1');
+  const detector = createEventDetector({ laneCenters, laneWidths, durationMs: 30_000, fps: 60 });
+  detector.push(bandFrame([2]), 0);
+  detector.push(bandFrame([]), 100);
+  detector.push(bandFrame([5]), 200);
+  for (let timeMs = 300; timeMs <= 6_000; timeMs += 100) detector.push(bandFrame([]), timeMs);
+  const { events } = detector.finish();
+
+  assert.deepEqual(events.map((event) => [event.timeMs, event.lane]), [[0, 2], [200, 5]]);
+});
+
+test('a lane busy while its quiet level is measured still yields its notes', () => {
+  // The level used to be the mean of the opening plus three standard
+  // deviations. Notes played during the opening pulled both up, so the
+  // threshold landed between the signal's 90th percentile and its peak and only
+  // the brightest notes cleared it. The median sits on the quiet level instead,
+  // because a lane is quiet most of the time.
+  const { laneCenters, laneWidths } = laneLayout('P1');
+  const detector = createEventDetector({ laneCenters, laneWidths, durationMs: 30_000, fps: 60 });
+  // A dense opening: every other frame carries a note.
+  for (let timeMs = 0; timeMs < 2_000; timeMs += 100) {
+    detector.push(bandFrame(timeMs % 200 === 0 ? [1] : []), timeMs);
+  }
+  // Then a quiet stretch with three isolated presses.
+  for (let timeMs = 2_000; timeMs <= 12_000; timeMs += 100) {
+    detector.push(bandFrame([2_500, 5_000, 9_000].includes(timeMs) ? [1] : []), timeMs);
+  }
+  const { events } = detector.finish();
+  const late = events.filter((event) => event.timeMs >= 2_000).map((event) => event.timeMs);
+
+  assert.deepEqual(late, [2_500, 5_000, 9_000]);
+  assert.equal(events.filter((event) => event.timeMs < 2_000).length, 10);
+});
+
+test('a lane bright for the whole capture raises nothing', () => {
+  // With nothing to contrast against, its own level is the bright one; a lane
+  // covered by an overlay must not read as a note on every frame.
   const { laneCenters, laneWidths } = laneLayout('P1');
   const detector = createEventDetector({ laneCenters, laneWidths, durationMs: 10_000, fps: 60 });
   for (let timeMs = 0; timeMs <= 1_800; timeMs += 100) detector.push(bandFrame([0, 1]), timeMs);

@@ -10,12 +10,15 @@
  * responsible for: that every lane produces events, that the tally the server
  * cross-checks agrees with the events, and that nothing lands past the end.
  *
- * The event total is measured, not asserted. Run against the sidecar's audited
- * captures the browser detector finds about a third fewer events than the
- * sidecar does, consistently across all four clips. That gap predates this
- * harness — the detector is the one that shipped — and closing it means
- * changing how a held lane re-triggers, which needs its own labelled evidence.
- * It is recorded here so a change that widens it is visible.
+ * The event total is measured, not asserted, and compared against what the
+ * sidecar found on the same captures. It first measured a third fewer events
+ * than the sidecar; after the quiet level moved to a median over the whole
+ * capture the gap is within a few per cent. The baselines below are that
+ * measurement, so a change that loses events again is visible.
+ *
+ * Whether the events are good enough is not something a count can answer.
+ * scripts/layout-analysis/match_with_sidecar.py puts them through the real
+ * matcher and checks the recovered layout against the independent labels.
  */
 import fs from 'node:fs';
 import path from 'node:path';
@@ -23,7 +26,7 @@ import { createEventDetector } from '../../src/features/layoutAnalysis/laneEvent
 
 const FIXTURES = path.join(process.cwd(), 'test', 'fixtures', 'worker-clips');
 // What the four audited captures measured on 2026-09-18. Not a target.
-const MEASURED_DRIFT = { JTTV4NHuQsA: 33.1, wGbgc0vrxkY: 38.0, zqQygwU_8Q0: 35.9, agoYv4Vnsaw: 37.4 };
+const MEASURED_DRIFT = { JTTV4NHuQsA: 0.2, wGbgc0vrxkY: 1.6, zqQygwU_8Q0: 2.6, agoYv4Vnsaw: 1.3 };
 const DRIFT_ALLOWANCE = 5;
 
 const manifestPath = path.join(FIXTURES, 'manifest.json');
@@ -64,6 +67,14 @@ for (const clip of clips) {
   const ok = silent === 0 && tallyMatches && late === 0 && !worsened;
   if (!ok) failures += 1;
 
+  // Written so scripts/layout-analysis/match_with_sidecar.py can put these
+  // events through the real matcher, which is the only thing that can say
+  // whether they are good enough to recover a layout.
+  fs.writeFileSync(path.join(FIXTURES, `${clip.videoId}.observed.json`), `${JSON.stringify({
+    videoId: clip.videoId, fps, durationMs, frameCount: clip.frames,
+    laneEventCounts, events,
+  })}\n`);
+
   results.push({
     videoId: clip.videoId,
     expectedSide: clip.expectedSide,
@@ -90,6 +101,6 @@ for (const clip of clips) {
 
 fs.writeFileSync(path.join(FIXTURES, 'results.json'), `${JSON.stringify(results, null, 2)}\n`);
 console.log(`\n${results.length - failures}/${results.length} clips within tolerance`);
-console.log('배치 순열 확정은 서버 매처 몫이다. 여기서 본 것은 레인별 이벤트가 나오는지와 총량 변화다.');
-console.log('sidecar 대비 이벤트가 3분의 1가량 적은 것은 기존 검출기의 성질이고 이 하네스가 처음 잰 값이다.');
+console.log('총량만으로는 이벤트가 쓸 만한지 알 수 없다.');
+console.log('배치 복원까지 보려면 scripts/layout-analysis/match_with_sidecar.py 로 실제 매처에 넣는다.');
 process.exit(failures ? 1 : 0);
