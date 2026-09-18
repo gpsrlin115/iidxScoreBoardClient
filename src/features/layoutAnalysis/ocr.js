@@ -1,3 +1,5 @@
+import { summarizeLevels } from './ocrLevel.js';
+
 export const ocrCrop = (width, height) => ({
   x: Math.round(width * 0.16),
   y: 0,
@@ -61,5 +63,8 @@ export const recognizeChartText = async (video, onProgress = () => {}) => {
   }
   const pattern = /\b(BEGINNER|NORMAL|HYPER|ANOTHER|LEGGENDARIA)\b/gi;
   const difficulties = [...new Set(titles.flatMap((text) => [...text.matchAll(pattern)].map((match) => match[1].toUpperCase())))];
-  return { titles, difficulties };
+  // The level stays in the browser. The server's screenOcr takes titles and
+  // difficulties only, and the read rate has not been measured yet, so nothing
+  // is filtered by it.
+  return { titles, difficulties, levels: summarizeLevels(titles) };
 };

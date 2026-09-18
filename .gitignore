@@ -40,3 +40,11 @@ docs/
 **/terraform.tfvars
 **/tf-output.txt
 **/*-create.log
+
+# Frames and banners cut from other people's uploads, plus what is measured from
+# them. Rebuild with scripts/layout-analysis/.
+test/fixtures/auto-roi/
+test/fixtures/ocr-banners/
+test/fixtures/worker-clips/
+# Downloaded by tesseract.js on its first run.
+*.traineddata
