@@ -212,8 +212,11 @@ const LayoutAnalysis = () => {
     try {
       const value = await recognizeChartText(video, (valueProgress) => setProgress(valueProgress * 100));
       setOcr(value);
-      setSearch(value.titles[0] || search);
-      setStatus(value.titles.length ? 'OCR 후보를 만들었습니다. 채보 후보를 확인하세요.' : '문자를 읽지 못했습니다. 곡명을 직접 검색하세요.');
+      // Only offered, never imposed: what was typed by hand beats a reading.
+      if (!search.trim() && value.titles[0]) setSearch(value.titles[0]);
+      setStatus(value.titles.length
+        ? `읽은 곡명 후보: ${value.titles.slice(0, 3).join(' / ')}${value.difficulties.length ? ` · 난이도 ${value.difficulties.join(', ')}` : ''}`
+        : '문자를 읽지 못했습니다. 곡명을 직접 검색하세요.');
     } catch (error) {
       setStatus(errorMessage(error));
     } finally {

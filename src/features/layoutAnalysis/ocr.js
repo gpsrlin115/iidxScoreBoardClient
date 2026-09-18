@@ -1,4 +1,4 @@
-import { summarizeLevels } from './ocrLevel.js';
+import { extractChartText } from './ocrText.js';
 
 export const ocrCrop = (width, height) => ({
   x: Math.round(width * 0.16),
@@ -51,20 +51,22 @@ export const recognizeChartText = async (video, onProgress = () => {}) => {
     langPath: import.meta.env.VITE_TESSERACT_LANG_PATH || undefined,
     logger: (message) => message.progress && onProgress(0.5 + message.progress * 0.5),
   });
-  const titles = [];
+  const texts = [];
+  const lines = [];
   try {
     for (const frame of frames.slice(0, 3)) {
-      const result = await worker.recognize(frame.canvas);
-      const text = result.data.text.replace(/\s+/g, ' ').trim();
-      if (text && !titles.includes(text)) titles.push(text.slice(0, 255));
+      // Line structure and per-word confidence are what separate the title from
+      // the rest of the banner, so the recogniser is asked for both. Collapsing
+      // it all into one string is what sent a whole screen of text as a title.
+      const result = await worker.recognize(frame.canvas, {}, { blocks: true, text: true });
+      const text = (result.data.text || '').trim();
+      if (text && !texts.includes(text)) texts.push(text);
+      for (const block of result.data.blocks || []) {
+        for (const paragraph of block.paragraphs || []) lines.push(...(paragraph.lines || []));
+      }
     }
   } finally {
     await worker.terminate();
   }
-  const pattern = /\b(BEGINNER|NORMAL|HYPER|ANOTHER|LEGGENDARIA)\b/gi;
-  const difficulties = [...new Set(titles.flatMap((text) => [...text.matchAll(pattern)].map((match) => match[1].toUpperCase())))];
-  // The level stays in the browser. The server's screenOcr takes titles and
-  // difficulties only, and the read rate has not been measured yet, so nothing
-  // is filtered by it.
-  return { titles, difficulties, levels: summarizeLevels(titles) };
+  return extractChartText(lines, texts);
 };
