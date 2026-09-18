@@ -2,7 +2,8 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import clsx from 'clsx';
 import { layoutAnalysisApi } from '../api/layoutAnalysis';
 import { attachStream, parseYouTubeVideoId, requestYouTubeTab, stopCapture, youtubeEmbedUrl } from '../features/layoutAnalysis/capture';
-import { defaultGeometry, detectGeometry, sanitizeGeometry } from '../features/layoutAnalysis/detector';
+import { defaultGeometry, sanitizeGeometry } from '../features/layoutAnalysis/detector';
+import { detectGeometryMultiFrame } from '../features/layoutAnalysis/geometryPipeline';
 import { recognizeChartText } from '../features/layoutAnalysis/ocr';
 import { candidateKey, chartIdentity, SUPPORTED_DIFFICULTIES } from '../features/layoutAnalysis/candidates';
 import { describeMatch, selectionAfterRematch } from '../features/layoutAnalysis/matchResult';
@@ -74,6 +75,7 @@ const LayoutAnalysis = () => {
   const [progress, setProgress] = useState(0);
   const [running, setRunning] = useState(false);
   const [recognizing, setRecognizing] = useState(false);
+  const [detecting, setDetecting] = useState(false);
   const [result, setResult] = useState(null);
 
   const resetAnalysis = useCallback(
@@ -184,12 +186,20 @@ const LayoutAnalysis = () => {
     }
   };
 
-  const findGeometry = () => {
+  // Measured while the song plays: the judgement line is what stays red across
+  // frames, the visible window is what moves. A failure leaves the previous
+  // coordinates alone instead of substituting fractions that look measured.
+  const findGeometry = async () => {
+    setDetecting(true);
+    setStatus('여러 프레임에서 플레이필드와 판정선을 재는 중입니다…');
     try {
-      setGeometry(detectGeometry(activeVideo()));
-      setStatus('현재 프레임에서 플레이필드 후보를 찾았습니다. 좌표를 확인하세요.');
+      setGeometry(await detectGeometryMultiFrame(activeVideo(), { onProgress: (ratio) => setProgress(Math.round(ratio * 100)) }));
+      setStatus('판정선과 노트가 보이는 구간까지 실측했습니다. 좌표를 확인하세요.');
     } catch (error) {
       setStatus(errorMessage(error));
+    } finally {
+      setDetecting(false);
+      setProgress(0);
     }
   };
 
@@ -363,8 +373,8 @@ const LayoutAnalysis = () => {
         </div>
 
         <div className="flex flex-wrap items-center gap-2 border border-line bg-panel p-4">
-          <button className={buttonClass} type="button" onClick={findGeometry} disabled={!size.width || running}>현재 프레임에서 영역 찾기</button>
-          <button className={buttonClass} type="button" onClick={runOcr} disabled={!size.width || running || recognizing}>곡·난이도 OCR</button>
+          <button className={buttonClass} type="button" onClick={findGeometry} disabled={!size.width || running || detecting}>플레이 중 영역 실측</button>
+          <button className={buttonClass} type="button" onClick={runOcr} disabled={!size.width || running || recognizing || detecting}>곡·난이도 OCR</button>
           <input className={clsx(fieldClass, 'min-w-[220px] flex-1')} value={search} onChange={(event) => setSearch(event.target.value)} placeholder="곡명 직접 검색" disabled={running} />
           <select className={fieldClass} value={manualDifficulty} onChange={(event) => setManualDifficulty(event.target.value)} disabled={running} aria-label="난이도 직접 선택">
             <option value="">난이도 자동</option>
