@@ -85,11 +85,11 @@ for (const clip of clips) {
   const elapsedMs = Date.now() - started;
 
   const silent = chosen.laneEventCounts.filter((count) => count === 0).length;
-  const drift = Math.abs(chosen.events.length - clip.sidecarEvents) / clip.sidecarEvents;
+  const drift = (chosen.events.length - clip.sidecarEvents) / clip.sidecarEvents;
   const tallyMatches = chosen.laneEventCounts.reduce((sum, count) => sum + count, 0) === chosen.events.length;
   const late = chosen.events.filter((event) => event.timeMs > chosen.durationMs).length;
   const baseline = MEASURED_DRIFT[clip.videoId];
-  const worsened = baseline !== undefined && drift * 100 > baseline + DRIFT_ALLOWANCE;
+  const worsened = baseline !== undefined && Math.abs(drift * 100) > Math.abs(baseline) + DRIFT_ALLOWANCE;
   const ok = silent === 0 && tallyMatches && late === 0 && !worsened;
   if (!ok) failures += 1;
 
@@ -124,7 +124,7 @@ for (const clip of clips) {
   console.log(
     `${clip.videoId} ${ok ? 'ok  ' : 'FAIL'} 밴드 y=${chosen.bandY} (sidecar y=${clip.sidecarAnalysisY})`
     + ` events ${chosen.events.length} vs sidecar ${clip.sidecarEvents}`
-    + ` (${drift * 100 >= 0 ? '-' : '+'}${(drift * 100).toFixed(1)}%, 기록 -${baseline ?? '?'}%)`
+    + ` (${drift >= 0 ? '+' : ''}${(drift * 100).toFixed(1)}%, 기록 ${baseline ?? '?'}%)`
     + ` 침묵 ${silent} in ${elapsedMs}ms\n     버린 밴드 ${rejected}`,
   );
 }

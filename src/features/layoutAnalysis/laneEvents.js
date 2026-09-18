@@ -1,6 +1,18 @@
 /**
  * Samples the middle of one lane.
  *
+ * The mean of the patch is deliberate. Two brighter-looking alternatives were
+ * measured against the sidecar's four labelled captures and both ended up
+ * worse where it counts. Reading the 88th percentile of the patch instead of
+ * its mean recovers more of the sidecar's events — 98.9% against 98.2% — but
+ * the recovered layouts score lower once the matcher sees them, 0.881 against
+ * 0.910 averaged over the four. Adding per-pixel background subtraction on top,
+ * with a true median over every frame as the background, did not even improve
+ * recall (98.7%) and cost precision. Event recall against a reference band is
+ * not the objective; the mean gives steadier onset timing, which is what the
+ * matcher scores. Do not swap it back without putting the result through
+ * scripts/layout-analysis/match_with_sidecar.py.
+ *
  * The lane centres and widths come from the geometry rather than from dividing
  * the field into eight. IIDX draws white keys wider than black ones and the
  * turntable lane wider than either, so equal bins drift across the field: on a
