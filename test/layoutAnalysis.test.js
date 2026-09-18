@@ -4,7 +4,7 @@ import { parseYouTubeVideoId, requestYouTubeTab, stopCapture } from '../src/feat
 import { defaultGeometry, detectGeometry, laneLayout, sanitizeGeometry } from '../src/features/layoutAnalysis/detector.js';
 import { ocrCrop } from '../src/features/layoutAnalysis/ocr.js';
 import { buildLayoutMatchPayload } from '../src/features/layoutAnalysis/payload.js';
-import { candidateKey, describeMatch } from '../src/features/layoutAnalysis/candidates.js';
+import { candidateKey, chartIdentity } from '../src/features/layoutAnalysis/candidates.js';
 
 test('accepts one ordinary YouTube video and rejects playlists and Shorts', () => {
   assert.equal(parseYouTubeVideoId('https://youtube.com/watch?v=Ije1KQRM_To'), 'Ije1KQRM_To');
@@ -38,7 +38,7 @@ test('keeps manual geometry and OCR crops inside a 720p frame', () => {
 
 test('the API payload allowlist strips video, image and Blob-like fields', () => {
   const payload = buildLayoutMatchPayload({
-    inputSource: 'LOCAL_FILE', chartId: 1, songKey: 'closewld',
+    inputSource: 'LOCAL_FILE', textageChartKey: 'closewld:SP:ANOTHER',
     observedNotes: {
       schemaVersion: 'observed-notes-v1', fps: 60, durationMs: 1000,
       geometry: { x: 0, y: 0, width: 268, height: 600, judgementY: 540, analysisY: 300, visibleTopY: 80, visibleBottomY: 500, source: 'browser-manual', confidence: 1, imageData: 'forbidden' },
@@ -57,70 +57,72 @@ const observedNotesFixture = () => ({
   normalizationProfile: 'BROWSER_STANDARD_RATE', laneEventCounts: [0, 0, 0, 0, 0, 0, 0, 0], events: [],
 });
 
-test('the payload carries a song key through the allowlist', () => {
+test('the payload carries a chart key and drops the chart id beside it', () => {
   const payload = buildLayoutMatchPayload({
-    inputSource: 'LOCAL_FILE', chartId: 1, songKey: 'closewld', observedNotes: observedNotesFixture(),
+    inputSource: 'LOCAL_FILE', textageChartKey: 'closewld:SP:ANOTHER', observedNotes: observedNotesFixture(),
   });
 
-  assert.equal(payload.songKey, 'closewld');
+  assert.equal(payload.textageChartKey, 'closewld:SP:ANOTHER');
+  assert.ok(!('chartId' in payload));
+  assert.ok(!('songKey' in payload));
 });
 
 test('a song the ScoreBoard catalogue does not carry still builds a payload', () => {
   // textage_charts.chart_id is null for songs the ScoreBoard does not have, so
-  // the song key is the only identity the request can rely on.
+  // the chart key is the only identity the request can rely on.
   const payload = buildLayoutMatchPayload({
-    inputSource: 'LOCAL_FILE', chartId: null, songKey: 'gigadel', observedNotes: observedNotesFixture(),
+    inputSource: 'LOCAL_FILE', chartId: null, textageChartKey: 'gigadel:SP:ANOTHER', observedNotes: observedNotesFixture(),
   });
 
-  assert.equal(payload.chartId, null);
-  assert.equal(payload.songKey, 'gigadel');
+  assert.equal(payload.textageChartKey, 'gigadel:SP:ANOTHER');
+  assert.ok(!('chartId' in payload));
 });
 
-test('no song key means the field is omitted rather than sent as null', () => {
-  // The server rejects unknown request fields, so a backend that predates the
-  // textage catalogue must not see this key at all.
+test('a candidate without a chart key is sent by its chart id alone', () => {
   const payload = buildLayoutMatchPayload({
     inputSource: 'LOCAL_FILE', chartId: 7, observedNotes: observedNotesFixture(),
   });
 
-  assert.ok(!('songKey' in payload));
   assert.equal(payload.chartId, 7);
+  assert.ok(!('textageChartKey' in payload));
 });
 
 test('candidates the ScoreBoard catalogue does not carry stay distinguishable', () => {
   // Both rows have a null chartId, which is the normal case for a song textage
   // publishes and the ScoreBoard does not. Keying on chartId made null === null
   // select every such candidate at once and collide as a React key.
-  const gigadelic = { songKey: 'gigadel', chartId: null, title: 'gigadelic' };
-  const closeWorld = { songKey: 'closewld', chartId: null, title: 'Close the World feat.a☆ru' };
+  const gigadelic = { textageChartKey: 'gigadel:SP:ANOTHER', chartId: null, title: 'gigadelic' };
+  const closeWorld = { textageChartKey: 'closewld:SP:ANOTHER', chartId: null, title: 'Close the World feat.a☆ru' };
 
   assert.equal(gigadelic.chartId, closeWorld.chartId);
   assert.notEqual(candidateKey(gigadelic), candidateKey(closeWorld));
   assert.ok(candidateKey(gigadelic));
 });
 
-test('a candidate falls back to its chart id when no song key is supplied', () => {
+test('a candidate falls back to its chart id when no chart key is supplied', () => {
   assert.equal(candidateKey({ chartId: 42 }), 'chart:42');
-  assert.equal(candidateKey({ songKey: 'r5', chartId: 42 }), 'song:r5');
+  assert.equal(candidateKey({ textageChartKey: 'r5:SP:HYPER', chartId: 42 }), 'textage:r5:SP:HYPER');
+  assert.equal(candidateKey({ songKey: 'r5' }), null);
   assert.equal(candidateKey({}), null);
   assert.equal(candidateKey(null), null);
 });
 
-test('a difficulty mismatch is described as retryable rather than as a bare status', () => {
-  assert.match(describeMatch({ status: 'MATCHED' }), /완료/);
-  assert.match(describeMatch({ status: 'AMBIGUOUS', reason: 'DIFFICULTY_MISMATCH' }), /다시 대조/);
-  assert.match(describeMatch({ status: 'AMBIGUOUS' }), /AMBIGUOUS/);
+test('only the identifier in use is handed to the request', () => {
+  assert.deepEqual(chartIdentity({ textageChartKey: 'r5:SP:HYPER', chartId: 42, songKey: 'r5' }), { textageChartKey: 'r5:SP:HYPER' });
+  assert.deepEqual(chartIdentity({ chartId: 42, songKey: 'r5' }), { chartId: 42 });
+  assert.equal(chartIdentity({ songKey: 'r5' }), null);
 });
 
-test('a non-string song key is dropped rather than forwarded', () => {
+test('a chart key that is not a string is refused rather than forwarded', () => {
   // The allowlist exists so only known scalars reach the server; an object here
   // would serialize into the request body unchecked.
   const payload = buildLayoutMatchPayload({
-    inputSource: 'LOCAL_FILE', chartId: 1, songKey: { toJSON: () => 'forbidden' },
+    inputSource: 'LOCAL_FILE', chartId: 1, textageChartKey: { toJSON: () => 'forbidden' },
     observedNotes: observedNotesFixture(),
   });
 
-  assert.ok(!('songKey' in payload));
+  assert.ok(!('textageChartKey' in payload));
+  assert.equal(payload.chartId, 1);
   assert.doesNotMatch(JSON.stringify(payload), /forbidden/);
 });
 

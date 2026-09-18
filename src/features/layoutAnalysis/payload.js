@@ -1,3 +1,6 @@
+import { clampObservedNotes } from './observedNotes.js';
+import { TEXTAGE_CHART_KEY } from './candidates.js';
+
 const assertObservedNotes = (observedNotes) => {
   if (observedNotes?.schemaVersion !== 'observed-notes-v1') {
     throw new Error('지원하지 않는 노트 이벤트 형식입니다.');
@@ -25,25 +28,31 @@ const cleanGeometry = (geometry) => ({
   confidence: geometry.confidence ?? 1,
 });
 
-export const buildLayoutMatchPayload = ({ inputSource, videoId = null, chartId = null, songKey = null, observedNotes }) => {
-  assertObservedNotes(observedNotes);
+export const buildLayoutMatchPayload = ({ inputSource, videoId = null, chartId = null, textageChartKey = null, observedNotes }) => {
+  const key = typeof textageChartKey === 'string' && TEXTAGE_CHART_KEY.test(textageChartKey) ? textageChartKey : null;
+  const id = Number.isInteger(chartId) && chartId > 0 ? chartId : null;
+  // The server accepts exactly one identifier and answers 400 for both or
+  // neither, so the same rule is enforced here rather than spending a request.
+  if ((key === null) === (id === null)) {
+    throw new Error('채보는 textageChartKey 또는 chartId 중 하나로만 지목할 수 있습니다.');
+  }
+  const clamped = clampObservedNotes(observedNotes);
+  assertObservedNotes(clamped);
   return {
     inputSource,
     videoId,
-    chartId,
-    // Emitted only when the catalogue supplied one. The server rejects unknown
-    // request fields outright, so a backend that predates the textage catalogue
-    // must not receive this key at all.
-    ...(typeof songKey === 'string' && songKey ? { songKey } : {}),
+    // Only the identifier in use is emitted. The server rejects unknown fields
+    // outright and `songKey` is not a request field at all.
+    ...(key ? { textageChartKey: key } : { chartId: id }),
     observedNotes: {
-      schemaVersion: observedNotes.schemaVersion,
-      fps: observedNotes.fps,
-      durationMs: observedNotes.durationMs,
-      geometry: cleanGeometry(observedNotes.geometry),
-      stableSegments: (observedNotes.stableSegments || []).map(({ startMs, endMs }) => ({ startMs, endMs })),
-      normalizationProfile: observedNotes.normalizationProfile || 'BROWSER_H264',
-      laneEventCounts: [...observedNotes.laneEventCounts],
-      events: observedNotes.events.map(({ timeMs, lane, kind = 'tap', quality = 1 }) => ({ timeMs, lane, kind, quality })),
+      schemaVersion: clamped.schemaVersion,
+      fps: clamped.fps,
+      durationMs: clamped.durationMs,
+      geometry: cleanGeometry(clamped.geometry),
+      stableSegments: (clamped.stableSegments || []).map(({ startMs, endMs }) => ({ startMs, endMs })),
+      normalizationProfile: clamped.normalizationProfile || 'BROWSER_H264',
+      laneEventCounts: [...clamped.laneEventCounts],
+      events: clamped.events.map(({ timeMs, lane, kind = 'tap', quality = 1 }) => ({ timeMs, lane, kind, quality })),
     },
   };
 };
