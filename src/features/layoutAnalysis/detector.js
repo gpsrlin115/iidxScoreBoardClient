@@ -54,6 +54,20 @@ const laneEdges = (side) => {
   return edges;
 };
 
+/**
+ * What produced a geometry, in the words the screen uses.
+ *
+ * The fallback is fixed fractions of the frame, not a measurement. It has to
+ * say so: the numbers look identical to measured ones in an input box, and a
+ * viewer who trusts them analyses the wrong rows.
+ */
+export const GEOMETRY_SOURCE_LABEL = {
+  'browser-auto-fallback': '기본값 · 아직 측정하지 않음',
+  'browser-auto-grid': '한 프레임에서 가로만 측정',
+  'browser-auto-multi': '여러 프레임에서 실측',
+  'browser-manual': '직접 입력',
+};
+
 export const defaultGeometry = (width, height, side = PLAY_SIDE_P1) => {
   const fieldWidth = Math.round(width * 0.23);
   // A 2P playfield sits on the right, so the fallback has to change ends too.

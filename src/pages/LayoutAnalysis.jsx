@@ -2,8 +2,8 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import clsx from 'clsx';
 import { layoutAnalysisApi } from '../api/layoutAnalysis';
 import { attachStream, parseYouTubeVideoId, requestYouTubeTab, stopCapture, youtubeEmbedUrl } from '../features/layoutAnalysis/capture';
-import { defaultGeometry, sanitizeGeometry } from '../features/layoutAnalysis/detector';
-import { detectGeometryMultiFrame } from '../features/layoutAnalysis/geometryPipeline';
+import { defaultGeometry, GEOMETRY_SOURCE_LABEL, sanitizeGeometry } from '../features/layoutAnalysis/detector';
+import { analysisStartSeconds, detectGeometryMultiFrame } from '../features/layoutAnalysis/geometryPipeline';
 import { recognizeChartText } from '../features/layoutAnalysis/ocr';
 import { candidateKey, chartIdentity, SUPPORTED_DIFFICULTIES } from '../features/layoutAnalysis/candidates';
 import { describeMatch, selectionAfterRematch } from '../features/layoutAnalysis/matchResult';
@@ -137,7 +137,7 @@ const LayoutAnalysis = () => {
     const nextSize = { width: video.videoWidth, height: video.videoHeight, duration: video.duration, fps: 60 };
     setSize(nextSize);
     setGeometry(defaultGeometry(nextSize.width, nextSize.height));
-    setStatus('플레이 중인 프레임에서 분석 영역을 자동 검출하거나 직접 보정하세요.');
+    setStatus('아래 좌표는 아직 측정하지 않은 기본값입니다. "영역 실측"을 누르거나 직접 보정하세요.');
   };
 
   const loadYouTube = async () => {
@@ -267,10 +267,23 @@ const LayoutAnalysis = () => {
     setResult(null);
     setProgress(0);
     finishingRef.current = false;
+    // A recording opens on a splash screen, so rewinding to zero analysed
+    // anything but gameplay. The viewer's own position wins; untouched, the
+    // capture starts where the playfield was measured.
+    let startMediaTime = 0;
     if (mode === 'file') {
-      try { await seek(video, 0); } catch (error) { setStatus(errorMessage(error)); stopWorker(); return; }
+      startMediaTime = analysisStartSeconds(video);
+      try { await seek(video, startMediaTime); } catch (error) { setStatus(errorMessage(error)); stopWorker(); return; }
+      startMediaTime = video.currentTime;
+      if (video.duration - startMediaTime < 5) {
+        setStatus('남은 구간이 5초도 되지 않습니다. 앞쪽으로 옮긴 뒤 다시 분석하세요.');
+        stopWorker();
+        return;
+      }
     }
-    const durationMs = mode === 'file' ? Math.min(30_000, video.duration * 1000) : 30_000;
+    const durationMs = mode === 'file'
+      ? Math.min(30_000, (video.duration - startMediaTime) * 1000)
+      : 30_000;
     const worker = new Worker(new URL('../features/layoutAnalysis/detector.worker.js', import.meta.url), { type: 'module' });
     workerRef.current = worker;
     worker.postMessage({ type: 'init', width: video.videoWidth, height: video.videoHeight, fps: size.fps, durationMs, geometry });
@@ -300,7 +313,9 @@ const LayoutAnalysis = () => {
     const startedAt = performance.now();
     const sendFrame = (now, metadata) => {
       if (!workerRef.current || finishingRef.current) return;
-      const timestampMs = mode === 'file' ? metadata.mediaTime * 1000 : now - startedAt;
+      const timestampMs = mode === 'file'
+        ? (metadata.mediaTime - startMediaTime) * 1000
+        : now - startedAt;
       if (timestampMs >= durationMs || video.ended) { finishWorker(); return; }
       const frame = new VideoFrame(video, { timestamp: Math.round(timestampMs * 1000) });
       workerRef.current.postMessage({ type: 'frame', frame, timestampMs }, [frame]);
@@ -308,7 +323,9 @@ const LayoutAnalysis = () => {
     };
     frameCallbackRef.current = video.requestVideoFrameCallback(sendFrame);
     video.addEventListener('ended', finishWorker, { once: true });
-    setStatus('영상은 브라우저에 둔 채 노트 이벤트를 추출하는 중입니다…');
+    setStatus(mode === 'file'
+      ? `${Math.round(startMediaTime)}초부터 ${Math.round(durationMs / 1000)}초간 노트 이벤트를 추출합니다. 영상은 브라우저에 둡니다…`
+      : '영상은 브라우저에 둔 채 노트 이벤트를 추출하는 중입니다…');
     try { await video.play(); } catch (error) { setStatus(errorMessage(error)); stopWorker(); }
   };
 
@@ -366,14 +383,14 @@ const LayoutAnalysis = () => {
         </div>
 
         <div className="relative grid min-h-[360px] place-items-center overflow-hidden border border-line bg-black">
-          {mode === 'file' && fileUrl ? <video ref={fileVideoRef} src={fileUrl} muted playsInline onLoadedMetadata={onFileMetadata} className="max-h-[70vh] w-full object-contain" /> : null}
+          {mode === 'file' && fileUrl ? <video ref={fileVideoRef} src={fileUrl} muted playsInline controls onLoadedMetadata={onFileMetadata} className="max-h-[70vh] w-full object-contain" /> : null}
           {mode === 'youtube' && youtube ? <iframe ref={iframeRef} title="YouTube IIDX 영상" src={youtubeEmbedUrl(youtube.videoId)} allow="autoplay; encrypted-media; picture-in-picture" allowFullScreen className="aspect-video w-full border-0" /> : null}
           {mode === 'youtube' ? <video ref={captureVideoRef} muted playsInline className={restrictedCapture || !captureReady ? 'hidden' : 'max-h-[70vh] w-full object-contain'} /> : null}
           {((mode === 'file' && !fileUrl) || (mode === 'youtube' && !youtube)) && <span className="text-sm text-faint2">영상을 선택하세요.</span>}
         </div>
 
         <div className="flex flex-wrap items-center gap-2 border border-line bg-panel p-4">
-          <button className={buttonClass} type="button" onClick={findGeometry} disabled={!size.width || running || detecting}>플레이 중 영역 실측</button>
+          <button className={buttonClass} type="button" onClick={findGeometry} disabled={!size.width || running || detecting}>영역 실측</button>
           <button className={buttonClass} type="button" onClick={runOcr} disabled={!size.width || running || recognizing || detecting}>곡·난이도 OCR</button>
           <input className={clsx(fieldClass, 'min-w-[220px] flex-1')} value={search} onChange={(event) => setSearch(event.target.value)} placeholder="곡명 직접 검색" disabled={running} />
           <select className={fieldClass} value={manualDifficulty} onChange={(event) => setManualDifficulty(event.target.value)} disabled={running} aria-label="난이도 직접 선택">
@@ -408,6 +425,9 @@ const LayoutAnalysis = () => {
       <aside className="h-fit border border-line bg-panel p-4 lg:sticky lg:top-20">
         <h2 className="text-sm font-medium text-ink">분석 영역</h2>
         <p className="my-3 text-xs text-muted">SUDDEN+·HIDDEN+·LIFT 수치를 추측하지 않고 실제 보이는 영역과 판정선을 사용합니다.</p>
+        {geometry && <p className={clsx('mb-3 font-mono text-[10px]', geometry.source === 'browser-auto-fallback' ? 'text-danger' : 'text-accent')}>
+          {GEOMETRY_SOURCE_LABEL[geometry.source] || geometry.source}
+        </p>}
         <GeometryFields geometry={geometry} size={size} onChange={setGeometry} disabled={running} />
         <div className="mt-4 border-l-2 border-accent bg-night p-3 text-[11px] leading-relaxed text-muted">서버 요청에는 영상·Blob·이미지가 포함되지 않습니다. YouTube 공유 트랙은 완료·취소·화면 전환 시 정지됩니다.</div>
       </aside>
