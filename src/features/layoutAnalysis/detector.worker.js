@@ -83,8 +83,11 @@ self.onmessage = ({ data }) => {
       const width = state.geometry.width;
       const height = state.bandHeight;
       state.bandsY.forEach((bandY, index) => {
+        // Kept inside the frame: a source rectangle that hangs over the edge
+        // draws transparent pixels, which read as a lane with nothing in it.
+        const top = Math.max(0, Math.min(state.height - height, bandY - Math.round(height / 2)));
         state.context.drawImage(
-          data.frame, state.geometry.x, bandY - Math.round(height / 2), width, height,
+          data.frame, state.geometry.x, top, width, height,
           0, index * height, width, height,
         );
       });
