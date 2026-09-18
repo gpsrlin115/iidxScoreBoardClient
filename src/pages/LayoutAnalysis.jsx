@@ -4,7 +4,10 @@ import { layoutAnalysisApi } from '../api/layoutAnalysis';
 import { attachStream, parseYouTubeVideoId, requestYouTubeTab, stopCapture, youtubeEmbedUrl } from '../features/layoutAnalysis/capture';
 import { defaultGeometry, detectGeometry, sanitizeGeometry } from '../features/layoutAnalysis/detector';
 import { recognizeChartText } from '../features/layoutAnalysis/ocr';
-import { candidateKey, describeMatch } from '../features/layoutAnalysis/candidates';
+import { candidateKey, chartIdentity, SUPPORTED_DIFFICULTIES } from '../features/layoutAnalysis/candidates';
+import { describeMatch, selectionAfterRematch } from '../features/layoutAnalysis/matchResult';
+import { resetAnalysisArtifacts } from '../features/layoutAnalysis/sessionReset';
+import ResultPanel from '../components/layout-analysis/ResultPanel';
 
 const fieldClass = 'w-full border border-line-strong bg-night px-3 py-2 text-sm text-ink outline-none focus:border-accent';
 const buttonClass = 'border border-line-strong px-3 py-2 text-xs text-text2 transition hover:border-accent hover:text-ink disabled:cursor-not-allowed disabled:opacity-40';
@@ -73,6 +76,11 @@ const LayoutAnalysis = () => {
   const [recognizing, setRecognizing] = useState(false);
   const [result, setResult] = useState(null);
 
+  const resetAnalysis = useCallback(
+    () => resetAnalysisArtifacts({ setResult, setCandidates, setSelected, observedNotesRef }),
+    [],
+  );
+
   const activeVideo = useCallback(() => mode === 'file' ? fileVideoRef.current : captureVideoRef.current, [mode]);
 
   const stopWorker = useCallback(() => {
@@ -113,9 +121,7 @@ const LayoutAnalysis = () => {
     if (objectUrlRef.current) URL.revokeObjectURL(objectUrlRef.current);
     objectUrlRef.current = URL.createObjectURL(file);
     setFileUrl(objectUrlRef.current);
-    setResult(null);
-    setCandidates([]);
-    setSelected(null);
+    resetAnalysis();
     setStatus('영상 정보를 읽는 중입니다…');
   };
 
@@ -140,8 +146,7 @@ const LayoutAnalysis = () => {
       const metadata = await layoutAnalysisApi.getYouTubeMetadata(youtubeUrl.trim());
       setYoutube(metadata);
       setSearch(metadata.title || '');
-      setCandidates([]);
-      setSelected(null);
+      resetAnalysis();
       setStatus(metadata.metadataAvailable
         ? '영상을 처음부터 재생한 뒤 현재 탭 공유를 누르세요.'
         : '메타데이터를 가져오지 못했습니다. 영상 재생 후 OCR 또는 직접 검색을 사용하세요.');
@@ -210,8 +215,10 @@ const LayoutAnalysis = () => {
   const findCandidates = async () => {
     try {
       setStatus('ScoreBoard 곡 목록에서 후보를 찾는 중입니다…');
-      const difficulties = [...new Set([...ocr.difficulties, manualDifficulty].filter(Boolean))];
-      const response = await layoutAnalysisApi.findCandidates({ videoId: youtube?.videoId, query: search, titles: ocr.titles, difficulties });
+      const response = await layoutAnalysisApi.findCandidates({
+        videoId: youtube?.videoId, query: search, titles: ocr.titles,
+        difficulties: ocr.difficulties, difficulty: manualDifficulty || null,
+      });
       setCandidates(response.candidates || []);
       setSelected(null);
       setStatus(response.candidates?.length ? '정확한 곡과 채보를 선택하세요.' : response.warnings?.[0] || '후보를 찾지 못했습니다.');
@@ -266,8 +273,7 @@ const LayoutAnalysis = () => {
           const match = await layoutAnalysisApi.match({
             inputSource: mode === 'file' ? 'LOCAL_FILE' : 'YOUTUBE_TAB',
             videoId: youtube?.videoId,
-            chartId: selected.chartId ?? null,
-            songKey: selected.songKey ?? null,
+            ...chartIdentity(selected),
             observedNotes: data.observedNotes,
           });
           setResult(match);
@@ -298,18 +304,20 @@ const LayoutAnalysis = () => {
 
   const rematchSuggested = async () => {
     const observedNotes = observedNotesRef.current;
-    const songKey = result?.suggestedSongKey;
-    if (!observedNotes || !songKey) return;
+    const textageChartKey = result?.suggestedTextageChartKey;
+    if (!observedNotes || !textageChartKey) return;
     setStatus('제안된 채보로 다시 대조하는 중입니다…');
     try {
       const match = await layoutAnalysisApi.match({
         inputSource: mode === 'file' ? 'LOCAL_FILE' : 'YOUTUBE_TAB',
         videoId: youtube?.videoId,
-        chartId: result.suggestedChartId ?? null,
-        songKey,
+        textageChartKey,
         observedNotes,
       });
       setResult(match);
+      // The highlighted candidate has to follow the chart the server compared,
+      // otherwise the list keeps pointing at the difficulty that was rejected.
+      setSelected(selectionAfterRematch(match) ?? selected);
       setStatus(describeMatch(match));
     } catch (error) {
       setStatus(errorMessage(error));
@@ -334,7 +342,7 @@ const LayoutAnalysis = () => {
 
         <div className="border border-line bg-panel p-4">
           <div className="mb-3 flex gap-2">
-            {['file', 'youtube'].map((value) => <button key={value} type="button" className={clsx(buttonClass, mode === value && 'border-accent text-accent')} onClick={() => { stopWorker(); stopTab(); setMode(value); }} disabled={running}>{value === 'file' ? '로컬 MP4' : 'YouTube 링크'}</button>)}
+            {['file', 'youtube'].map((value) => <button key={value} type="button" className={clsx(buttonClass, mode === value && 'border-accent text-accent')} onClick={() => { stopWorker(); stopTab(); resetAnalysis(); setMode(value); }} disabled={running}>{value === 'file' ? '로컬 MP4' : 'YouTube 링크'}</button>)}
           </div>
           {mode === 'file' ? (
             <input className={fieldClass} type="file" accept="video/mp4,.mp4" onChange={chooseFile} disabled={running} />
@@ -360,7 +368,7 @@ const LayoutAnalysis = () => {
           <input className={clsx(fieldClass, 'min-w-[220px] flex-1')} value={search} onChange={(event) => setSearch(event.target.value)} placeholder="곡명 직접 검색" disabled={running} />
           <select className={fieldClass} value={manualDifficulty} onChange={(event) => setManualDifficulty(event.target.value)} disabled={running} aria-label="난이도 직접 선택">
             <option value="">난이도 자동</option>
-            {['BEGINNER', 'NORMAL', 'HYPER', 'ANOTHER', 'LEGGENDARIA'].map((value) => <option key={value} value={value}>{value}</option>)}
+            {SUPPORTED_DIFFICULTIES.map((value) => <option key={value} value={value}>{value}</option>)}
           </select>
           <button className={buttonClass} type="button" onClick={findCandidates} disabled={running || recognizing}>채보 후보 찾기</button>
         </div>
@@ -370,6 +378,7 @@ const LayoutAnalysis = () => {
             <input type="radio" name="layout-analysis-candidate" className="mr-2 accent-accent" checked={candidateKey(selected) === candidateKey(candidate)} onChange={() => setSelected(candidate)} />
             <strong className="text-sm text-ink">{candidate.title}</strong>
             <span className="mt-2 block font-mono text-[10px] text-muted">{candidate.chartType} · ☆{candidate.level} · {Math.round(candidate.score * 100)}%</span>
+            <span className="mt-1 block truncate text-[10px] text-faint">{[candidate.artist, candidate.version].filter(Boolean).join(' · ')}</span>
           </label>
         ))}</div>}
 
@@ -378,19 +387,12 @@ const LayoutAnalysis = () => {
           {running ? <button className={buttonClass} type="button" onClick={cancel}>취소</button> : <button className={clsx(buttonClass, 'border-accent text-accent')} type="button" onClick={analyze}>30초 분석</button>}
         </div>
 
-        {result && <div className="border border-line bg-panel p-5">
-          <span className="font-mono text-xs font-bold text-accent">{result.status}</span>
-          <h2 className="mt-3 text-lg text-ink">{result.chart?.title} · {result.chart?.chartType}</h2>
-          {result.candidates?.map((candidate) => <div key={candidate.regularToPlayed} className="mt-3 border border-line bg-night p-4"><strong className="font-mono text-xl text-ink">{candidate.display || `S+1234567 → S+${candidate.playedLaneSources}`}</strong><p className="mt-1 text-xs text-muted">실제 각 레인에 들어온 정규 채보 키 순서 · 신뢰도 {candidate.confidenceBand}</p></div>)}
-          {(result.laneMapping?.side || result.side) && <p className="mt-2 font-mono text-[11px] text-muted">플레이 사이드 {result.laneMapping?.side || result.side}</p>}
-          {result.reason === 'DIFFICULTY_MISMATCH' && result.suggestedSongKey && observedNotesRef.current && (
-            <button className={clsx(buttonClass, 'mt-3')} type="button" onClick={rematchSuggested}>
-              제안된 채보({result.suggestedSongKey})로 다시 대조 · 분석 횟수 1회 사용
-            </button>
-          )}
-          {result.warnings?.map((warning) => <p key={warning} className="mt-2 text-xs text-danger">{warning}</p>)}
-          {result.reference && <p className="mt-4 break-all text-[11px] text-faint"><a href={result.reference.sourceUrl} target="_blank" rel="noreferrer">Textage 출처</a> · SHA-256 {result.reference.sourceSha256}</p>}
-        </div>}
+        <ResultPanel
+          result={result}
+          canRematch={Boolean(observedNotesRef.current)}
+          onRematch={rematchSuggested}
+          busy={running}
+        />
       </section>
 
       <aside className="h-fit border border-line bg-panel p-4 lg:sticky lg:top-20">
