@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { FiRefreshCw, FiHome } from 'react-icons/fi';
 import Button from './Button';
 import { getErrorPreset } from './errorPresets';
@@ -46,7 +46,7 @@ const resolveDescription = (message, preset) => {
  * @param {() => void} [onRetry] - When provided, renders a "다시 시도"
  *   button that calls this handler.
  * @param {boolean} [showHomeLink=true] - Whether to render the "홈으로"
- *   button that navigates to '/'.
+ *   button that navigates to '/'. Already on '/', it reloads the page instead.
  */
 const ErrorView = ({
   status = null,
@@ -56,6 +56,17 @@ const ErrorView = ({
   showHomeLink = true,
 }) => {
   const navigate = useNavigate();
+  const { pathname } = useLocation();
+
+  // navigate() to the current path is a no-op, so a full load is the only way to clear the error state.
+  const goHome = () => {
+    if (pathname === '/') {
+      window.location.assign('/');
+      return;
+    }
+    navigate('/');
+  };
+
   /**
    * Tracks the src that failed rather than a boolean, so a view whose status
    * changes (an inline error retried into a different failure) still tries
@@ -135,7 +146,7 @@ const ErrorView = ({
               <Button
                 variant="secondary"
                 size="sm"
-                onClick={() => navigate('/')}
+                onClick={goHome}
               >
                 <FiHome size={14} />
                 홈으로
