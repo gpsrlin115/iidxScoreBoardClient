@@ -115,6 +115,7 @@ export const createEventDetector = ({ laneCenters, laneWidths, durationMs, fps }
         laneEventCounts: Array.from({ length: 8 }, (unused, lane) => events.filter((event) => event.lane === lane).length),
         fps: measured,
         durationMs: Math.min(durationMs, last),
+        frameCount: timestamps.length,
       };
     },
   };

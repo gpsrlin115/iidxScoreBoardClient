@@ -128,3 +128,34 @@ test('a frame rate no camera produces is brought back into range', () => {
   assert.equal(clampObservedNotes(observedNotesFixture({ fps: 0.01 })).fps, 0.1);
   assert.equal(clampObservedNotes(observedNotesFixture({ fps: 60 })).fps, 60);
 });
+
+test('a capture cut short by the end of the video is not sent', () => {
+  // The real failure: 30 seconds were asked for, the video ended after 7, and
+  // the matcher answered AMBIGUOUS without saying the capture was short.
+  const problem = extractionProblem({
+    laneEventCounts: [3, 2, 3, 2, 5, 5, 4, 3],
+    durationMs: 7426.6, requestedDurationMs: 30_000, fps: 10.77, frameCount: 81,
+  });
+
+  assert.match(problem, /7\.4초에서 영상이 끝났습니다/);
+  assert.match(problem, /앞쪽으로 옮긴/);
+});
+
+test('a capture starved of frames is not sent either', () => {
+  // A note crosses the band in about 40ms, so frames arriving 67ms apart miss
+  // most of them however long the capture runs.
+  const problem = extractionProblem({
+    laneEventCounts: [79, 59, 55, 61, 67, 60, 44, 15],
+    durationMs: 29_983, requestedDurationMs: 30_000, fps: 15, frameCount: 450,
+  });
+
+  assert.match(problem, /초당 15\.0장/);
+  assert.match(problem, /프레임 사이로/);
+});
+
+test('a capture that ran its window at full rate goes through', () => {
+  assert.equal(extractionProblem({
+    laneEventCounts: [79, 59, 55, 61, 67, 60, 44, 15],
+    durationMs: 29_983, requestedDurationMs: 30_000, fps: 60, frameCount: 1_800,
+  }), null);
+});

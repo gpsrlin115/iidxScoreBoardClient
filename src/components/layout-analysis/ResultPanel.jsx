@@ -1,6 +1,6 @@
 import clsx from 'clsx';
 import { interpretMatch } from '../../features/layoutAnalysis/matchResult';
-import { buildDiagnosticsFile, describeExtraction, extractionAdvice } from '../../features/layoutAnalysis/extractionReport';
+import { buildDiagnosticsFile, describeCapture, describeExtraction, extractionAdvice } from '../../features/layoutAnalysis/extractionReport';
 
 const TONE_CLASS = {
   success: 'text-accent',
@@ -27,7 +27,9 @@ const ResultPanel = ({ result, canRematch, onRematch, busy, observedNotes = null
   const { tone, message, confirmed, verified, suggestedTextageChartKey, side } = interpretMatch(result);
   // Only when something went wrong. A finished analysis does not need its
   // working shown, and these numbers are the working.
-  const measured = tone === 'success' ? null : describeExtraction(result.diagnostics);
+  const measured = tone === 'success'
+    ? null
+    : [...(describeCapture(observedNotes) || []), ...(describeExtraction(result.diagnostics) || [])];
   const advice = extractionAdvice(result.diagnostics);
 
   return (
@@ -55,7 +57,7 @@ const ResultPanel = ({ result, canRematch, onRematch, busy, observedNotes = null
           제안된 채보({suggestedTextageChartKey})로 다시 대조 · 분석 횟수 1회 사용
         </button>
       )}
-      {measured && (
+      {measured?.length > 0 && (
         <div className="mt-4 border border-line bg-night p-4">
           <p className="font-mono text-[10px] uppercase tracking-[.18em] text-muted">대조에 쓰인 측정값</p>
           <dl className="mt-2 grid gap-1">

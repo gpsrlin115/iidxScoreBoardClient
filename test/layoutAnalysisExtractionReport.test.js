@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { buildDiagnosticsFile, describeExtraction, extractionAdvice } from '../src/features/layoutAnalysis/extractionReport.js';
+import { buildDiagnosticsFile, describeCapture, describeExtraction, extractionAdvice } from '../src/features/layoutAnalysis/extractionReport.js';
 
 /** What the matcher sends back with a clean answer. */
 const healthy = {
@@ -72,4 +72,31 @@ test('the handover file carries the events and the answer, never the video', () 
   assert.equal(saved.result.status, 'AMBIGUOUS');
   assert.equal(saved.observedNotes.events.length, 1);
   assert.doesNotMatch(file.json, /frame|blob|image|video(?!Id)/i);
+});
+
+test('a capture that ran out early is reported as such', () => {
+  // Measured from a real run: a 30 second analysis started 7 seconds before the
+  // end of the video, so the matcher was handed 24 key events against a chart
+  // that carries 1983 and could not place them.
+  const rows = describeCapture({
+    durationMs: 7426.6, requestedDurationMs: 30_000, fps: 10.77, frameCount: 81,
+  });
+  const failed = rows.filter((row) => row.ok === false).map((row) => row.label);
+
+  assert.ok(failed.includes('캡처된 길이'), JSON.stringify(rows));
+  assert.ok(failed.includes('도착한 프레임'), JSON.stringify(rows));
+  assert.match(rows[0].requirement, /30초 요청/);
+});
+
+test('a capture that ran its window at full rate reports nothing amiss', () => {
+  const rows = describeCapture({
+    durationMs: 29_983, requestedDurationMs: 30_000, fps: 60, frameCount: 1_800,
+  });
+
+  assert.ok(rows.every((row) => row.ok !== false), JSON.stringify(rows));
+});
+
+test('no capture means no capture rows', () => {
+  assert.equal(describeCapture(null), null);
+  assert.equal(describeCapture({}), null);
 });

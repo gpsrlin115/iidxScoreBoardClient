@@ -128,8 +128,12 @@ self.onmessage = ({ data }) => {
       });
       const chosen = pickBand(read);
       const { events, laneEventCounts, fps, durationMs } = chosen;
+      // `requestedDurationMs` and `frameCount` are for the page to check before
+      // it spends a match attempt; payload.js copies named fields only, so they
+      // never reach the server, which rejects anything it does not know.
       self.postMessage({ type: 'result', observedNotes: {
         schemaVersion: 'observed-notes-v1', fps, durationMs,
+        requestedDurationMs: state.durationMs, frameCount: chosen.frameCount,
         // The band that was actually read, so the answer says where it looked.
         geometry: { ...state.geometry, analysisY: chosen.bandY },
         stableSegments: detectStableSegments({ samples: state.samples, durationMs, roiHeight: state.field.height }),

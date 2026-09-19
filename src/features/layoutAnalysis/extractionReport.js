@@ -65,6 +65,40 @@ export const describeExtraction = (diagnostics) => {
   return rows.length ? rows : null;
 };
 
+// Below this the frames arrive further apart than the notes crossing the band.
+const MIN_FRAME_RATE = 24;
+
+/**
+ * What the capture itself managed, which the answer does not carry.
+ *
+ * A capture that ran out early or arrived at a tenth of the video's rate
+ * explains a poor match on its own, and neither shows up in the matcher's
+ * numbers — it only sees the events it was handed.
+ */
+export const describeCapture = (observedNotes) => {
+  if (!observedNotes) return null;
+  const rows = [];
+  const seconds = (observedNotes.durationMs || 0) / 1000;
+  const requested = (observedNotes.requestedDurationMs || 0) / 1000;
+  if (seconds > 0) {
+    rows.push({
+      label: '캡처된 길이',
+      value: `${seconds.toFixed(1)}초`,
+      requirement: requested > 0 ? `${Math.round(requested)}초 요청` : undefined,
+      ok: requested > 0 ? seconds >= requested * 0.5 : null,
+    });
+  }
+  if (Number.isFinite(observedNotes.fps)) {
+    rows.push({
+      label: '도착한 프레임',
+      value: `${observedNotes.frameCount ?? '—'}장 · 초당 ${observedNotes.fps.toFixed(1)}장`,
+      requirement: `초당 ${MIN_FRAME_RATE}장 이상 필요`,
+      ok: observedNotes.fps >= MIN_FRAME_RATE,
+    });
+  }
+  return rows.length ? rows : null;
+};
+
 /**
  * The one line that says what to do about it.
  *

@@ -15,6 +15,9 @@ import ResultPanel from '../components/layout-analysis/ResultPanel';
 const fieldClass = 'w-full border border-line-strong bg-night px-3 py-2 text-sm text-ink outline-none focus:border-accent';
 const buttonClass = 'border border-line-strong px-3 py-2 text-xs text-text2 transition hover:border-accent hover:text-ink disabled:cursor-not-allowed disabled:opacity-40';
 const errorMessage = (error) => error?.appError?.message || error?.message || String(error);
+// Half the 30 second window. Less than this and the matcher has too little to
+// align against the chart.
+const MIN_ANALYSIS_SECONDS = 15;
 
 const seek = (video, seconds) => new Promise((resolve, reject) => {
   const timeout = window.setTimeout(() => reject(new Error('영상의 시작 위치로 이동하지 못했습니다.')), 5_000);
@@ -280,8 +283,11 @@ const LayoutAnalysis = () => {
       startMediaTime = analysisStartSeconds(video);
       try { await seek(video, startMediaTime); } catch (error) { setStatus(errorMessage(error)); stopWorker(); return; }
       startMediaTime = video.currentTime;
-      if (video.duration - startMediaTime < 5) {
-        setStatus('남은 구간이 5초도 되지 않습니다. 앞쪽으로 옮긴 뒤 다시 분석하세요.');
+      // A capture needs most of its window. Seven seconds of a chart cannot be
+      // placed against it, and the attempt still costs one of ten per day.
+      const remaining = video.duration - startMediaTime;
+      if (remaining < MIN_ANALYSIS_SECONDS) {
+        setStatus(`남은 구간이 ${remaining.toFixed(1)}초뿐입니다. 최소 ${MIN_ANALYSIS_SECONDS}초가 필요합니다. 재생바를 앞쪽으로 옮기세요.`);
         stopWorker();
         return;
       }

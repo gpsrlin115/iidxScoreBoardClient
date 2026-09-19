@@ -53,6 +53,14 @@ const MIN_EVENTS_PER_SECOND = 1;
 // allowed; a second one means lanes are being missed.
 const MIN_EVENTS_PER_LANE = 2;
 const ALLOWED_SPARSE_LANES = 1;
+// A capture that ran out well before the window it asked for hit the end of the
+// video. The matcher then aligns those few seconds against the whole chart and
+// cannot place them.
+const MIN_CAPTURED_SHARE = 0.5;
+// A note crosses the analysis band in roughly 40ms, so below about this rate
+// the frames arrive further apart than the notes they are meant to catch and
+// most of them are never seen.
+const MIN_FRAME_RATE = 24;
 
 /**
  * Why a capture is not worth sending, in the words the screen uses.
@@ -64,6 +72,20 @@ const ALLOWED_SPARSE_LANES = 1;
  */
 export const extractionProblem = (observedNotes) => {
   const counts = observedNotes?.laneEventCounts || [];
+  const seconds = (observedNotes?.durationMs || 0) / 1000;
+
+  const requested = (observedNotes?.requestedDurationMs || 0) / 1000;
+  if (requested > 0 && seconds < requested * MIN_CAPTURED_SHARE) {
+    return `${Math.round(requested)}초를 분석하려 했는데 ${seconds.toFixed(1)}초에서 영상이 끝났습니다.`
+      + ' 재생바를 앞쪽으로 옮긴 뒤 다시 분석하세요.';
+  }
+
+  const fps = observedNotes?.fps;
+  if (Number.isFinite(fps) && fps < MIN_FRAME_RATE && observedNotes?.frameCount) {
+    return `${seconds.toFixed(1)}초 동안 프레임이 ${observedNotes.frameCount}장(초당 ${fps.toFixed(1)}장)만 도착했습니다.`
+      + ' 노트가 프레임 사이로 지나가 대부분 읽히지 않습니다. 영상 창이 화면에 보이는 상태로 두고 다시 분석하세요.';
+  }
+
   const sparse = counts
     .map((count, lane) => ({ count, lane }))
     .filter(({ count }) => count < MIN_EVENTS_PER_LANE);
@@ -71,7 +93,6 @@ export const extractionProblem = (observedNotes) => {
     return `레인 ${sparse.map(({ lane, count }) => `${lane + 1}번(${count}개)`).join(', ')}에서 노트를 거의 읽지 못했습니다.`
       + ' 분석 영역이 실제 플레이필드와 어긋나 있습니다. 좌표를 다시 실측하거나 직접 보정하세요.';
   }
-  const seconds = (observedNotes?.durationMs || 0) / 1000;
   const total = counts.reduce((sum, count) => sum + count, 0);
   if (seconds > 0 && total < seconds * MIN_EVENTS_PER_SECOND) {
     return `${Math.round(seconds)}초에서 노트를 ${total}개만 읽었습니다.`
