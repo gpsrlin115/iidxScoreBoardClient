@@ -327,8 +327,12 @@ const LayoutAnalysis = () => {
     const startedAt = performance.now();
     const sendFrame = (now, metadata) => {
       if (!workerRef.current || finishingRef.current) return;
+      // Clamped because the two times are the same moment read two ways: the
+      // position the seek settled on, and the time of the frame that was
+      // presented there. They differ in the last bits of a float, so the first
+      // frame came out at -0.0004ms and the server refused the whole capture.
       const timestampMs = mode === 'file'
-        ? (metadata.mediaTime - startMediaTime) * 1000
+        ? Math.max(0, (metadata.mediaTime - startMediaTime) * 1000)
         : now - startedAt;
       if (timestampMs >= durationMs || video.ended) { finishWorker(); return; }
       const frame = new VideoFrame(video, { timestamp: Math.round(timestampMs * 1000) });

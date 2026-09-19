@@ -84,3 +84,37 @@ test('a capture with almost no notes is not sent either', () => {
 test('a capture that read every lane goes through', () => {
   assert.equal(extractionProblem({ laneEventCounts: [79, 59, 55, 61, 67, 60, 44, 15], durationMs: 30_000 }), null);
 });
+
+test('a first note a fraction before the capture start is moved, not dropped', () => {
+  // The capture start is subtracted from every frame time, and the frame that
+  // begins the capture is that same moment read a different way — the position
+  // the seek settled on against the time of the frame presented there. They
+  // differ in the last bits of a float, and the server refuses a negative time
+  // outright, which cost a whole match attempt.
+  const clamped = clampObservedNotes(observedNotesFixture({
+    laneEventCounts: [1, 1, 0, 0, 0, 0, 0, 0],
+    events: [{ timeMs: -4.0000000467443897e-4, lane: 0 }, { timeMs: 500, lane: 1 }],
+  }));
+
+  assert.equal(clamped.events.length, 2);
+  assert.equal(clamped.events[0].timeMs, 0);
+  assert.equal(clamped.events[0].lane, 0);
+  assert.deepEqual(clamped.laneEventCounts, [1, 1, 0, 0, 0, 0, 0, 0]);
+});
+
+test('a stretch starting before the capture is pulled back to its start', () => {
+  const clamped = clampObservedNotes(observedNotesFixture({
+    stableSegments: [{ startMs: -5, endMs: 1_000 }],
+  }));
+
+  assert.deepEqual(clamped.stableSegments, [{ startMs: 0, endMs: 1_000 }]);
+});
+
+test('a frame rate no camera produces is brought back into range', () => {
+  // The measured rate divides by the span of the frame times, floored at one
+  // millisecond. Frame times landing inside that floor — duplicated, or running
+  // backwards — make the divisor 1 and the rate (frames - 1) × 1000.
+  assert.equal(clampObservedNotes(observedNotesFixture({ fps: 1_000 })).fps, 240);
+  assert.equal(clampObservedNotes(observedNotesFixture({ fps: 0.01 })).fps, 0.1);
+  assert.equal(clampObservedNotes(observedNotesFixture({ fps: 60 })).fps, 60);
+});

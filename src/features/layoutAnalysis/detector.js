@@ -151,12 +151,21 @@ export const detectGeometry = (video) => {
   };
 };
 
+// Enough room above the judgement line for the visible window the two clamps
+// below carve out of it.
+const MIN_VISIBLE_BAND = 24;
+
 export const sanitizeGeometry = (geometry, width, height) => {
   const x = clamp(Math.round(geometry.x), 0, width - 80);
   const y = clamp(Math.round(geometry.y), 0, height - 120);
   const fieldWidth = clamp(Math.round(geometry.width), 80, width - x);
   const fieldHeight = clamp(Math.round(geometry.height), 120, height - y);
-  const judgementY = clamp(Math.round(geometry.judgementY), y, y + fieldHeight);
+  // The judgement line is kept far enough down the field for a visible window
+  // to fit above it. `clamp` returns its lower bound when the bounds cross, so
+  // a line typed up near the top of the field made the next two clamps invert:
+  // the visible bottom came out below the line and the analysis band above it,
+  // which the server accepts and which reads rows the notes never cross.
+  const judgementY = clamp(Math.round(geometry.judgementY), y + MIN_VISIBLE_BAND, y + fieldHeight);
   const visibleTopY = clamp(Math.round(geometry.visibleTopY), y, judgementY - 12);
   const visibleBottomY = clamp(Math.round(geometry.visibleBottomY), visibleTopY + 12, judgementY);
   // A geometry that reached here without a lane layout — a stored one from

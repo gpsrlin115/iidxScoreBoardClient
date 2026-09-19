@@ -259,3 +259,21 @@ test('a 1P field on the left is still found and named', () => {
   assert.equal(geometry.side, 'P1');
   assert.ok(geometry.x < 1280 * 0.5, `expected a field in the left half, got x=${geometry.x}`);
 });
+
+test('a judgement line typed near the top of the field still leaves a window above it', () => {
+  // clamp returns its lower bound when the bounds cross. A line typed at the
+  // top of the field made the next two clamps invert, putting the visible
+  // bottom below the line and the analysis band above it — coordinates the
+  // server accepts and that read rows the notes never cross.
+  for (const judgementY of [200, 205, 224, 700]) {
+    const geometry = sanitizeGeometry(
+      { x: 100, y: 200, width: 400, height: 600, judgementY, visibleTopY: 210, visibleBottomY: 700 },
+      1920, 1080,
+    );
+
+    assert.ok(geometry.y <= geometry.visibleTopY, `judgementY ${judgementY}`);
+    assert.ok(geometry.visibleTopY < geometry.visibleBottomY, `judgementY ${judgementY}`);
+    assert.ok(geometry.visibleBottomY <= geometry.judgementY, `judgementY ${judgementY}`);
+    assert.ok(geometry.analysisY < geometry.judgementY, `judgementY ${judgementY}`);
+  }
+});

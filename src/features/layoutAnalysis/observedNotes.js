@@ -1,6 +1,12 @@
 const MAX_DURATION_MS = 45_000;
 const MAX_EVENTS = 20_000;
 const MAX_STABLE_SEGMENTS = 16;
+// The rate the server will accept. A capture whose frame times land within a
+// millisecond of each other measures a rate far above any real one.
+const MIN_FPS = 0.1;
+const MAX_FPS = 240;
+
+const atLeastZero = (value) => Math.max(0, value);
 
 const laneTally = (events) => {
   const counts = [0, 0, 0, 0, 0, 0, 0, 0];
@@ -15,19 +21,27 @@ const laneTally = (events) => {
  * 400 rather than truncated, and the server recomputes `laneEventCounts` from
  * the events it receives and refuses the request when the tally disagrees, so
  * dropping an event without recounting would fail the whole match.
+ *
+ * Both ends of every range belong here. Only the upper ones were checked, and a
+ * first note event at -0.0004ms — the capture start subtracted from the frame
+ * that begins it — went out untouched and cost a whole match attempt.
  */
 export const clampObservedNotes = (observedNotes, maxDurationMs = MAX_DURATION_MS) => {
   if (!observedNotes) return observedNotes;
   const durationMs = Math.min(observedNotes.durationMs ?? 0, maxDurationMs);
+  // An event past the end really is outside the capture and is dropped; one a
+  // fraction before the start is the start, so it is moved rather than lost.
   const events = (observedNotes.events || [])
     .filter((event) => event?.timeMs <= durationMs)
+    .map((event) => (event.timeMs < 0 ? { ...event, timeMs: 0 } : event))
     .slice(0, MAX_EVENTS);
   const stableSegments = (observedNotes.stableSegments || [])
-    .map(({ startMs, endMs }) => ({ startMs, endMs: Math.min(endMs, durationMs) }))
+    .map(({ startMs, endMs }) => ({ startMs: atLeastZero(startMs), endMs: Math.min(endMs, durationMs) }))
     .filter((segment) => segment.endMs > segment.startMs)
     .slice(0, MAX_STABLE_SEGMENTS);
+  const fps = Math.min(MAX_FPS, Math.max(MIN_FPS, observedNotes.fps ?? MIN_FPS));
 
-  return { ...observedNotes, durationMs, events, stableSegments, laneEventCounts: laneTally(events) };
+  return { ...observedNotes, fps, durationMs, events, stableSegments, laneEventCounts: laneTally(events) };
 };
 
 // A 30 second capture of a chart worth analysing carries hundreds of notes.
