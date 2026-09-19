@@ -47,20 +47,28 @@ export const clampObservedNotes = (observedNotes, maxDurationMs = MAX_DURATION_M
 // A 30 second capture of a chart worth analysing carries hundreds of notes.
 // Far fewer means the band was read somewhere the notes are not.
 const MIN_EVENTS_PER_SECOND = 1;
+// What the matcher asks of a lane before it counts as read at all
+// (iidaran/matching.py:145). It applies the test to the seven key lanes and
+// leaves the turntable out, so one sparse lane here is the turntable and is
+// allowed; a second one means lanes are being missed.
+const MIN_EVENTS_PER_LANE = 2;
+const ALLOWED_SPARSE_LANES = 1;
 
 /**
  * Why a capture is not worth sending, in the words the screen uses.
  *
- * The server answers such a capture with AMBIGUOUS and a note that extraction
- * was incomplete, which costs one of ten daily attempts and does not say what
- * to change. Every lane is drawn in every chart, so a lane that produced
- * nothing over the whole capture was not read: the area is in the wrong place.
+ * The server answers such a capture with AMBIGUOUS, a note that extraction was
+ * incomplete, and its layout candidates stripped out — which costs one of ten
+ * daily attempts and does not say what to change. The test matches the one the
+ * matcher applies, so what passes here is what the matcher will accept.
  */
 export const extractionProblem = (observedNotes) => {
   const counts = observedNotes?.laneEventCounts || [];
-  const silent = counts.map((count, lane) => ({ count, lane })).filter(({ count }) => count === 0);
-  if (silent.length) {
-    return `레인 ${silent.map(({ lane }) => lane + 1).join('·')}번에서 노트를 하나도 읽지 못했습니다.`
+  const sparse = counts
+    .map((count, lane) => ({ count, lane }))
+    .filter(({ count }) => count < MIN_EVENTS_PER_LANE);
+  if (sparse.length > ALLOWED_SPARSE_LANES) {
+    return `레인 ${sparse.map(({ lane, count }) => `${lane + 1}번(${count}개)`).join(', ')}에서 노트를 거의 읽지 못했습니다.`
       + ' 분석 영역이 실제 플레이필드와 어긋나 있습니다. 좌표를 다시 실측하거나 직접 보정하세요.';
   }
   const seconds = (observedNotes?.durationMs || 0) / 1000;

@@ -67,18 +67,28 @@ test('the candidate request always names the textage catalogue', () => {
   assert.ok(!SUPPORTED_DIFFICULTIES.includes('BEGINNER'));
 });
 
-test('a capture with a lane the area never covered is not sent', () => {
-  // The server answers this with AMBIGUOUS and a note that extraction was
-  // incomplete. That costs one of ten daily attempts and does not say what to
-  // change, so the lane numbers are named here instead.
+test('a capture with lanes the area never covered is not sent', () => {
+  // The matcher asks for two events in each of the seven key lanes and strips
+  // the layout candidates when one falls short, which costs an attempt and says
+  // only that extraction was incomplete. The lanes are named here instead.
   const problem = extractionProblem({ laneEventCounts: [10, 0, 5, 0, 8, 9, 7, 6], durationMs: 30_000 });
 
-  assert.match(problem, /레인 2·4번/);
+  assert.match(problem, /2번\(0개\)/);
+  assert.match(problem, /4번\(0개\)/);
   assert.match(problem, /어긋나/);
 });
 
+test('one sparse lane is the turntable and is allowed through', () => {
+  // The matcher leaves the turntable out of the test, and which end it sits on
+  // depends on the play side, so the count is what is checked rather than an
+  // index: one sparse lane passes, a second does not.
+  assert.equal(extractionProblem({ laneEventCounts: [1, 79, 59, 55, 61, 67, 60, 44], durationMs: 30_000 }), null);
+  assert.equal(extractionProblem({ laneEventCounts: [79, 59, 55, 61, 67, 60, 44, 1], durationMs: 30_000 }), null);
+  assert.match(extractionProblem({ laneEventCounts: [1, 79, 59, 0, 61, 67, 60, 44], durationMs: 30_000 }), /거의 읽지 못했습니다/);
+});
+
 test('a capture with almost no notes is not sent either', () => {
-  assert.match(extractionProblem({ laneEventCounts: [2, 1, 2, 1, 2, 2, 2, 2], durationMs: 30_000 }), /14개만/);
+  assert.match(extractionProblem({ laneEventCounts: [3, 3, 3, 3, 3, 3, 3, 3], durationMs: 30_000 }), /24개만/);
 });
 
 test('a capture that read every lane goes through', () => {

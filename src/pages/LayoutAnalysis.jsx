@@ -437,6 +437,8 @@ const LayoutAnalysis = () => {
           canRematch={Boolean(observedNotesRef.current)}
           onRematch={rematchSuggested}
           busy={running}
+          observedNotes={observedNotesRef.current}
+          videoId={youtube?.videoId ?? null}
         />
       </section>
 
