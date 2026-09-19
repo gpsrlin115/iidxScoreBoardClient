@@ -49,15 +49,12 @@ const ProtectedLayout = () => {
   return (
     <div className="relative min-h-screen">
       <Starfield litRatio={litRatio} flareable />
-      <div
-        className="relative z-[1] grid min-h-screen grid-cols-[186px_minmax(0,1fr)] max-md:grid-cols-1"
-        style={{
-          background:
-            'linear-gradient(180deg,rgba(5,8,19,.34),rgba(5,8,19,.8) 55%,rgba(5,8,19,.9))',
-        }}
-      >
+      <div className="relative z-[1] grid min-h-screen grid-cols-[186px_minmax(0,1fr)] max-md:grid-cols-1">
         <Sidebar />
-        <div className="min-w-0">
+        <div
+          className="min-h-screen min-w-0"
+          style={{ background: 'rgba(5,8,19,.65)' }}
+        >
           <TopBar />
           <main>
             <ErrorBoundary resetKey={`${location.pathname}${location.search}`}>

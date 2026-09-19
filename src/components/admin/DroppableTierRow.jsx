@@ -45,7 +45,12 @@ const DroppableTierRow = ({ id, title, items, isPool = false }) => {
           strategy={rectSortingStrategy}
         >
           {items.map((song) => (
-            <SortableSongTile key={song.id} id={song.id} title={song.title} />
+            <SortableSongTile
+              key={song.id}
+              id={song.id}
+              title={song.title}
+              difficulty={song.difficulty}
+            />
           ))}
         </SortableContext>
         
