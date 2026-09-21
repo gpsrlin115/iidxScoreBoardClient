@@ -51,6 +51,25 @@ export const scoreBand = ({ laneEventCounts, events, bandY, judgementY, height }
     + safety * SAFETY_WEIGHT;
 };
 
+/**
+ * One strip of the frame that holds every band, and where each band sits in it.
+ *
+ * Drawing the strip once and slicing it gives each band exactly the rows it had
+ * when drawn on its own — the rows are the same, only fewer copies are made.
+ * Band tops are kept inside the frame, since a source rectangle that hangs over
+ * the edge draws transparent pixels that read as an empty lane.
+ */
+export const bandStrip = ({ bandsY, bandHeight, frameHeight }) => {
+  const tops = bandsY.map((bandY) => Math.max(0, Math.min(frameHeight - bandHeight, bandY - Math.round(bandHeight / 2))));
+  const stripTop = Math.min(...tops);
+  return {
+    stripTop,
+    stripHeight: Math.max(...tops) + bandHeight - stripTop,
+    offsets: tops.map((top) => top - stripTop),
+    tops,
+  };
+};
+
 export const pickBand = (bands) => bands.reduce(
   (best, band) => (band.score > best.score ? band : best),
 );

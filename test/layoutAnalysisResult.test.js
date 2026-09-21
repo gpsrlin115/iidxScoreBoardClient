@@ -85,3 +85,13 @@ test('the play side is read from the top level of the answer', () => {
   assert.equal(interpretMatch({ status: 'MATCHED', side: 'P2' }).side, 'P2');
   assert.equal(interpretMatch({ status: 'MATCHED' }).side, null);
 });
+
+test('a capture refused in the browser still reads as a result, with its reason', () => {
+  // It used to leave only a status line, so the measurements and the
+  // diagnostics file were out of reach exactly when they were needed.
+  const interpreted = interpretMatch({ status: 'NOT_SENT', clientProblem: '프레임이 부족합니다.' });
+
+  assert.equal(interpreted.tone, 'failed');
+  assert.equal(interpreted.message, '프레임이 부족합니다.');
+  assert.equal(interpreted.confirmed, false);
+});

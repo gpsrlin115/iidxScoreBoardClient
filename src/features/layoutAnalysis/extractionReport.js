@@ -96,6 +96,27 @@ export const describeCapture = (observedNotes) => {
       ok: observedNotes.fps >= MIN_FRAME_RATE,
     });
   }
+  const capture = observedNotes.capture;
+  if (capture?.frames) {
+    // Media time against wall time says whether the video itself slowed down;
+    // the worker's own time per frame says whether it was the one holding it up.
+    const mediaSeconds = ((capture.lastMs ?? 0) - (capture.firstMs ?? 0)) / 1000;
+    rows.push({
+      label: '영상 진행 / 실제 경과',
+      value: `${mediaSeconds.toFixed(1)}초 / ${(capture.wallMs / 1000).toFixed(1)}초`,
+      requirement: '비슷해야 정상 재생',
+      ok: capture.wallMs <= 0 || mediaSeconds * 1000 >= capture.wallMs * 0.8,
+    });
+    rows.push({
+      label: '워커 처리 시간 (프레임당)',
+      value: `평균 ${capture.workMsPerFrame.toFixed(1)}ms · 최대 ${capture.workMsMax.toFixed(1)}ms`,
+      requirement: '60fps 는 16.7ms 안',
+      ok: capture.workMsPerFrame <= 16.7,
+    });
+    if (capture.backwardSteps > 0) {
+      rows.push({ label: '시각이 거꾸로 간 프레임', value: `${capture.backwardSteps}번`, ok: false });
+    }
+  }
   return rows.length ? rows : null;
 };
 

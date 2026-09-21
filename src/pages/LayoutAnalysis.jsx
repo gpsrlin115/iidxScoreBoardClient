@@ -306,7 +306,9 @@ const LayoutAnalysis = () => {
         const problem = extractionProblem(data.observedNotes);
         if (problem) {
           // Sending this costs one of ten daily attempts and comes back as
-          // AMBIGUOUS without saying what to change.
+          // AMBIGUOUS without saying what to change. Shown as a result so the
+          // capture's numbers and the diagnostics file are still on offer.
+          setResult({ status: 'NOT_SENT', clientProblem: problem });
           setStatus(problem);
           stopWorker();
           if (mode === 'youtube') stopTab();

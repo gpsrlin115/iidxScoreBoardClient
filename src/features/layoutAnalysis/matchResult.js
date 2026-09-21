@@ -37,11 +37,18 @@ const STATUSES = {
   MISMATCH: { tone: 'failed', message: '관측한 배치가 이 채보와 맞지 않습니다.' },
   AMBIGUOUS: { tone: 'provisional', message: '배치를 하나로 좁히지 못했습니다.' },
   FAILED: { tone: 'failed', message: '배치 분석에 실패했습니다.' },
+  // Refused in the browser before any request went out; the message is the
+  // reason the capture could not be analysed.
+  NOT_SENT: { tone: 'failed', message: '캡처가 분석에 쓸 수 없어 요청을 보내지 않았습니다.' },
 };
 
 export const interpretMatch = (match) => {
   const reason = match?.reason;
-  const resolved = (reason && REASONS[reason])
+  const refused = match?.status === 'NOT_SENT' && match.clientProblem
+    ? { tone: 'failed', message: match.clientProblem }
+    : null;
+  const resolved = refused
+    || (reason && REASONS[reason])
     || STATUSES[match?.status]
     || { tone: 'failed', message: `분석 결과: ${match?.status}` };
 

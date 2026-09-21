@@ -100,3 +100,34 @@ test('no capture means no capture rows', () => {
   assert.equal(describeCapture(null), null);
   assert.equal(describeCapture({}), null);
 });
+
+test('a video that played slower than real time is called out', () => {
+  // Ten seconds of video took thirty to play: frames were held back, not
+  // dropped by the recogniser.
+  const rows = describeCapture({
+    durationMs: 9_900, requestedDurationMs: 20_000, fps: 12.9, frameCount: 386,
+    capture: { frames: 386, firstMs: 0, lastMs: 9_900, maxMs: 9_900, backwardSteps: 0, wallMs: 29_800, workMsPerFrame: 41, workMsMax: 90 },
+  });
+  const failed = rows.filter((row) => row.ok === false).map((row) => row.label);
+
+  assert.ok(failed.includes('영상 진행 / 실제 경과'), JSON.stringify(rows));
+  assert.ok(failed.includes('워커 처리 시간 (프레임당)'), JSON.stringify(rows));
+});
+
+test('frame times that ran backwards are reported', () => {
+  const rows = describeCapture({
+    durationMs: 29_000, requestedDurationMs: 30_000, fps: 60, frameCount: 1_700,
+    capture: { frames: 1_700, firstMs: 0, lastMs: 29_000, maxMs: 29_000, backwardSteps: 3, wallMs: 29_100, workMsPerFrame: 4, workMsMax: 9 },
+  });
+
+  assert.ok(rows.some((row) => row.label.includes('거꾸로') && row.value === '3번'));
+});
+
+test('a capture that kept pace reports its timing without flagging it', () => {
+  const rows = describeCapture({
+    durationMs: 29_983, requestedDurationMs: 30_000, fps: 60, frameCount: 1_800,
+    capture: { frames: 1_800, firstMs: 0, lastMs: 29_983, maxMs: 29_983, backwardSteps: 0, wallMs: 30_100, workMsPerFrame: 3.2, workMsMax: 11 },
+  });
+
+  assert.ok(rows.every((row) => row.ok !== false), JSON.stringify(rows));
+});

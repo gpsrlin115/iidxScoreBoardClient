@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { candidateBandsY, pickBand, scoreBand } from '../src/features/layoutAnalysis/analysisBands.js';
+import { bandStrip, candidateBandsY, pickBand, scoreBand } from '../src/features/layoutAnalysis/analysisBands.js';
 
 const geometry = { visibleTopY: 19, visibleBottomY: 328, height: 407, judgementY: 344 };
 
@@ -52,4 +52,35 @@ test('the best-scoring band is the one that is kept', () => {
 
   assert.equal(pickBand(bands).bandY, 2);
   assert.equal(pickBand([{ bandY: 5, score: 1 }]).bandY, 5);
+});
+
+test('slicing one strip gives each band the rows it had when drawn alone', () => {
+  // The worker used to draw each band out of the video frame separately, which
+  // copied the frame out of the decoder once per band. The strip replaces that
+  // with a single copy, and must not change a single pixel any band sees.
+  const width = 7;
+  const frameHeight = 60;
+  const frame = new Uint8ClampedArray(width * frameHeight * 4);
+  for (let index = 0; index < frame.length; index += 1) frame[index] = (index * 37) % 251;
+  const rows = (top, count) => frame.subarray(top * width * 4, (top + count) * width * 4);
+
+  for (const bandsY of [[10, 20, 30, 40, 50], [3, 30, 57], [25, 26, 27]]) {
+    const bandHeight = 6;
+    const { stripTop, stripHeight, offsets, tops } = bandStrip({ bandsY, bandHeight, frameHeight });
+    const strip = rows(stripTop, stripHeight);
+
+    assert.ok(stripTop >= 0 && stripTop + stripHeight <= frameHeight, JSON.stringify(bandsY));
+    offsets.forEach((offset, index) => {
+      const sliced = strip.subarray(offset * width * 4, (offset + bandHeight) * width * 4);
+      assert.deepEqual(Array.from(sliced), Array.from(rows(tops[index], bandHeight)), `band ${index} of ${bandsY}`);
+    });
+  }
+});
+
+test('a band near either edge of the frame is pulled inside it', () => {
+  const { tops, stripTop, stripHeight } = bandStrip({ bandsY: [1, 59], bandHeight: 8, frameHeight: 60 });
+
+  assert.deepEqual(tops, [0, 52]);
+  assert.equal(stripTop, 0);
+  assert.equal(stripHeight, 60);
 });

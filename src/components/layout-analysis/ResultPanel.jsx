@@ -35,12 +35,12 @@ const ResultPanel = ({ result, canRematch, onRematch, busy, observedNotes = null
   return (
     <div className="border border-line bg-panel p-5">
       <div className="flex flex-wrap items-center gap-2">
-        <span className={clsx('font-mono text-xs font-bold', TONE_CLASS[tone])}>{result.status}</span>
+        <span className={clsx('font-mono text-xs font-bold', TONE_CLASS[tone])}>{result.status === 'NOT_SENT' ? '요청 보내지 않음' : result.status}</span>
         {result.reason && <span className="font-mono text-[10px] text-muted">{result.reason}</span>}
         {!verified && <span className="border border-line-strong px-2 py-0.5 font-mono text-[10px] text-danger">참조 미검증</span>}
       </div>
       <p className={clsx('mt-2 text-sm', confirmed ? 'text-ink' : 'text-text2')}>{message}</p>
-      <h2 className="mt-3 text-lg text-ink">{result.chart?.title} · {result.chart?.chartType}</h2>
+      {result.chart && <h2 className="mt-3 text-lg text-ink">{result.chart.title} · {result.chart.chartType}</h2>}
       {result.chart?.artist && <p className="mt-1 text-xs text-muted">{result.chart.artist}</p>}
       {result.candidates?.map((candidate) => (
         // playedLaneSources names which regular-chart key arrived in each lane,

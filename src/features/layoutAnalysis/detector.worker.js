@@ -1,7 +1,7 @@
 import { createEventDetector } from './laneEvents.js';
 import { detectStableSegments } from './stableSegments.js';
 import { detectJudgementRow, redRowOccupancy } from './judgementLine.js';
-import { candidateBandsY, pickBand, scoreBand } from './analysisBands.js';
+import { bandStrip, candidateBandsY, pickBand, scoreBand } from './analysisBands.js';
 
 // The note band is read every frame; the playfield's geometry is re-checked
 // twice a second, which is often enough to place a cover change within half a
@@ -52,14 +52,20 @@ self.onmessage = ({ data }) => {
       }
       const fieldHeight = Math.max(24, geometry.judgementY - geometry.y);
       const bandsY = candidateBandsY(geometry);
+      // One strip spanning every band, drawn from the video frame once. Drawing
+      // each band on its own copied the frame out of the decoder once per band,
+      // and a worker that falls behind holds its frames open: the decoder runs
+      // out of buffers and the video itself slows down. A real capture arrived
+      // at 11-13 frames a second that way.
+      const { stripTop, stripHeight, offsets } = bandStrip({ bandsY, bandHeight, frameHeight: data.height });
       state = {
         ...data,
         bandsY,
         bandHeight,
-        // Every band is stacked into one canvas so the frame is read back once.
-        // Reading each band separately would multiply the readback, which is
-        // the expensive half of sampling a frame.
-        canvas: new OffscreenCanvas(geometry.width, bandHeight * bandsY.length),
+        bandOffsets: offsets,
+        stripTop,
+        stripHeight,
+        canvas: new OffscreenCanvas(geometry.width, stripHeight),
         field: { x: geometry.x, y: geometry.y, width: geometry.width, height: fieldHeight },
         fieldCanvas: new OffscreenCanvas(geometry.width, fieldHeight),
         detectors: bandsY.map(() => createEventDetector({
@@ -69,6 +75,8 @@ self.onmessage = ({ data }) => {
         samples: [],
         occupancies: [],
         nextGeometrySampleMs: 0,
+        // What the capture itself looked like, for when it goes wrong.
+        timing: { frames: 0, firstMs: null, lastMs: null, maxMs: null, backward: 0, workMs: 0, workMaxMs: 0, wallStart: null },
       };
       state.context = state.canvas.getContext('2d', { willReadFrequently: true });
       state.fieldContext = state.fieldCanvas.getContext('2d', { willReadFrequently: true });
@@ -80,36 +88,39 @@ self.onmessage = ({ data }) => {
       return;
     }
     if (data.type === 'frame') {
+      const started = performance.now();
       const width = state.geometry.width;
       const height = state.bandHeight;
-      state.bandsY.forEach((bandY, index) => {
-        // Kept inside the frame: a source rectangle that hangs over the edge
-        // draws transparent pixels, which read as a lane with nothing in it.
-        const top = Math.max(0, Math.min(state.height - height, bandY - Math.round(height / 2)));
-        state.context.drawImage(
-          data.frame, state.geometry.x, top, width, height,
-          0, index * height, width, height,
-        );
-      });
+      state.context.drawImage(
+        data.frame, state.geometry.x, state.stripTop, width, state.stripHeight,
+        0, 0, width, state.stripHeight,
+      );
       const due = data.timestampMs >= state.nextGeometrySampleMs;
       if (due) {
         state.fieldContext.drawImage(data.frame, state.field.x, state.field.y, state.field.width, state.field.height, 0, 0, state.field.width, state.field.height);
       }
       closeFrame(data.frame);
-      const stacked = state.context.getImageData(0, 0, width, height * state.bandsY.length);
+      const strip = state.context.getImageData(0, 0, width, state.stripHeight);
       const bandBytes = width * height * 4;
       state.detectors.forEach((detector, index) => {
-        // A view into the frame that was already read back, not a copy.
-        detector.push({
-          data: stacked.data.subarray(index * bandBytes, (index + 1) * bandBytes),
-          width,
-          height,
-        }, data.timestampMs);
+        // A view into the strip already read back, not a copy.
+        const offset = state.bandOffsets[index] * width * 4;
+        detector.push({ data: strip.data.subarray(offset, offset + bandBytes), width, height }, data.timestampMs);
       });
       if (due) {
         sampleGeometry(data.timestampMs);
         state.nextGeometrySampleMs = data.timestampMs + GEOMETRY_SAMPLE_MS;
       }
+      const timing = state.timing;
+      if (timing.wallStart === null) timing.wallStart = started;
+      if (timing.lastMs !== null && data.timestampMs < timing.lastMs) timing.backward += 1;
+      timing.frames += 1;
+      timing.firstMs ??= data.timestampMs;
+      timing.lastMs = data.timestampMs;
+      timing.maxMs = Math.max(timing.maxMs ?? data.timestampMs, data.timestampMs);
+      const spent = performance.now() - started;
+      timing.workMs += spent;
+      timing.workMaxMs = Math.max(timing.workMaxMs, spent);
       self.postMessage({ type: 'progress', timestampMs: data.timestampMs });
       return;
     }
@@ -134,6 +145,16 @@ self.onmessage = ({ data }) => {
       self.postMessage({ type: 'result', observedNotes: {
         schemaVersion: 'observed-notes-v1', fps, durationMs,
         requestedDurationMs: state.durationMs, frameCount: chosen.frameCount,
+        capture: {
+          frames: state.timing.frames,
+          firstMs: state.timing.firstMs,
+          lastMs: state.timing.lastMs,
+          maxMs: state.timing.maxMs,
+          backwardSteps: state.timing.backward,
+          wallMs: state.timing.wallStart === null ? 0 : performance.now() - state.timing.wallStart,
+          workMsPerFrame: state.timing.frames ? state.timing.workMs / state.timing.frames : 0,
+          workMsMax: state.timing.workMaxMs,
+        },
         // The band that was actually read, so the answer says where it looked.
         geometry: { ...state.geometry, analysisY: chosen.bandY },
         stableSegments: detectStableSegments({ samples: state.samples, durationMs, roiHeight: state.field.height }),
