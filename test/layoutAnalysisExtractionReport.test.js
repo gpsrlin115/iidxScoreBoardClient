@@ -131,3 +131,34 @@ test('a capture that kept pace reports its timing without flagging it', () => {
 
   assert.ok(rows.every((row) => row.ok !== false), JSON.stringify(rows));
 });
+
+test('frames the video presented but the page never received are counted', () => {
+  // Measured: 677 frames of a 60fps video in 30 seconds. The video played at
+  // full speed and the worker kept pace, so the frames were lost between the
+  // video presenting them and the main thread getting round to the callback.
+  const rows = describeCapture({
+    durationMs: 30_000, requestedDurationMs: 30_000, fps: 22.5, frameCount: 677,
+    capture: {
+      frames: 677, firstMs: 0, lastMs: 30_000, maxMs: 30_000, backwardSteps: 0,
+      wallMs: 30_000, workMsPerFrame: 15.4, workMsMax: 56,
+      presentedFrames: 1_800, callbacks: 677,
+    },
+  });
+  const row = rows.find((candidate) => candidate.label.includes('표시한 프레임'));
+
+  assert.equal(row.value, '1800장 / 677장');
+  assert.equal(row.ok, false);
+});
+
+test('a page that received every presented frame is not flagged', () => {
+  const rows = describeCapture({
+    durationMs: 30_000, requestedDurationMs: 30_000, fps: 60, frameCount: 1_790,
+    capture: {
+      frames: 1_790, firstMs: 0, lastMs: 30_000, maxMs: 30_000, backwardSteps: 0,
+      wallMs: 30_000, workMsPerFrame: 6, workMsMax: 20,
+      presentedFrames: 1_800, callbacks: 1_790,
+    },
+  });
+
+  assert.ok(rows.every((row) => row.ok !== false), JSON.stringify(rows));
+});

@@ -10,6 +10,11 @@ const GEOMETRY_SAMPLE_MS = 500;
 // Only the recent samples are consulted for the judgement line, so a cover
 // moved mid-capture is not averaged against where the line used to be.
 const OCCUPANCY_WINDOW = 5;
+// Progress re-renders the whole page on the main thread, which is also where
+// the video frame callbacks run. Sent every frame, it kept the main thread busy
+// enough that callbacks skipped frames: a 60fps video arrived at 22.5 a second.
+// Four updates a second move the bar just as visibly.
+const PROGRESS_EVERY_MS = 250;
 
 let state = null;
 
@@ -75,6 +80,7 @@ self.onmessage = ({ data }) => {
         samples: [],
         occupancies: [],
         nextGeometrySampleMs: 0,
+        nextProgressMs: 0,
         // What the capture itself looked like, for when it goes wrong.
         timing: { frames: 0, firstMs: null, lastMs: null, maxMs: null, backward: 0, workMs: 0, workMaxMs: 0, wallStart: null },
       };
@@ -121,7 +127,10 @@ self.onmessage = ({ data }) => {
       const spent = performance.now() - started;
       timing.workMs += spent;
       timing.workMaxMs = Math.max(timing.workMaxMs, spent);
-      self.postMessage({ type: 'progress', timestampMs: data.timestampMs });
+      if (data.timestampMs >= state.nextProgressMs) {
+        self.postMessage({ type: 'progress', timestampMs: data.timestampMs });
+        state.nextProgressMs = data.timestampMs + PROGRESS_EVERY_MS;
+      }
       return;
     }
     if (data.type === 'finish') {

@@ -150,7 +150,7 @@ test('a capture starved of frames is not sent either', () => {
   });
 
   assert.match(problem, /초당 15\.0장/);
-  assert.match(problem, /프레임 사이로/);
+  assert.match(problem, /절반가량/);
 });
 
 test('a capture that ran its window at full rate goes through', () => {

@@ -295,6 +295,10 @@ const LayoutAnalysis = () => {
     const durationMs = mode === 'file'
       ? Math.min(30_000, (video.duration - startMediaTime) * 1000)
       : 30_000;
+    // What the video presented against what reached the worker. A large gap
+    // means callbacks skipped frames because the main thread was busy; no gap
+    // means the video itself presented that few.
+    const presented = { first: null, last: null, callbacks: 0 };
     const worker = new Worker(new URL('../features/layoutAnalysis/detector.worker.js', import.meta.url), { type: 'module' });
     workerRef.current = worker;
     worker.postMessage({ type: 'init', width: video.videoWidth, height: video.videoHeight, fps: size.fps, durationMs, geometry });
@@ -302,6 +306,10 @@ const LayoutAnalysis = () => {
       if (data.type === 'progress') setProgress(Math.min(100, data.timestampMs / durationMs * 100));
       if (data.type === 'error') { setStatus(data.message); stopWorker(); }
       if (data.type === 'result') {
+        if (data.observedNotes.capture && presented.first !== null) {
+          data.observedNotes.capture.presentedFrames = presented.last - presented.first + 1;
+          data.observedNotes.capture.callbacks = presented.callbacks;
+        }
         observedNotesRef.current = data.observedNotes;
         const problem = extractionProblem(data.observedNotes);
         if (problem) {
@@ -335,6 +343,9 @@ const LayoutAnalysis = () => {
     const startedAt = performance.now();
     const sendFrame = (now, metadata) => {
       if (!workerRef.current || finishingRef.current) return;
+      presented.first ??= metadata.presentedFrames;
+      presented.last = metadata.presentedFrames;
+      presented.callbacks += 1;
       // Clamped because the two times are the same moment read two ways: the
       // position the seek settled on, and the time of the frame that was
       // presented there. They differ in the last bits of a float, so the first

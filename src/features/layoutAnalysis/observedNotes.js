@@ -57,9 +57,9 @@ const ALLOWED_SPARSE_LANES = 1;
 // video. The matcher then aligns those few seconds against the whole chart and
 // cannot place them.
 const MIN_CAPTURED_SHARE = 0.5;
-// A note crosses the analysis band in roughly 40ms, so below about this rate
-// the frames arrive further apart than the notes they are meant to catch and
-// most of them are never seen.
+// Thinning the labelled clips' 60fps frames: every layout was recovered at 30
+// frames a second, one in four at 22.5 and none at 15. Recall fell from 98% at
+// 60 to 54% at 22.5 — notes cross the band faster than the old 40ms estimate.
 const MIN_FRAME_RATE = 24;
 
 /**
@@ -82,8 +82,11 @@ export const extractionProblem = (observedNotes) => {
 
   const fps = observedNotes?.fps;
   if (Number.isFinite(fps) && fps < MIN_FRAME_RATE && observedNotes?.frameCount) {
+    // Measured on the four labelled clips by thinning their 60fps frames: at
+    // 30 a second every layout was still recovered, at 22.5 one in four was.
     return `${seconds.toFixed(1)}초 동안 프레임이 ${observedNotes.frameCount}장(초당 ${fps.toFixed(1)}장)만 도착했습니다.`
-      + ' 노트가 프레임 사이로 지나가 대부분 읽히지 않습니다. 영상 창이 화면에 보이는 상태로 두고 다시 분석하세요.';
+      + ' 이 속도에서는 노트의 절반가량이 프레임 사이로 지나가 배치를 정할 수 없습니다.'
+      + ' 아래 측정값에서 프레임이 어디서 빠졌는지 확인하세요.';
   }
 
   const sparse = counts

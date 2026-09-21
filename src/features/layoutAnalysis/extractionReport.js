@@ -113,6 +113,17 @@ export const describeCapture = (observedNotes) => {
       requirement: '60fps 는 16.7ms 안',
       ok: capture.workMsPerFrame <= 16.7,
     });
+    if (Number.isFinite(capture.presentedFrames) && capture.presentedFrames > 0) {
+      // The video counts every frame it presents; the callback only fires when
+      // the main thread gets to it. The difference is frames skipped there.
+      const received = capture.callbacks ?? capture.frames;
+      rows.push({
+        label: '영상이 표시한 프레임 / 받은 프레임',
+        value: `${capture.presentedFrames}장 / ${received}장`,
+        requirement: '비슷해야 건너뛴 프레임 없음',
+        ok: received >= capture.presentedFrames * 0.9,
+      });
+    }
     if (capture.backwardSteps > 0) {
       rows.push({ label: '시각이 거꾸로 간 프레임', value: `${capture.backwardSteps}번`, ok: false });
     }
