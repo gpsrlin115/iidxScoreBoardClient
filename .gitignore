@@ -29,6 +29,13 @@ dist-ssr
 # held back only by .git/info/exclude, which is per-clone and not shared.
 docs/
 
+# Konami easter egg sounds (gradiusCoin.mp3, KonamiLogo1.mp3, KonamiLogo2.mp3).
+# The audio is copyrighted and this repository is public, so it never goes
+# into git. Vite serves this folder in development; production serves the same
+# URLs from a folder outside dist/ on the server (see
+# deploy/oci-cloudflare/Caddyfile.example).
+public/media/
+
 # Local agent/runtime configuration
 .codex/
 

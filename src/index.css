@@ -40,6 +40,56 @@
   --color-bg-dark: #0a0e1d;
   --color-bg-darker: #050813;
   --color-text-light: #eceaf4;
+
+  /*
+   * Konami-code easter egg (src/components/easter-egg/KonamiEasterEgg.jsx).
+   *
+   * The rise and the fade are separate keyframes on purpose. A timing
+   * function applies to each keyframe segment, so a single keyframe list
+   * holding the fade stops as well would restart the ease-out at every stop
+   * and make the rise stutter.
+   */
+  --animate-ddr-row-in: ddr-fade-in 160ms ease-out both;
+  --animate-ddr-row-out: ddr-fade-out 320ms ease-in both;
+  --animate-ddr-rise: ddr-rise 1000ms cubic-bezier(0.33, 1, 0.68, 1) both, ddr-rise-fade 1000ms linear both;
+  --animate-ddr-rise-still: ddr-rise-fade 600ms linear both;
+
+  @keyframes ddr-fade-in {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
+  }
+
+  @keyframes ddr-fade-out {
+    from {
+      opacity: 1;
+    }
+    to {
+      opacity: 0;
+    }
+  }
+
+  @keyframes ddr-rise {
+    from {
+      transform: translateY(0);
+    }
+    to {
+      transform: translateY(-100px);
+    }
+  }
+
+  @keyframes ddr-rise-fade {
+    0%,
+    40% {
+      opacity: 1;
+    }
+    100% {
+      opacity: 0;
+    }
+  }
 }
 
 @utility tnum {

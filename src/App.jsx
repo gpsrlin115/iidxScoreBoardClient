@@ -11,7 +11,10 @@ import ProtectedLayout from './components/layout/ProtectedLayout';
 import GlobalLoadingOverlay from './components/common/GlobalLoadingOverlay';
 import ErrorBoundary from './components/common/ErrorBoundary';
 import NavigationBridge from './components/routing/NavigationBridge';
+import KonamiEasterEgg from './components/easter-egg/KonamiEasterEgg';
 import NotFoundPage from './pages/errors/NotFoundPage';
+import TeapotPage from './pages/errors/TeapotPage';
+import { TEAPOT_PATH } from './constants/teapot';
 import Login from './pages/Login';
 import Signup from './pages/Signup';
 import FindAccount from './pages/FindAccount';
@@ -88,6 +91,8 @@ function AppRoutes() {
             </Suspense>
           }
         />
+        {/* 코나미 커맨드 이스터에그 도착지. 서버가 이 경로를 실제 418 상태로 응답합니다 */}
+        <Route path={TEAPOT_PATH} element={<TeapotPage />} />
 
         {/* ───────────────────────────────────────────────
          * 보호된 라우트 (로그인 필요)
@@ -159,6 +164,9 @@ function App() {
 
       {/* 전역 로딩 오버레이 — isLoading이 true일 때만 렌더링됩니다 */}
       <GlobalLoadingOverlay />
+
+      {/* 코나미 커맨드 이스터에그 — 어느 화면에서든 동작하도록 라우트 밖에 한 번만 둡니다 */}
+      <KonamiEasterEgg />
 
       <Toaster
         position="top-right"
