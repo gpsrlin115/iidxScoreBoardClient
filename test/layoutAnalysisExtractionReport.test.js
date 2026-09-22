@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { buildDiagnosticsFile, describeCapture, describeExtraction, extractionAdvice } from '../src/features/layoutAnalysis/extractionReport.js';
+import { buildDiagnosticsFile, captureLine, describeCapture, describeExtraction, extractionAdvice } from '../src/features/layoutAnalysis/extractionReport.js';
 import { summarizeCapture } from '../src/features/layoutAnalysis/captureQuality.js';
 
 /** What the matcher sends back with a clean answer. */
@@ -196,4 +196,15 @@ test('a page that received every presented frame is not flagged', () => {
   ));
 
   assert.ok(rows.every((candidate) => candidate.ok !== false), JSON.stringify(rows));
+});
+
+test('a successful answer still says whether every frame was read', () => {
+  const line = captureLine(captured(
+    { timesMs: frameTimes(30_000), windowMs: 30_000, endReason: 'window-complete', expectedFrames: 1_800 },
+    { source: 'decoder' },
+  ));
+
+  assert.equal(line, '캡처 영상 시각 30.0초 · 프레임 1800/1800장 · 가장 긴 공백 17ms');
+  assert.equal(captureLine(null), null);
+  assert.equal(captureLine({ capture: { frames: 81 } }), null);
 });

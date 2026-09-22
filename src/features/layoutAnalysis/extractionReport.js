@@ -164,6 +164,21 @@ export const describeCapture = (observedNotes) => {
 };
 
 /**
+ * The capture in one line, for an answer that needs no table. Whether every
+ * frame of the window was read is worth seeing even when the match succeeded:
+ * it is how a capture that survived scrolling away or a background tab shows
+ * that it did.
+ */
+export const captureLine = (observedNotes) => {
+  const capture = observedNotes?.capture;
+  if (!capture || !Number.isFinite(capture.windowMs)) return null;
+  const frames = Number.isFinite(capture.expectedFrames)
+    ? `프레임 ${capture.frames}/${capture.expectedFrames}장`
+    : `프레임 ${capture.frames}장`;
+  return `캡처 ${clockLabel(capture.clock)} ${seconds(capture.coveredMs)} · ${frames} · 가장 긴 공백 ${Math.round(capture.maxGapMs)}ms`;
+};
+
+/**
  * The one line that says what to do about it.
  *
  * Which test failed points at a different cause: a lane nobody read means the

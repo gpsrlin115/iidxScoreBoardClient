@@ -1,6 +1,6 @@
 import clsx from 'clsx';
 import { interpretMatch } from '../../features/layoutAnalysis/matchResult';
-import { buildDiagnosticsFile, describeCapture, describeExtraction, extractionAdvice } from '../../features/layoutAnalysis/extractionReport';
+import { buildDiagnosticsFile, captureLine, describeCapture, describeExtraction, extractionAdvice } from '../../features/layoutAnalysis/extractionReport';
 
 const TONE_CLASS = {
   success: 'text-accent',
@@ -52,6 +52,7 @@ const ResultPanel = ({ result, canRematch, onRematch, busy, observedNotes = null
         </div>
       ))}
       {side && <p className="mt-2 font-mono text-[11px] text-muted">플레이 사이드 {side}</p>}
+      {!measured && captureLine(observedNotes) && <p className="mt-1 font-mono text-[11px] text-muted">{captureLine(observedNotes)}</p>}
       {suggestedTextageChartKey && canRematch && (
         <button className={clsx(buttonClass, 'mt-3')} type="button" onClick={onRematch} disabled={busy}>
           제안된 채보({suggestedTextageChartKey})로 다시 대조 · 분석 횟수 1회 사용
