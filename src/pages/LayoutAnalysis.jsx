@@ -245,14 +245,16 @@ const LayoutAnalysis = () => {
     }
   };
 
-  const finishWorker = () => {
+  // Why the capture stopped travels with it, so a short one is not blamed on
+  // the video ending when it did not.
+  const finishWorker = (endReason) => {
     if (finishingRef.current || !workerRef.current) return;
     finishingRef.current = true;
     const video = activeVideo();
     if (video && frameCallbackRef.current !== null) video.cancelVideoFrameCallback(frameCallbackRef.current);
     frameCallbackRef.current = null;
     video?.pause();
-    workerRef.current.postMessage({ type: 'finish' });
+    workerRef.current.postMessage({ type: 'finish', endReason });
     setStatus('5,040개 배열 후보를 비교하는 중입니다…');
   };
 
@@ -301,7 +303,14 @@ const LayoutAnalysis = () => {
     const presented = { first: null, last: null, callbacks: 0 };
     const worker = new Worker(new URL('../features/layoutAnalysis/detector.worker.js', import.meta.url), { type: 'module' });
     workerRef.current = worker;
-    worker.postMessage({ type: 'init', width: video.videoWidth, height: video.videoHeight, fps: size.fps, durationMs, geometry });
+    worker.postMessage({
+      type: 'init', width: video.videoWidth, height: video.videoHeight, fps: size.fps, durationMs, geometry,
+      // A file's frames carry their own time; a shared tab's are stamped when
+      // the callback runs, which is later than the frame by however busy the
+      // page was.
+      clock: mode === 'file' ? 'media' : 'callback',
+      source: 'playback',
+    });
     worker.onmessage = async ({ data }) => {
       if (data.type === 'progress') setProgress(Math.min(100, data.timestampMs / durationMs * 100));
       if (data.type === 'error') { setStatus(data.message); stopWorker(); }
@@ -353,13 +362,13 @@ const LayoutAnalysis = () => {
       const timestampMs = mode === 'file'
         ? Math.max(0, (metadata.mediaTime - startMediaTime) * 1000)
         : now - startedAt;
-      if (timestampMs >= durationMs || video.ended) { finishWorker(); return; }
+      if (timestampMs >= durationMs || video.ended) { finishWorker(video.ended ? 'media-ended' : 'window-complete'); return; }
       const frame = new VideoFrame(video, { timestamp: Math.round(timestampMs * 1000) });
       workerRef.current.postMessage({ type: 'frame', frame, timestampMs }, [frame]);
       frameCallbackRef.current = video.requestVideoFrameCallback(sendFrame);
     };
     frameCallbackRef.current = video.requestVideoFrameCallback(sendFrame);
-    video.addEventListener('ended', finishWorker, { once: true });
+    video.addEventListener('ended', () => finishWorker('media-ended'), { once: true });
     setStatus(mode === 'file'
       ? `${Math.round(startMediaTime)}초부터 ${Math.round(durationMs / 1000)}초간 노트 이벤트를 추출합니다. 영상은 브라우저에 둡니다…`
       : '영상은 브라우저에 둔 채 노트 이벤트를 추출하는 중입니다…');

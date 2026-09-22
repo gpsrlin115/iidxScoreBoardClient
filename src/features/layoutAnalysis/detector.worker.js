@@ -2,6 +2,7 @@ import { createEventDetector } from './laneEvents.js';
 import { detectStableSegments } from './stableSegments.js';
 import { detectJudgementRow, redRowOccupancy } from './judgementLine.js';
 import { bandStrip, candidateBandsY, pickBand, scoreBand } from './analysisBands.js';
+import { summarizeCapture } from './captureQuality.js';
 
 // The note band is read every frame; the playfield's geometry is re-checked
 // twice a second, which is often enough to place a cover change within half a
@@ -81,8 +82,10 @@ self.onmessage = ({ data }) => {
         occupancies: [],
         nextGeometrySampleMs: 0,
         nextProgressMs: 0,
-        // What the capture itself looked like, for when it goes wrong.
-        timing: { frames: 0, firstMs: null, lastMs: null, maxMs: null, backward: 0, workMs: 0, workMaxMs: 0, wallStart: null },
+        // What the capture itself looked like, for when it goes wrong: every
+        // frame's time, so gaps can be placed, and what the work cost.
+        timesMs: [],
+        timing: { workMs: 0, workMaxMs: 0, wallStart: null },
       };
       state.context = state.canvas.getContext('2d', { willReadFrequently: true });
       state.fieldContext = state.fieldCanvas.getContext('2d', { willReadFrequently: true });
@@ -119,11 +122,7 @@ self.onmessage = ({ data }) => {
       }
       const timing = state.timing;
       if (timing.wallStart === null) timing.wallStart = started;
-      if (timing.lastMs !== null && data.timestampMs < timing.lastMs) timing.backward += 1;
-      timing.frames += 1;
-      timing.firstMs ??= data.timestampMs;
-      timing.lastMs = data.timestampMs;
-      timing.maxMs = Math.max(timing.maxMs ?? data.timestampMs, data.timestampMs);
+      state.timesMs.push(data.timestampMs);
       const spent = performance.now() - started;
       timing.workMs += spent;
       timing.workMaxMs = Math.max(timing.workMaxMs, spent);
@@ -155,14 +154,18 @@ self.onmessage = ({ data }) => {
         schemaVersion: 'observed-notes-v1', fps, durationMs,
         requestedDurationMs: state.durationMs, frameCount: chosen.frameCount,
         capture: {
-          frames: state.timing.frames,
-          firstMs: state.timing.firstMs,
-          lastMs: state.timing.lastMs,
-          maxMs: state.timing.maxMs,
-          backwardSteps: state.timing.backward,
-          wallMs: state.timing.wallStart === null ? 0 : performance.now() - state.timing.wallStart,
-          workMsPerFrame: state.timing.frames ? state.timing.workMs / state.timing.frames : 0,
+          ...summarizeCapture({
+            timesMs: state.timesMs,
+            windowMs: state.durationMs,
+            endReason: data.endReason ?? null,
+            clock: state.clock ?? 'media',
+            wallMs: state.timing.wallStart === null ? 0 : performance.now() - state.timing.wallStart,
+          }),
+          source: state.source ?? 'playback',
+          workMsPerFrame: state.timesMs.length ? state.timing.workMs / state.timesMs.length : 0,
           workMsMax: state.timing.workMaxMs,
+          // Kept for the diagnostics file, so a gap can be looked at frame by frame.
+          frameTimesMs: state.timesMs.map((time) => Math.round(time * 10) / 10),
         },
         // The band that was actually read, so the answer says where it looked.
         geometry: { ...state.geometry, analysisY: chosen.bandY },

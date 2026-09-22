@@ -1,3 +1,5 @@
+import { captureProblem } from './captureQuality.js';
+
 const MAX_DURATION_MS = 45_000;
 const MAX_EVENTS = 20_000;
 const MAX_STABLE_SEGMENTS = 16;
@@ -53,41 +55,23 @@ const MIN_EVENTS_PER_SECOND = 1;
 // allowed; a second one means lanes are being missed.
 const MIN_EVENTS_PER_LANE = 2;
 const ALLOWED_SPARSE_LANES = 1;
-// A capture that ran out well before the window it asked for hit the end of the
-// video. The matcher then aligns those few seconds against the whole chart and
-// cannot place them.
-const MIN_CAPTURED_SHARE = 0.5;
-// Thinning the labelled clips' 60fps frames: every layout was recovered at 30
-// frames a second, one in four at 22.5 and none at 15. Recall fell from 98% at
-// 60 to 54% at 22.5 — notes cross the band faster than the old 40ms estimate.
-const MIN_FRAME_RATE = 24;
 
 /**
  * Why a capture is not worth sending, in the words the screen uses.
  *
  * The server answers such a capture with AMBIGUOUS, a note that extraction was
  * incomplete, and its layout candidates stripped out — which costs one of ten
- * daily attempts and does not say what to change. The test matches the one the
- * matcher applies, so what passes here is what the matcher will accept.
+ * daily attempts and does not say what to change. The frames are judged first
+ * (captureQuality.js): a capture with holes in it also reads too few notes, and
+ * blaming the lanes for that would send the user to fix the wrong thing. The
+ * lane test then matches the one the matcher applies.
  */
 export const extractionProblem = (observedNotes) => {
   const counts = observedNotes?.laneEventCounts || [];
   const seconds = (observedNotes?.durationMs || 0) / 1000;
 
-  const requested = (observedNotes?.requestedDurationMs || 0) / 1000;
-  if (requested > 0 && seconds < requested * MIN_CAPTURED_SHARE) {
-    return `${Math.round(requested)}초를 분석하려 했는데 ${seconds.toFixed(1)}초에서 영상이 끝났습니다.`
-      + ' 재생바를 앞쪽으로 옮긴 뒤 다시 분석하세요.';
-  }
-
-  const fps = observedNotes?.fps;
-  if (Number.isFinite(fps) && fps < MIN_FRAME_RATE && observedNotes?.frameCount) {
-    // Measured on the four labelled clips by thinning their 60fps frames: at
-    // 30 a second every layout was still recovered, at 22.5 one in four was.
-    return `${seconds.toFixed(1)}초 동안 프레임이 ${observedNotes.frameCount}장(초당 ${fps.toFixed(1)}장)만 도착했습니다.`
-      + ' 이 속도에서는 노트의 절반가량이 프레임 사이로 지나가 배치를 정할 수 없습니다.'
-      + ' 아래 측정값에서 프레임이 어디서 빠졌는지 확인하세요.';
-  }
+  const frames = captureProblem(observedNotes?.capture);
+  if (frames) return frames;
 
   const sparse = counts
     .map((count, lane) => ({ count, lane }))

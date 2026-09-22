@@ -2,7 +2,7 @@
 """Puts the browser detector's events through the sidecar's matcher.
 
     /home/administrator/iidxRandomAnalyzer/.venv/bin/python \
-        scripts/layout-analysis/match_with_sidecar.py
+        scripts/layout-analysis/match_with_sidecar.py [--observed DIR] [--json]
 
 Run scripts/layout-analysis/run_worker_node.mjs first; it writes the events this
 reads. Event counts on their own cannot say whether the client's evidence is
@@ -10,6 +10,7 @@ good enough, because the answer that matters is the recovered permutation. The
 labels come from the sidecar's manifest, which took them from uploader
 descriptions and on-screen options, never from a matcher.
 """
+import argparse
 import json
 import pathlib
 import sys
@@ -26,11 +27,17 @@ AUTO_ROI = SIDECAR / "tests" / "fixtures" / "auto-roi"
 
 
 def main() -> int:
+    parser = argparse.ArgumentParser()
+    # measure_frame_loss.mjs writes one folder per damaged variant of the clips.
+    parser.add_argument("--observed", type=pathlib.Path, default=FIXTURES)
+    parser.add_argument("--json", action="store_true", help="one JSON line per clip instead of prose")
+    args = parser.parse_args()
+
     audit = {row["videoId"]: row for row in json.loads(
         (SIDECAR / "validation" / "real-clip-audit-2026-09-09.json").read_text())}
     labels = {clip["videoId"]: clip for clip in json.loads((AUTO_ROI / "manifest.json").read_text())["clips"]}
 
-    observed_files = sorted(FIXTURES.glob("*.observed.json"))
+    observed_files = sorted(args.observed.glob("*.observed.json"))
     if not observed_files:
         print("no events; run scripts/layout-analysis/run_worker_node.mjs first", file=sys.stderr)
         return 1
@@ -63,6 +70,16 @@ def main() -> int:
         ok = (result.status == "MATCHED" and result.side == label.get("expectedSide")
               and recovered == expected)
         failures += 0 if ok else 1
+        if args.json:
+            best = result.candidates[0] if result.candidates else None
+            print(json.dumps({
+                "videoId": video_id, "ok": ok, "status": result.status, "side": result.side,
+                "expectedSide": label.get("expectedSide"), "recovered": recovered, "expected": expected,
+                "score": round(best.match_score, 4) if best else None,
+                "coverage": result.diagnostics.get("observationCoverage"),
+                "laneCoverage": result.diagnostics.get("observedLaneCoverage"),
+            }))
+            continue
         if result.candidates:
             best = result.candidates[0]
             print(f"{video_id} {'ok  ' if ok else 'FAIL'} 밴드 y={wire.get('bandY')} status {result.status}"
@@ -73,7 +90,8 @@ def main() -> int:
         else:
             print(f"{video_id} FAIL status {result.status} 후보 없음")
 
-    print(f"\n{len(observed_files) - failures}/{len(observed_files)} clips recovered the labelled layout")
+    if not args.json:
+        print(f"\n{len(observed_files) - failures}/{len(observed_files)} clips recovered the labelled layout")
     return 1 if failures else 0
 
 

@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { buildDiagnosticsFile, describeCapture, describeExtraction, extractionAdvice } from '../src/features/layoutAnalysis/extractionReport.js';
+import { summarizeCapture } from '../src/features/layoutAnalysis/captureQuality.js';
 
 /** What the matcher sends back with a clean answer. */
 const healthy = {
@@ -74,91 +75,125 @@ test('the handover file carries the events and the answer, never the video', () 
   assert.doesNotMatch(file.json, /frame|blob|image|video(?!Id)/i);
 });
 
+/** Frame times of a 60fps capture, keeping those `keep` lets through. */
+const frameTimes = (untilMs, keep = () => true) => {
+  const times = [];
+  for (let frame = 0; frame * (1000 / 60) < untilMs; frame += 1) {
+    const time = Math.round(frame * (1000 / 60) * 10) / 10;
+    if (keep(frame, time)) times.push(time);
+  }
+  return times;
+};
+
+const captured = (summary, extra = {}) => ({ capture: { ...summarizeCapture(summary), ...extra } });
+const row = (rows, label) => rows.find((candidate) => candidate.label.startsWith(label));
+
 test('a capture that ran out early is reported as such', () => {
   // Measured from a real run: a 30 second analysis started 7 seconds before the
   // end of the video, so the matcher was handed 24 key events against a chart
   // that carries 1983 and could not place them.
-  const rows = describeCapture({
-    durationMs: 7426.6, requestedDurationMs: 30_000, fps: 10.77, frameCount: 81,
-  });
-  const failed = rows.filter((row) => row.ok === false).map((row) => row.label);
+  const rows = describeCapture(captured({ timesMs: frameTimes(7_400), windowMs: 30_000, endReason: 'media-ended' }));
 
-  assert.ok(failed.includes('캡처된 길이'), JSON.stringify(rows));
-  assert.ok(failed.includes('도착한 프레임'), JSON.stringify(rows));
-  assert.match(rows[0].requirement, /30초 요청/);
+  assert.equal(row(rows, '분석한 구간').ok, false);
+  assert.equal(row(rows, '분석한 구간').requirement, '30.0초 요청');
+  assert.equal(row(rows, '끝난 이유').value, '영상이 끝남');
 });
 
 test('a capture that ran its window at full rate reports nothing amiss', () => {
-  const rows = describeCapture({
-    durationMs: 29_983, requestedDurationMs: 30_000, fps: 60, frameCount: 1_800,
-  });
+  const rows = describeCapture(captured(
+    { timesMs: frameTimes(30_000), windowMs: 30_000, endReason: 'window-complete', wallMs: 30_100 },
+    { source: 'playback', workMsPerFrame: 3.2, workMsMax: 11 },
+  ));
 
-  assert.ok(rows.every((row) => row.ok !== false), JSON.stringify(rows));
+  assert.ok(rows.every((candidate) => candidate.ok !== false), JSON.stringify(rows));
+  assert.match(row(rows, '가장 긴 프레임 공백').value, /^17ms \(영상 시각 /);
 });
 
 test('no capture means no capture rows', () => {
   assert.equal(describeCapture(null), null);
   assert.equal(describeCapture({}), null);
+  // A diagnostics file saved before the capture was summarised has no window.
+  assert.equal(describeCapture({ capture: { frames: 81, firstMs: 0, lastMs: 7_426 } }), null);
 });
 
-test('a video that played slower than real time is called out', () => {
-  // Ten seconds of video took thirty to play: frames were held back, not
-  // dropped by the recogniser.
-  const rows = describeCapture({
-    durationMs: 9_900, requestedDurationMs: 20_000, fps: 12.9, frameCount: 386,
-    capture: { frames: 386, firstMs: 0, lastMs: 9_900, maxMs: 9_900, backwardSteps: 0, wallMs: 29_800, workMsPerFrame: 41, workMsMax: 90 },
-  });
-  const failed = rows.filter((row) => row.ok === false).map((row) => row.label);
+test('the rate is shown with the span it was divided by', () => {
+  // "9.9 seconds, 386 frames, 12.9 a second" was quoted from a run and does not
+  // add up: 386 frames at 12.9 a second take 29.9 seconds. Showing the span the
+  // rate came from makes such a pair impossible to print.
+  const rows = describeCapture(captured({
+    timesMs: frameTimes(30_000, (frame) => frame % 5 === 0 || frame % 5 === 2).slice(0, 386),
+    windowMs: 30_000, endReason: 'window-complete',
+  }));
+  const rate = row(rows, '초당 프레임').value;
+  const [, frames, span, perSecond] = rate.match(/^(\d+)장 \/ ([\d.]+)초 → 초당 ([\d.]+)장$/);
 
-  assert.ok(failed.includes('영상 진행 / 실제 경과'), JSON.stringify(rows));
-  assert.ok(failed.includes('워커 처리 시간 (프레임당)'), JSON.stringify(rows));
+  assert.equal(Number(frames), 386);
+  assert.ok(Math.abs((Number(frames) - 1) - Number(perSecond) * Number(span)) < 386 * 0.01, rate);
+});
+
+test('a hole in the capture is placed on its clock', () => {
+  const rows = describeCapture(captured({
+    timesMs: frameTimes(30_000, (frame, time) => time < 12_300 || time >= 13_700),
+    windowMs: 30_000, endReason: 'window-complete',
+  }));
+
+  assert.equal(row(rows, '가장 긴 프레임 공백').ok, false);
+  assert.match(row(rows, '가장 긴 프레임 공백').value, /영상 시각 12\.3초/);
+});
+
+test('a shared tab says its times are when frames were received', () => {
+  const rows = describeCapture(captured({
+    timesMs: frameTimes(30_000), windowMs: 30_000, endReason: 'window-complete', clock: 'callback',
+  }));
+
+  assert.equal(rows[0].label, '분석한 구간 (수신 시각)');
+});
+
+test('a file reports how many of its frames were read', () => {
+  const rows = describeCapture(captured({
+    timesMs: frameTimes(30_000), windowMs: 30_000, endReason: 'window-complete', expectedFrames: 1_801,
+  }, { source: 'decoder' }));
+
+  assert.equal(row(rows, '받은 프레임 / 구간 안 프레임').value, '1800장 / 1801장');
+  assert.equal(row(rows, '받은 프레임 / 구간 안 프레임').ok, false);
+});
+
+test('a slow worker matters only when it has to keep up with playback', () => {
+  const summary = { timesMs: frameTimes(30_000), windowMs: 30_000, endReason: 'window-complete' };
+  const paced = describeCapture(captured(summary, { source: 'playback', workMsPerFrame: 41, workMsMax: 90 }));
+  const decoded = describeCapture(captured(summary, { source: 'decoder', workMsPerFrame: 41, workMsMax: 90 }));
+
+  assert.equal(row(paced, '워커 처리 시간').ok, false);
+  assert.equal(row(decoded, '워커 처리 시간').ok, null);
 });
 
 test('frame times that ran backwards are reported', () => {
-  const rows = describeCapture({
-    durationMs: 29_000, requestedDurationMs: 30_000, fps: 60, frameCount: 1_700,
-    capture: { frames: 1_700, firstMs: 0, lastMs: 29_000, maxMs: 29_000, backwardSteps: 3, wallMs: 29_100, workMsPerFrame: 4, workMsMax: 9 },
-  });
+  const times = frameTimes(30_000);
+  [100, 900, 1_500].forEach((at) => { [times[at], times[at + 1]] = [times[at + 1], times[at]]; });
+  const rows = describeCapture(captured({ timesMs: times, windowMs: 30_000, endReason: 'window-complete' }));
 
-  assert.ok(rows.some((row) => row.label.includes('거꾸로') && row.value === '3번'));
-});
-
-test('a capture that kept pace reports its timing without flagging it', () => {
-  const rows = describeCapture({
-    durationMs: 29_983, requestedDurationMs: 30_000, fps: 60, frameCount: 1_800,
-    capture: { frames: 1_800, firstMs: 0, lastMs: 29_983, maxMs: 29_983, backwardSteps: 0, wallMs: 30_100, workMsPerFrame: 3.2, workMsMax: 11 },
-  });
-
-  assert.ok(rows.every((row) => row.ok !== false), JSON.stringify(rows));
+  assert.ok(rows.some((candidate) => candidate.label.includes('거꾸로') && candidate.value === '3번'));
 });
 
 test('frames the video presented but the page never received are counted', () => {
   // Measured: 677 frames of a 60fps video in 30 seconds. The video played at
   // full speed and the worker kept pace, so the frames were lost between the
   // video presenting them and the main thread getting round to the callback.
-  const rows = describeCapture({
-    durationMs: 30_000, requestedDurationMs: 30_000, fps: 22.5, frameCount: 677,
-    capture: {
-      frames: 677, firstMs: 0, lastMs: 30_000, maxMs: 30_000, backwardSteps: 0,
-      wallMs: 30_000, workMsPerFrame: 15.4, workMsMax: 56,
-      presentedFrames: 1_800, callbacks: 677,
-    },
-  });
-  const row = rows.find((candidate) => candidate.label.includes('표시한 프레임'));
+  const rows = describeCapture(captured(
+    { timesMs: frameTimes(30_000, (frame) => frame % 8 < 3), windowMs: 30_000, endReason: 'window-complete' },
+    { source: 'playback', presentedFrames: 1_800, callbacks: 677 },
+  ));
+  const presented = row(rows, '영상이 표시한 프레임');
 
-  assert.equal(row.value, '1800장 / 677장');
-  assert.equal(row.ok, false);
+  assert.equal(presented.value, '1800장 / 677장');
+  assert.equal(presented.ok, false);
 });
 
 test('a page that received every presented frame is not flagged', () => {
-  const rows = describeCapture({
-    durationMs: 30_000, requestedDurationMs: 30_000, fps: 60, frameCount: 1_790,
-    capture: {
-      frames: 1_790, firstMs: 0, lastMs: 30_000, maxMs: 30_000, backwardSteps: 0,
-      wallMs: 30_000, workMsPerFrame: 6, workMsMax: 20,
-      presentedFrames: 1_800, callbacks: 1_790,
-    },
-  });
+  const rows = describeCapture(captured(
+    { timesMs: frameTimes(30_000), windowMs: 30_000, endReason: 'window-complete' },
+    { source: 'playback', presentedFrames: 1_800, callbacks: 1_800, workMsPerFrame: 6, workMsMax: 20 },
+  ));
 
-  assert.ok(rows.every((row) => row.ok !== false), JSON.stringify(rows));
+  assert.ok(rows.every((candidate) => candidate.ok !== false), JSON.stringify(rows));
 });

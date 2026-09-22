@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { buildLayoutMatchPayload } from '../src/features/layoutAnalysis/payload.js';
 import { candidateKey, candidateQueryParams, SUPPORTED_DIFFICULTIES } from '../src/features/layoutAnalysis/candidates.js';
 import { clampObservedNotes, extractionProblem } from '../src/features/layoutAnalysis/observedNotes.js';
+import { summarizeCapture } from '../src/features/layoutAnalysis/captureQuality.js';
 
 const observedNotesFixture = (overrides = {}) => ({
   schemaVersion: 'observed-notes-v1', fps: 60, durationMs: 1000,
@@ -129,33 +130,81 @@ test('a frame rate no camera produces is brought back into range', () => {
   assert.equal(clampObservedNotes(observedNotesFixture({ fps: 60 })).fps, 60);
 });
 
+const LANES_READ = [79, 59, 55, 61, 67, 60, 44, 15];
+const frameTimes = (untilMs, keep = () => true) => {
+  const times = [];
+  for (let frame = 0; frame * (1000 / 60) < untilMs; frame += 1) {
+    const time = Math.round(frame * (1000 / 60) * 10) / 10;
+    if (keep(frame, time)) times.push(time);
+  }
+  return times;
+};
+const withCapture = (summary) => ({ laneEventCounts: LANES_READ, durationMs: 30_000, capture: summarizeCapture(summary) });
+
 test('a capture cut short by the end of the video is not sent', () => {
   // The real failure: 30 seconds were asked for, the video ended after 7, and
   // the matcher answered AMBIGUOUS without saying the capture was short.
-  const problem = extractionProblem({
-    laneEventCounts: [3, 2, 3, 2, 5, 5, 4, 3],
-    durationMs: 7426.6, requestedDurationMs: 30_000, fps: 10.77, frameCount: 81,
-  });
+  const problem = extractionProblem(withCapture({ timesMs: frameTimes(7_410), windowMs: 30_000, endReason: 'media-ended' }));
 
   assert.match(problem, /7\.4초에서 영상이 끝났습니다/);
   assert.match(problem, /앞쪽으로 옮긴/);
 });
 
-test('a capture starved of frames is not sent either', () => {
-  // A note crosses the band in about 40ms, so frames arriving 67ms apart miss
-  // most of them however long the capture runs.
-  const problem = extractionProblem({
-    laneEventCounts: [79, 59, 55, 61, 67, 60, 44, 15],
-    durationMs: 29_983, requestedDurationMs: 30_000, fps: 15, frameCount: 450,
-  });
+test('a capture that stopped short without the video ending does not say it ended', () => {
+  // The page used to say "the video ended" for any short capture. One that ran
+  // out because the frames stopped coming was told to move the playhead.
+  const unknown = extractionProblem(withCapture({ timesMs: frameTimes(7_410), windowMs: 30_000 }));
+  const shared = extractionProblem(withCapture({ timesMs: frameTimes(7_410), windowMs: 30_000, endReason: 'share-ended' }));
+  const stalled = extractionProblem(withCapture({ timesMs: frameTimes(7_410), windowMs: 30_000, endReason: 'stalled' }));
 
-  assert.match(problem, /초당 15\.0장/);
-  assert.match(problem, /절반가량/);
+  for (const problem of [unknown, shared, stalled]) assert.doesNotMatch(problem, /영상이 끝났습니다/);
+  assert.match(unknown, /7\.4초에서 멈췄습니다/);
+  assert.match(shared, /탭 공유가 7\.4초에서 끝나/);
+  assert.match(stalled, /프레임이 들어오지 않아/);
+});
+
+test('frames that stopped arriving before the window closed are a gap, not an ending', () => {
+  // The last real failure: frames stopped at 11.5 seconds while the video
+  // played on, and the next one arrived past the window's end.
+  const problem = extractionProblem(withCapture({ timesMs: frameTimes(11_500), windowMs: 30_000, endReason: 'window-complete' }));
+
+  assert.match(problem, /11\.5초 지점에서 18\.5초 동안 프레임이 비었습니다/);
+});
+
+test('a capture starved of frames is not sent either', () => {
+  const problem = extractionProblem(withCapture({
+    timesMs: frameTimes(30_000, (frame) => frame % 4 === 0), windowMs: 30_000, endReason: 'window-complete',
+  }));
+
+  assert.match(problem, /초당 30장보다 적었습니다/);
+  assert.match(problem, /15장/);
+});
+
+test('thirty a second evenly passes, thirty a second in bursts does not', () => {
+  // The same average. Thinned evenly, every labelled clip still recovered its
+  // layout; in half seconds on and off, none did.
+  const even = extractionProblem(withCapture({
+    timesMs: frameTimes(30_000, (frame) => frame % 2 === 0), windowMs: 30_000, endReason: 'window-complete',
+  }));
+  const bursts = extractionProblem(withCapture({
+    timesMs: frameTimes(30_000, (frame, time) => Math.floor(time / 500) % 2 === 0), windowMs: 30_000, endReason: 'window-complete',
+  }));
+
+  assert.equal(even, null);
+  assert.match(bursts, /동안 프레임이 비었습니다/);
 });
 
 test('a capture that ran its window at full rate goes through', () => {
-  assert.equal(extractionProblem({
-    laneEventCounts: [79, 59, 55, 61, 67, 60, 44, 15],
-    durationMs: 29_983, requestedDurationMs: 30_000, fps: 60, frameCount: 1_800,
-  }), null);
+  assert.equal(extractionProblem(withCapture({ timesMs: frameTimes(30_000), windowMs: 30_000, endReason: 'window-complete' })), null);
+});
+
+test('the frames are judged before the lanes', () => {
+  // A capture with a hole in it also reads fewer notes. Blaming the lane
+  // coordinates for that sends the user to fix the wrong thing.
+  const problem = extractionProblem({
+    laneEventCounts: [1, 0, 0, 3, 2, 2, 2, 2], durationMs: 30_000,
+    capture: summarizeCapture({ timesMs: frameTimes(5_000), windowMs: 30_000, endReason: 'window-complete' }),
+  });
+
+  assert.match(problem, /프레임이 비었습니다/);
 });
