@@ -10,6 +10,7 @@ import { candidateKey, chartIdentity, SUPPORTED_DIFFICULTIES } from '../features
 import { describeMatch, selectionAfterRematch } from '../features/layoutAnalysis/matchResult';
 import { resetAnalysisArtifacts } from '../features/layoutAnalysis/sessionReset';
 import { extractionProblem } from '../features/layoutAnalysis/observedNotes';
+import { startAnalysis } from '../features/layoutAnalysis/analysisRun';
 import ResultPanel from '../components/layout-analysis/ResultPanel';
 
 const fieldClass = 'w-full border border-line-strong bg-night px-3 py-2 text-sm text-ink outline-none focus:border-accent';
@@ -18,13 +19,6 @@ const errorMessage = (error) => error?.appError?.message || error?.message || St
 // Half the 30 second window. Less than this and the matcher has too little to
 // align against the chart.
 const MIN_ANALYSIS_SECONDS = 15;
-
-const seek = (video, seconds) => new Promise((resolve, reject) => {
-  const timeout = window.setTimeout(() => reject(new Error('영상의 시작 위치로 이동하지 못했습니다.')), 5_000);
-  const done = () => { window.clearTimeout(timeout); resolve(); };
-  video.addEventListener('seeked', done, { once: true });
-  video.currentTime = seconds;
-});
 
 const GeometryFields = ({ geometry, size, onChange, disabled }) => {
   if (!geometry) return null;
@@ -55,9 +49,9 @@ const LayoutAnalysis = () => {
   const captureVideoRef = useRef(null);
   const iframeRef = useRef(null);
   const streamRef = useRef(null);
-  const workerRef = useRef(null);
-  const frameCallbackRef = useRef(null);
-  const finishingRef = useRef(false);
+  const runRef = useRef(null);
+  // The file itself, not just its object URL: the worker decodes from it.
+  const fileRef = useRef(null);
   const objectUrlRef = useRef(null);
   // Kept so a DIFFICULTY_MISMATCH can be re-matched against the suggested chart
   // without re-analysing the video, which would cost another tab share.
@@ -90,17 +84,11 @@ const LayoutAnalysis = () => {
 
   const activeVideo = useCallback(() => mode === 'file' ? fileVideoRef.current : captureVideoRef.current, [mode]);
 
-  const stopWorker = useCallback(() => {
-    const video = activeVideo();
-    if (video && frameCallbackRef.current !== null && 'cancelVideoFrameCallback' in video) {
-      video.cancelVideoFrameCallback(frameCallbackRef.current);
-    }
-    frameCallbackRef.current = null;
-    workerRef.current?.terminate();
-    workerRef.current = null;
-    finishingRef.current = false;
+  const stopRun = useCallback(() => {
+    runRef.current?.cancel();
+    runRef.current = null;
     setRunning(false);
-  }, [activeVideo]);
+  }, []);
 
   const stopTab = useCallback(() => {
     stopCapture(streamRef.current);
@@ -111,22 +99,25 @@ const LayoutAnalysis = () => {
   }, []);
 
   useEffect(() => () => {
-    stopWorker();
+    stopRun();
     stopTab();
     if (objectUrlRef.current) URL.revokeObjectURL(objectUrlRef.current);
-  }, [stopTab, stopWorker]);
+  }, [stopTab, stopRun]);
 
   const chooseFile = (event) => {
     const file = event.target.files?.[0];
     if (!file) return;
     if (file.type !== 'video/mp4' && !file.name.toLowerCase().endsWith('.mp4')) {
-      setStatus('H.264 MP4 파일만 지원합니다.');
+      // Which codecs decode is the browser's to say, and it is asked when the
+      // analysis starts.
+      setStatus('MP4 파일만 지원합니다.');
       return;
     }
-    stopWorker();
+    stopRun();
     stopTab();
     if (objectUrlRef.current) URL.revokeObjectURL(objectUrlRef.current);
     objectUrlRef.current = URL.createObjectURL(file);
+    fileRef.current = file;
     setFileUrl(objectUrlRef.current);
     resetAnalysis();
     setStatus('영상 정보를 읽는 중입니다…');
@@ -170,7 +161,7 @@ const LayoutAnalysis = () => {
       const stream = await requestYouTubeTab(navigator.mediaDevices, iframeRef.current);
       streamRef.current = stream;
       stream.getVideoTracks()[0].addEventListener('ended', () => {
-        stopWorker();
+        stopRun();
         stopTab();
         setStatus('탭 공유가 종료됐습니다.');
       }, { once: true });
@@ -245,26 +236,17 @@ const LayoutAnalysis = () => {
     }
   };
 
-  // Why the capture stopped travels with it, so a short one is not blamed on
-  // the video ending when it did not.
-  const finishWorker = (endReason) => {
-    if (finishingRef.current || !workerRef.current) return;
-    finishingRef.current = true;
-    const video = activeVideo();
-    if (video && frameCallbackRef.current !== null) video.cancelVideoFrameCallback(frameCallbackRef.current);
-    frameCallbackRef.current = null;
-    video?.pause();
-    workerRef.current.postMessage({ type: 'finish', endReason });
-    setStatus('5,040개 배열 후보를 비교하는 중입니다…');
-  };
-
   const analyze = async () => {
     const video = activeVideo();
     if (!video || !geometry || !candidateKey(selected) || (mode === 'youtube' && !captureReady)) {
       setStatus('영상, 분석 영역과 정확한 채보를 모두 준비하세요.');
       return;
     }
-    if (!('requestVideoFrameCallback' in video) || !('VideoFrame' in window)) {
+    if (mode === 'file' && !('VideoDecoder' in window)) {
+      setStatus('로컬 MP4 분석은 Chrome·Edge 94 이상, Firefox 130 이상, Safari 16.4 이상에서 됩니다.');
+      return;
+    }
+    if (mode === 'youtube' && (!('requestVideoFrameCallback' in video) || !('VideoFrame' in window))) {
       setStatus('최신 데스크톱 Chrome 또는 Edge가 필요합니다.');
       return;
     }
@@ -272,107 +254,79 @@ const LayoutAnalysis = () => {
       setStatus('자동 검출하거나 좌표 하나를 수정해 플레이필드 영역을 확인하세요.');
       return;
     }
-    stopWorker();
+    let source;
+    let durationMs = 30_000;
+    if (mode === 'file') {
+      // A recording opens on a splash screen, so rewinding to zero analysed
+      // anything but gameplay. The viewer's own position wins; untouched, the
+      // capture starts where the playfield was measured. The video is not
+      // played for this: the worker decodes the window from the file itself.
+      const startSeconds = analysisStartSeconds(video);
+      // A capture needs most of its window. Seven seconds of a chart cannot be
+      // placed against it, and the attempt still costs one of ten per day.
+      const remaining = video.duration - startSeconds;
+      if (remaining < MIN_ANALYSIS_SECONDS) {
+        setStatus(`남은 구간이 ${remaining.toFixed(1)}초뿐입니다. 최소 ${MIN_ANALYSIS_SECONDS}초가 필요합니다. 재생바를 앞쪽으로 옮기세요.`);
+        return;
+      }
+      durationMs = Math.min(30_000, remaining * 1000);
+      source = { kind: 'file', file: fileRef.current, startSeconds };
+    } else {
+      source = { kind: 'playback', video };
+    }
+    stopRun();
     setRunning(true);
     setResult(null);
     setProgress(0);
-    finishingRef.current = false;
-    // A recording opens on a splash screen, so rewinding to zero analysed
-    // anything but gameplay. The viewer's own position wins; untouched, the
-    // capture starts where the playfield was measured.
-    let startMediaTime = 0;
-    if (mode === 'file') {
-      startMediaTime = analysisStartSeconds(video);
-      try { await seek(video, startMediaTime); } catch (error) { setStatus(errorMessage(error)); stopWorker(); return; }
-      startMediaTime = video.currentTime;
-      // A capture needs most of its window. Seven seconds of a chart cannot be
-      // placed against it, and the attempt still costs one of ten per day.
-      const remaining = video.duration - startMediaTime;
-      if (remaining < MIN_ANALYSIS_SECONDS) {
-        setStatus(`남은 구간이 ${remaining.toFixed(1)}초뿐입니다. 최소 ${MIN_ANALYSIS_SECONDS}초가 필요합니다. 재생바를 앞쪽으로 옮기세요.`);
-        stopWorker();
-        return;
-      }
-    }
-    const durationMs = mode === 'file'
-      ? Math.min(30_000, (video.duration - startMediaTime) * 1000)
-      : 30_000;
-    // What the video presented against what reached the worker. A large gap
-    // means callbacks skipped frames because the main thread was busy; no gap
-    // means the video itself presented that few.
-    const presented = { first: null, last: null, callbacks: 0 };
-    const worker = new Worker(new URL('../features/layoutAnalysis/detector.worker.js', import.meta.url), { type: 'module' });
-    workerRef.current = worker;
-    worker.postMessage({
-      type: 'init', width: video.videoWidth, height: video.videoHeight, fps: size.fps, durationMs, geometry,
-      // A file's frames carry their own time; a shared tab's are stamped when
-      // the callback runs, which is later than the frame by however busy the
-      // page was.
-      clock: mode === 'file' ? 'media' : 'callback',
-      source: 'playback',
-    });
-    worker.onmessage = async ({ data }) => {
-      if (data.type === 'progress') setProgress(Math.min(100, data.timestampMs / durationMs * 100));
-      if (data.type === 'error') { setStatus(data.message); stopWorker(); }
-      if (data.type === 'result') {
-        if (data.observedNotes.capture && presented.first !== null) {
-          data.observedNotes.capture.presentedFrames = presented.last - presented.first + 1;
-          data.observedNotes.capture.callbacks = presented.callbacks;
-        }
-        observedNotesRef.current = data.observedNotes;
-        const problem = extractionProblem(data.observedNotes);
-        if (problem) {
-          // Sending this costs one of ten daily attempts and comes back as
-          // AMBIGUOUS without saying what to change. Shown as a result so the
-          // capture's numbers and the diagnostics file are still on offer.
-          setResult({ status: 'NOT_SENT', clientProblem: problem });
-          setStatus(problem);
-          stopWorker();
-          if (mode === 'youtube') stopTab();
-          return;
-        }
-        try {
-          const match = await layoutAnalysisApi.match({
-            inputSource: mode === 'file' ? 'LOCAL_FILE' : 'YOUTUBE_TAB',
-            videoId: youtube?.videoId,
-            ...chartIdentity(selected),
-            observedNotes: data.observedNotes,
-          });
-          setResult(match);
-          setProgress(100);
-          setStatus(describeMatch(match));
-        } catch (error) {
-          setStatus(errorMessage(error));
-        } finally {
-          stopWorker();
-          if (mode === 'youtube') stopTab();
-        }
-      }
-    };
-    const startedAt = performance.now();
-    const sendFrame = (now, metadata) => {
-      if (!workerRef.current || finishingRef.current) return;
-      presented.first ??= metadata.presentedFrames;
-      presented.last = metadata.presentedFrames;
-      presented.callbacks += 1;
-      // Clamped because the two times are the same moment read two ways: the
-      // position the seek settled on, and the time of the frame that was
-      // presented there. They differ in the last bits of a float, so the first
-      // frame came out at -0.0004ms and the server refused the whole capture.
-      const timestampMs = mode === 'file'
-        ? Math.max(0, (metadata.mediaTime - startMediaTime) * 1000)
-        : now - startedAt;
-      if (timestampMs >= durationMs || video.ended) { finishWorker(video.ended ? 'media-ended' : 'window-complete'); return; }
-      const frame = new VideoFrame(video, { timestamp: Math.round(timestampMs * 1000) });
-      workerRef.current.postMessage({ type: 'frame', frame, timestampMs }, [frame]);
-      frameCallbackRef.current = video.requestVideoFrameCallback(sendFrame);
-    };
-    frameCallbackRef.current = video.requestVideoFrameCallback(sendFrame);
-    video.addEventListener('ended', () => finishWorker('media-ended'), { once: true });
     setStatus(mode === 'file'
-      ? `${Math.round(startMediaTime)}초부터 ${Math.round(durationMs / 1000)}초간 노트 이벤트를 추출합니다. 영상은 브라우저에 둡니다…`
+      ? `${Math.round(source.startSeconds)}초부터 ${Math.round(durationMs / 1000)}초 구간을 파일에서 바로 읽는 중입니다. 다른 창을 봐도 됩니다…`
       : '영상은 브라우저에 둔 채 노트 이벤트를 추출하는 중입니다…');
-    try { await video.play(); } catch (error) { setStatus(errorMessage(error)); stopWorker(); }
+    const run = startAnalysis({
+      source, geometry, width: video.videoWidth, height: video.videoHeight, durationMs,
+      onProgress: (ratio) => setProgress(ratio * 100),
+    });
+    runRef.current = run;
+
+    let observedNotes;
+    try {
+      observedNotes = await run.result;
+    } catch (error) {
+      if (error?.name === 'AbortError') return;
+      setStatus(errorMessage(error));
+      stopRun();
+      if (mode === 'youtube') stopTab();
+      return;
+    }
+    runRef.current = null;
+    observedNotesRef.current = observedNotes;
+    const problem = extractionProblem(observedNotes);
+    if (problem) {
+      // Sending this costs one of ten daily attempts and comes back as
+      // AMBIGUOUS without saying what to change. Shown as a result so the
+      // capture's numbers and the diagnostics file are still on offer.
+      setResult({ status: 'NOT_SENT', clientProblem: problem });
+      setStatus(problem);
+      stopRun();
+      if (mode === 'youtube') stopTab();
+      return;
+    }
+    setStatus('5,040개 배열 후보를 비교하는 중입니다…');
+    try {
+      const match = await layoutAnalysisApi.match({
+        inputSource: mode === 'file' ? 'LOCAL_FILE' : 'YOUTUBE_TAB',
+        videoId: youtube?.videoId,
+        ...chartIdentity(selected),
+        observedNotes,
+      });
+      setResult(match);
+      setProgress(100);
+      setStatus(describeMatch(match));
+    } catch (error) {
+      setStatus(errorMessage(error));
+    } finally {
+      stopRun();
+      if (mode === 'youtube') stopTab();
+    }
   };
 
   const rematchSuggested = async () => {
@@ -398,8 +352,7 @@ const LayoutAnalysis = () => {
   };
 
   const cancel = () => {
-    workerRef.current?.postMessage({ type: 'cancel' });
-    stopWorker();
+    stopRun();
     if (mode === 'youtube') stopTab();
     setStatus('분석을 취소했습니다.');
   };
@@ -415,7 +368,7 @@ const LayoutAnalysis = () => {
 
         <div className="border border-line bg-panel p-4">
           <div className="mb-3 flex gap-2">
-            {['file', 'youtube'].map((value) => <button key={value} type="button" className={clsx(buttonClass, mode === value && 'border-accent text-accent')} onClick={() => { stopWorker(); stopTab(); resetAnalysis(); setMode(value); }} disabled={running}>{value === 'file' ? '로컬 MP4' : 'YouTube 링크'}</button>)}
+            {['file', 'youtube'].map((value) => <button key={value} type="button" className={clsx(buttonClass, mode === value && 'border-accent text-accent')} onClick={() => { stopRun(); stopTab(); resetAnalysis(); setMode(value); }} disabled={running}>{value === 'file' ? '로컬 MP4' : 'YouTube 링크'}</button>)}
           </div>
           {mode === 'file' ? (
             <input className={fieldClass} type="file" accept="video/mp4,.mp4" onChange={chooseFile} disabled={running} />
