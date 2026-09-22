@@ -1,0 +1,56 @@
+name: Verify Frontend
+
+# 배포 워크플로(deploy-frontend.yml)는 main push에만 걸려 있어서, 그때까지
+# lint도 build도 돌지 않습니다. 이 워크플로가 PR 시점에 먼저 돌아 머지 전에
+# 결과를 보여줍니다. 배포에 필요한 SSH·rsync·운영 시크릿은 여기에 없습니다.
+on:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# PR에 새 커밋이 올라오면 진행 중이던 검증은 취소합니다. 배포 워크플로가
+# cancel-in-progress: false인 것과 반대인데, 배포는 중간에 끊기면 서버 상태가
+# 어중간해지는 반면 검증은 최신 커밋의 결과만 의미가 있기 때문입니다.
+concurrency:
+  group: verify-frontend-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    defaults:
+      run:
+        shell: bash
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Set up Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Test
+        run: npm test
+
+      - name: Build OCI bundle
+        run: npm run build:oci
+
+      # 배포 워크플로의 동명 단계와 같은 조건입니다. 빌드가 "성공"했는데
+      # 산출물이 비어 있는 경우를 걸러냅니다.
+      - name: Validate static bundle
+        run: |
+          set -euo pipefail
+          test -s dist/index.html
+          test -d dist/assets
