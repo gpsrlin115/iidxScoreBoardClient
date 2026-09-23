@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<title>decode check</title>
+</head>
+<body>
+<pre id="log">starting</pre>
+<script type="module">
+// Served by decode_check_server.mjs. Runs each capture the server lists and
+// POSTs what it read; see that script for what the runs are for.
+import { planWindow } from '/src/features/layoutAnalysis/mp4/window.js';
+import { decodeWindow } from '/src/features/layoutAnalysis/fileFrames.js';
+import { createFrameAnalyzer } from '/src/features/layoutAnalysis/frameAnalysis.js';
+
+const log = (line) => { document.getElementById('log').textContent += `\n${line}`; };
+const post = (url, body) => fetch(url, { method: 'POST', body: JSON.stringify(body) });
+
+const files = new Map();
+const fileFor = async (clip) => {
+  if (!files.has(clip)) {
+    const blob = await (await fetch(`/clip/${encodeURIComponent(clip)}`)).blob();
+    files.set(clip, new File([blob], clip, { type: 'video/mp4' }));
+  }
+  return files.get(clip);
+};
+
+// The page measures the area on a <video> and hands its size to the worker,
+// which checks the decoded frames against it; the same is done here.
+const videoSize = (file) => new Promise((resolve, reject) => {
+  const video = document.createElement('video');
+  video.muted = true;
+  video.onloadedmetadata = () => { resolve({ width: video.videoWidth, height: video.videoHeight }); URL.revokeObjectURL(video.src); };
+  video.onerror = () => reject(new Error('video element could not open the file'));
+  video.src = URL.createObjectURL(file);
+});
+
+/** Exactly what the page does: the real worker, handed the File. */
+const viaWorker = (run, file, size) => new Promise((resolve, reject) => {
+  const worker = new Worker('/src/features/layoutAnalysis/detector.worker.js', { type: 'module' });
+  worker.onmessage = ({ data }) => {
+    if (data.type === 'result') { worker.terminate(); resolve(data.observedNotes); }
+    if (data.type === 'error') { worker.terminate(); reject(new Error(data.message)); }
+  };
+  worker.onerror = (event) => { worker.terminate(); reject(new Error(event.message || 'worker error')); };
+  worker.postMessage({
+    type: 'init', ...size, fps: 60, durationMs: run.durationMs, geometry: run.geometry,
+    source: { kind: 'file', file, startSeconds: run.startSeconds },
+  });
+});
+
+/**
+ * The worker's own steps, run here so the analysis can be slowed down without
+ * a test switch in the worker: every frame costs `frameCostMs` more.
+ */
+const slowed = async (run, file, size) => {
+  const startedAt = performance.now();
+  const read = async (offset, length) => new Uint8Array(await file.slice(offset, offset + length).arrayBuffer());
+  const plan = await planWindow({ read, size: file.size, startUs: Math.round(run.startSeconds * 1e6), durationUs: run.durationMs * 1000 });
+  const analyzer = createFrameAnalyzer({ ...size, fps: 60, durationMs: run.durationMs, geometry: run.geometry, source: 'decoder' });
+  const decoded = await decodeWindow({
+    plan, read,
+    onFrame: (frame, timeMs) => {
+      const until = performance.now() + run.frameCostMs;
+      while (performance.now() < until) { /* the slow analysis */ }
+      analyzer.push(frame, timeMs);
+    },
+  });
+  return analyzer.finish({
+    endReason: decoded.endReason, expectedFrames: decoded.expectedFrames, frameMs: plan.frameUs / 1000, startedAt,
+    extra: { codec: plan.config.codec, windowStartUs: plan.startUs, firstFrameUs: decoded.firstFrameUs, decodedFrames: decoded.decoded },
+  });
+};
+
+const runs = await (await fetch('/runs.json')).json();
+log(`${runs.length} runs · ${navigator.userAgent}`);
+for (const run of runs) {
+  const report = { id: run.id, videoId: run.videoId, mode: run.mode, userAgent: navigator.userAgent };
+  try {
+    const file = await fileFor(run.clip);
+    const size = await videoSize(file);
+    const observedNotes = run.mode === 'slow' ? await slowed(run, file, size) : await viaWorker(run, file, size);
+    report.observedNotes = observedNotes;
+    report.firstFrameUs = observedNotes.capture.firstFrameUs;
+    report.windowStartUs = observedNotes.capture.windowStartUs;
+    log(`${run.id}: ${observedNotes.capture.frames}/${observedNotes.capture.expectedFrames}`);
+  } catch (error) {
+    report.error = error?.message || String(error);
+    log(`${run.id}: ${report.error}`);
+  }
+  await post('/report', report);
+}
+await post('/done', {});
+document.title = 'decode check done';
+</script>
+</body>
+</html>

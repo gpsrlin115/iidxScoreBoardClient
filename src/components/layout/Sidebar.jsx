@@ -5,12 +5,14 @@ import { useAuthStore } from '../../store/authStore';
 import { useScopeStore } from '../../store/scopeStore';
 import { authApi } from '../../api/auth';
 import Tag from '../common/Tag';
+import { ENABLE_LAYOUT_ANALYSIS } from '../../config/features';
 
 const NAV_ITEMS = [
   { to: '/', label: '대시보드', end: true },
   { to: '/scores', label: '스코어' },
   { to: '/tier-table', label: '서열표' },
   { to: '/import/csv', label: '가져오기' },
+  ...(ENABLE_LAYOUT_ANALYSIS ? [{ to: '/layout-analysis', label: '배치 분석' }] : []),
 ];
 
 const FOCUS_RING =
