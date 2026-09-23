@@ -1,4 +1,4 @@
-import { lazy, useEffect } from 'react';
+import { lazy, Suspense, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
 import { useAuthStore } from './store/authStore';
@@ -21,6 +21,7 @@ import FindAccount from './pages/FindAccount';
 import ResetPasswordConfirm from './pages/ResetPasswordConfirm';
 import Ddr from './pages/Ddr';
 import GoogleSignup from './pages/GoogleSignup';
+import { RouteContentSpinner } from './components/common/Spinner';
 
 const Dashboard = lazy(() => import('./pages/Dashboard'));
 const Scores = lazy(() => import('./pages/Scores'));
@@ -28,6 +29,7 @@ const TierTable = lazy(() => import('./pages/TierTable'));
 const CsvUpload = lazy(() => import('./pages/CsvUpload'));
 const AdminTierTable = lazy(() => import('./pages/AdminTierTable'));
 const Profile = lazy(() => import('./pages/Profile'));
+const PublicTierTable = lazy(() => import('./pages/PublicTierTable'));
 
 /**
  * 🎓 학습 포인트: 중첩 라우트 (Nested Routes) 패턴
@@ -74,6 +76,14 @@ function AppRoutes() {
         <Route path="/find-account" element={<FindAccount />} />
         <Route path="/reset-password" element={<ResetPasswordConfirm />} />
         <Route path="/ddr" element={<Ddr />} />
+        <Route
+          path="/shared/tier-table/:shareId"
+          element={
+            <Suspense fallback={<RouteContentSpinner />}>
+              <PublicTierTable />
+            </Suspense>
+          }
+        />
         {/* 코나미 커맨드 이스터에그 도착지. 서버가 이 경로를 실제 418 상태로 응답합니다 */}
         <Route path={TEAPOT_PATH} element={<TeapotPage />} />
 
