@@ -44,7 +44,7 @@ apiClient.interceptors.response.use(
   (error) => {
     error.appError = toAppError(error);
     if (error.appError.status === 401) {
-      handleSessionExpired(error.config?.url);
+      handleSessionExpired(error.config?.url, error.response?.data?.code);
     }
     return Promise.reject(error);
   }
