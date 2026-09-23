@@ -1,11 +1,14 @@
 import { createFrameAnalyzer } from './frameAnalysis.js';
 import { decodeWindow } from './fileFrames.js';
 import { planWindow } from './mp4/window.js';
+import { consumeStreamFrames } from './streamFrames.js';
 
 // One analysis per worker. The page starts a new worker for each run and
 // terminates it afterwards, so nothing here outlives a capture.
 let analyzer = null;
 let cancelled = null;
+let shareEnded = false;
+let streamConfig = null;
 
 const fail = (error) => {
   analyzer = null;
@@ -68,17 +71,75 @@ const analyseFile = async ({ source, width, height, durationMs }) => {
   analyzer = null;
 };
 
+const analyseStream = async ({ source, width, height, durationMs }) => {
+  cancelled = new AbortController();
+  const startedAt = performance.now();
+  let capture;
+  try {
+    capture = await consumeStreamFrames({
+      readable: source.readable, width, height, durationMs, signal: cancelled.signal,
+      onFrame: (frame, timeMs) => analyzer.push(frame, timeMs),
+    });
+  } catch (error) {
+    if (!shareEnded || error.name !== 'AbortError') throw error;
+    capture = { endReason: 'share-ended' };
+  }
+  if (!analyzer) return;
+  self.postMessage({ type: 'result', observedNotes: analyzer.finish({
+    endReason: capture.endReason, startedAt, extra: { firstFrameUs: capture.firstFrameUs ?? null },
+  }) });
+  analyzer = null;
+};
+
+const analyseRecording = async (recording) => {
+  cancelled = new AbortController();
+  const { readRecordedFrames } = await import('./recordedFrames.js');
+  if (cancelled.signal.aborted) return;
+  const startedAt = performance.now() - recording.wallMs;
+  const capture = await readRecordedFrames({ ...streamConfig, recording, signal: cancelled.signal,
+    onFrame: (frame, timeMs) => analyzer.push(frame, timeMs),
+  });
+  if (!analyzer) return;
+  self.postMessage({ type: 'result', observedNotes: analyzer.finish({ endReason: capture.endReason,
+    startedAt, extra: { firstFrameUs: capture.firstFrameUs, recordedBytes: recording.blob.size },
+  }) });
+  analyzer = null;
+};
+
 self.onmessage = ({ data }) => {
   try {
     if (data.type === 'init') {
       const isFile = data.source?.kind === 'file';
+      const isRecording = data.source?.kind === 'recorded-stream';
+      const isStream = data.source?.kind === 'stream' || isRecording;
       analyzer = createFrameAnalyzer({
         ...data,
-        clock: isFile ? 'media' : data.clock,
-        source: isFile ? 'decoder' : 'playback',
+        clock: isFile ? 'media' : 'capture',
+        source: isFile ? 'decoder' : isRecording ? 'recording' : 'stream',
         onProgress: (timestampMs) => self.postMessage({ type: 'progress', timestampMs }),
       });
       if (isFile) analyseFile(data).catch(fail);
+      if (isStream) {
+        streamConfig = data;
+        self.postMessage({ type: 'ready' });
+      }
+      return;
+    }
+    if (data.type === 'stream') {
+      analyseStream({ ...streamConfig, source: { readable: data.readable } }).catch(fail).finally(() => {
+        if (cancelled?.signal.aborted && !shareEnded) self.postMessage({ type: 'cancelled' });
+      });
+      return;
+    }
+    if (data.type === 'recording') {
+      analyseRecording(data.recording).catch(fail).finally(() => {
+        if (cancelled?.signal.aborted) self.postMessage({ type: 'cancelled' });
+      });
+      return;
+    }
+    if (data.type === 'stream-ended') {
+      shareEnded = true;
+      cancelled?.abort();
       return;
     }
     if (data.type === 'cancel') {
@@ -90,8 +151,7 @@ self.onmessage = ({ data }) => {
       data.frame?.close?.();
       return;
     }
-    // The shared-tab path, until it gets frames of its own: the page copies
-    // each frame it presents and posts it here.
+    // Keep explicit frames for the existing detector harness.
     if (data.type === 'frame') {
       analyzer.push(data.frame, data.timestampMs);
       return;

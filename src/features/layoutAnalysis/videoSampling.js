@@ -1,3 +1,5 @@
+import { sampleLiveFrames } from './liveSampling.js';
+
 // Where to look in a recording. A capture of a play starts on a splash screen
 // and ends on the results, so both ends are skipped: there is no playfield and
 // no song banner there.
@@ -47,13 +49,19 @@ export const analysisStartSeconds = (video) => (
  * viewer scrubbing to the right moment first.
  */
 export const sampleAcross = async (video, samples, take, { spacingMs = 320 } = {}) => {
+  const track = video.srcObject?.getVideoTracks?.()[0];
+  if (track) {
+    return sampleLiveFrames(track, samples, take, {
+      spacingMs, width: video.videoWidth, height: video.videoHeight,
+    });
+  }
   const times = isSeekable(video) ? searchTimesSeconds(video.duration, samples) : null;
   const resume = { time: video.currentTime, paused: video.paused };
   try {
     for (let index = 0; index < samples; index += 1) {
       if (times) await seekTo(video, times[index]);
       else await nextFrame(video, spacingMs);
-      await take(index);
+      await take(index, video);
     }
   } finally {
     if (times) {

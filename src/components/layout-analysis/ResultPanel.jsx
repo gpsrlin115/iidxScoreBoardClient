@@ -81,8 +81,8 @@ const ResultPanel = ({ result, canRematch, onRematch, busy, observedNotes = null
           )}
         </div>
       )}
-      {result.warnings?.map((warning) => <p key={warning} className="mt-2 text-xs text-danger">{warning}</p>)}
-      {result.reference && <p className="mt-4 break-all text-[11px] text-faint"><a href={result.reference.sourceUrl} target="_blank" rel="noreferrer">Textage 출처</a> · SHA-256 {result.reference.sourceSha256}</p>}
+      {result.warnings?.filter((warning) => warning !== 'Textage intentionally normalizes some sub-32nd timing differences; event times are for lane matching, not judgement analysis')
+        .map((warning) => <p key={warning} className="mt-2 text-xs text-danger">{warning}</p>)}
     </div>
   );
 };

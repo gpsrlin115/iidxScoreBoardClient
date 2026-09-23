@@ -34,7 +34,7 @@ export const columnEdgeProfile = (gray, width, height, rowStart, rowEnd) => {
  * bright columns on the lane boundaries and dark ones between them, so a plain
  * bright rectangle does not outscore a real grid.
  */
-export const detectLaneColumns = ({ grays, width, height, rowStart, rowEnd }) => {
+const findLaneCandidates = ({ grays, width, height, rowStart, rowEnd }, limit, diversify) => {
   const profiles = grays.map((gray) => columnEdgeProfile(gray, width, height, rowStart, rowEnd));
   // A single frame can put a note or a flash on a lane boundary; the lower
   // percentile keeps the columns that are drawn in most samples.
@@ -45,13 +45,19 @@ export const detectLaneColumns = ({ grays, width, height, rowStart, rowEnd }) =>
     profile[Math.min(profile.length - 1, column + 1)],
   ));
 
-  const ranked = Array.from(pooled)
+  const byStrength = Array.from(pooled)
     .map((score, column) => ({ column, score }))
     .filter(({ column }) => column >= 2 && column < width - 2)
-    .sort((left, right) => right.score - left.score)
-    .slice(0, 64);
+    .sort((left, right) => right.score - left.score);
+  const ranked = [];
+  for (const peak of byStrength) {
+    // Multiple pixels describe one boundary. Only the multi-candidate search
+    // spreads its slots across peaks; the original best-fit search stays exact.
+    if (!diversify || ranked.every(({ column }) => Math.abs(column - peak.column) > 3)) ranked.push(peak);
+    if (ranked.length >= 64) break;
+  }
 
-  let best = null;
+  const candidates = [];
   let baseline = 0;
   for (const value of pooled) baseline += value;
   baseline = Math.max(1e-6, baseline / pooled.length);
@@ -68,21 +74,43 @@ export const detectLaneColumns = ({ grays, width, height, rowStart, rowEnd }) =>
         let onCenters = 0;
         for (const center of laneCenters) onCenters += pooled[Math.round(left.column + fieldWidth * center)] ?? 0;
         const score = (onEdges / edges.length - 0.4 * (onCenters / laneCenters.length)) / baseline;
-        if (!best || score > best.score) best = { left: left.column, fieldWidth, side, score };
+        candidates.push({ left: left.column, fieldWidth, side, score });
       }
     }
   }
-  if (!best) return null;
+  candidates.sort((left, right) => right.score - left.score);
 
-  const table = laneLayout(best.side);
-  return {
-    side: best.side,
-    left: best.left,
-    fieldWidth: best.fieldWidth,
-    ...table,
-    laneBoundaries: laneEdges(best.side),
-    confidence: best.score >= ACCEPT_SCORE
-      ? Math.min(0.92, Math.max(0.62, 0.55 + (best.score - ACCEPT_SCORE) * 0.08))
-      : TABLE_CONFIDENCE,
-  };
+  const distinct = [];
+  for (const candidate of candidates) {
+    const duplicate = distinct.some((kept) => {
+      if (candidate.side !== kept.side) return false;
+      const overlap = Math.max(0, Math.min(candidate.left + candidate.fieldWidth, kept.left + kept.fieldWidth)
+        - Math.max(candidate.left, kept.left));
+      return overlap / Math.min(candidate.fieldWidth, kept.fieldWidth) >= 0.8;
+    });
+    if (duplicate) continue;
+    const table = laneLayout(candidate.side);
+    distinct.push({
+      ...candidate,
+      ...table,
+      laneBoundaries: laneEdges(candidate.side),
+      confidence: candidate.score >= ACCEPT_SCORE
+        ? Math.min(0.92, Math.max(0.62, 0.55 + (candidate.score - ACCEPT_SCORE) * 0.08))
+        : TABLE_CONFIDENCE,
+    });
+    if (distinct.length >= limit) break;
+  }
+  return distinct;
+};
+
+/** Ranked, spatially distinct playfield fits for downstream vertical validation. */
+export const detectLaneColumnCandidates = (input) => findLaneCandidates(input, 5, true);
+
+/** Keep the original single-best result for existing callers. */
+export const detectLaneColumns = (input) => {
+  const [best] = findLaneCandidates(input, 1, false);
+  if (!best) return null;
+  const lanes = { ...best };
+  delete lanes.score;
+  return lanes;
 };

@@ -138,7 +138,7 @@ export const describeCapture = (observedNotes) => {
   }
   if (Number.isFinite(capture.workMsPerFrame)) {
     // Only a capture that has to keep up with playback has a budget per frame.
-    const paced = capture.source !== 'decoder';
+    const paced = capture.source !== 'decoder' && capture.source !== 'recording';
     rows.push({
       label: '워커 처리 시간 (프레임당)',
       value: `평균 ${capture.workMsPerFrame.toFixed(1)}ms · 최대 ${capture.workMsMax.toFixed(1)}ms`,

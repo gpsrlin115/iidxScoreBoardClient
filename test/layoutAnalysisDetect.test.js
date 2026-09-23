@@ -1,8 +1,9 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { detectJudgementRow, redRowOccupancy } from '../src/features/layoutAnalysis/judgementLine.js';
-import { detectLaneColumns } from '../src/features/layoutAnalysis/laneColumns.js';
+import { detectLaneColumnCandidates, detectLaneColumns } from '../src/features/layoutAnalysis/laneColumns.js';
 import { detectVisibleBounds } from '../src/features/layoutAnalysis/verticalBounds.js';
+import { detectVerticalExtent } from '../src/features/layoutAnalysis/roiVertical.js';
 import { laneLayout } from '../src/features/layoutAnalysis/detector.js';
 
 const FRAME = { width: 1280, height: 720 };
@@ -122,6 +123,38 @@ test('the lane grid is found on both sides of the frame', () => {
     assert.equal(found.side, side);
     assert.equal(found.laneCenters.length, 8);
   }
+});
+
+test('a valid second field remains available when the highest horizontal score is a still overlay', () => {
+  const staticGrid = grayFieldAt(25, 'P1');
+  const activeGrid = grayFieldAt(470, 'P2');
+  const grays = Array.from({ length: 5 }, (unused, frame) => {
+    const gray = Uint8ClampedArray.from(staticGrid, (value, index) => (
+      Math.max(value, activeGrid[index] === 230 ? 150 : activeGrid[index])
+    ));
+    for (let row = 150 + frame * 12; row < 162 + frame * 12; row += 1) {
+      for (let column = 530; column < 542; column += 1) gray[row * 640 + column] = 215;
+    }
+    return gray;
+  });
+  const input = { grays, width: 640, height: 360, rowStart: 126, rowEnd: 349 };
+  const candidates = detectLaneColumnCandidates(input);
+  const original = detectLaneColumns(input);
+
+  assert.ok(candidates.length <= 5);
+  assert.ok(candidates.every((candidate, index) => index === 0 || candidate.score <= candidates[index - 1].score));
+  assert.ok(Math.abs(candidates[0].left - 25) <= 5);
+  assert.equal(candidates[0].side, 'P1');
+  assert.deepEqual(original, Object.fromEntries(Object.entries(candidates[0]).filter(([key]) => key !== 'score')));
+
+  const usable = candidates.find((candidate) => {
+    if (Math.abs(candidate.left - 470) > 5 || candidate.side !== 'P2') return false;
+    return detectVerticalExtent({ ...input, ...candidate }).ok;
+  });
+  assert.ok(usable, `the active field must survive ranking and vertical validation: ${JSON.stringify(
+    candidates.map(({ left, fieldWidth, side, score }) => ({ left, fieldWidth, side, score })),
+  )}`);
+  assert.equal(detectVerticalExtent({ ...input, ...candidates[0] }).ok, false);
 });
 
 test('the visible window stops at the lane cover instead of running to the top', () => {

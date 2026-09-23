@@ -151,11 +151,109 @@ export const titleCandidates = (lines) => {
   return candidates.slice(0, MAX_TITLES);
 };
 
-export const extractChartText = (lines, texts) => ({
-  titles: titleCandidates(lines),
-  difficulties: [...new Set(
-    texts.flatMap((text) => [...String(text).matchAll(DIFFICULTY_PATTERN)].map((match) => match[1].toUpperCase())),
-  )],
-  levels: summarizeLevels(texts),
-  raw: texts,
-});
+const sharedLine = (line, width, height) => {
+  const { x0, x1, y0, y1 } = line.bbox || {};
+  if (![x0, x1, y0, y1].every(Number.isFinite)
+    || x0 < 0 || x1 > width || y0 < 0 || y1 > height || x1 <= x0 || y1 <= y0) return null;
+  const words = cleanWords(line);
+  const text = words.join(' ').replace(/\s+/g, ' ').trim();
+  if (text.length < MIN_TITLE_LENGTH || text.length > MAX_TITLE_LENGTH) return null;
+  return { line, text, center: (x0 + x1) / 2, top: y0, bottom: y1, size: y1 - y0 };
+};
+
+const titleFromFrame = ({ lines, width, height }) => {
+  if (!(width > 0 && height > 0)) return null;
+  const named = (lines || []).map((line) => sharedLine(line, width, height)).filter(Boolean);
+  // The song name is printed above the smaller artist line. Requiring both
+  // lines means a lone, clearly read artist cannot become a song candidate.
+  const pairs = named.filter((upper) => upper.top < height * 0.65 && named.some((lower) => (
+    lower !== upper && lower.top >= upper.bottom - height * 0.02
+    && lower.top - upper.bottom <= height * 0.2
+    && Math.abs(lower.center - upper.center) <= width * 0.16
+    && upper.size >= lower.size * 1.15
+  )));
+  // Some captures put the chart label on the same, large line as the title.
+  // Its size and the adjacent difficulty label distinguish it from an artist.
+  const labelled = named.filter((item) => item.top < height * 0.65
+    && item.size >= height * 0.12 && item.text.split(/\s+/).length >= 2
+    && [...String(item.line.text).matchAll(DIFFICULTY_PATTERN)].length > 0);
+  return [...pairs, ...labelled].sort((a, b) => b.size - a.size || a.top - b.top)[0] || null;
+};
+
+const normalizedTitle = (text) => text.normalize('NFKC').toLocaleLowerCase()
+  .replace(/[^\p{L}\p{N}]/gu, '');
+
+const editDistance = (left, right) => {
+  let row = Array.from({ length: right.length + 1 }, (unused, index) => index);
+  for (let i = 0; i < left.length; i += 1) {
+    const next = [i + 1];
+    for (let j = 0; j < right.length; j += 1) {
+      next.push(Math.min(next[j] + 1, row[j + 1] + 1, row[j] + Number(left[i] !== right[j])));
+    }
+    row = next;
+  }
+  return row[right.length];
+};
+
+const agrees = (left, right) => {
+  const first = normalizedTitle(left.text);
+  const second = normalizedTitle(right.text);
+  if (!first || !second) return false;
+  if (first === second) return true;
+  return Math.min(first.length, second.length) >= 8
+    && editDistance(first, second) <= Math.floor(Math.max(first.length, second.length) * 0.15);
+};
+
+const rawBannerTitle = ({ text }) => {
+  const lines = String(text || '').split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
+  for (let index = 0; index < lines.length - 2; index += 1) {
+    // The play banner prints title, artist, then difficulty in that order.
+    // A browser title or stage label above it has no matching artist/difficulty
+    // pair; the middle line is evidence, not a proposed song title.
+    if (![...lines[index + 2].matchAll(DIFFICULTY_PATTERN)].length
+      || [...lines[index + 1].matchAll(DIFFICULTY_PATTERN)].length) continue;
+    const words = lines[index].split(/\s+/).filter((word) => !SCREEN_WORDS.has(word.toLowerCase().replace(/[^\p{L}\p{N}]/gu, '')));
+    const core = wordCore(words).join(' ');
+    if (core.split(/\s+/).length >= 2 && normalizedTitle(core).length >= 7) return { text: core };
+  }
+  return null;
+};
+
+const repeatedRawTitle = (frames) => {
+  const found = frames.map(rawBannerTitle).filter(Boolean);
+  const supported = found.map((item) => found.filter((other) => agrees(item, other)))
+    .filter((group) => group.length >= 2).sort((a, b) => b.length - a.length)[0];
+  return supported ? [supported[0].text] : [];
+};
+
+export const sharedTitleCandidates = (frames) => {
+  // Tiny fragments repeat across frames too, but are not enough to identify a
+  // song. A genuinely short title can still be entered through manual search.
+  const found = frames.map(titleFromFrame).filter((item) => item && normalizedTitle(item.text).length >= 5);
+  const groups = found.map((anchor) => found.filter((item) => agrees(anchor, item)));
+  const supported = groups.filter((group) => group.length >= 2)
+    .sort((a, b) => b.length - a.length)[0];
+  if (!supported) return repeatedRawTitle(frames);
+  const exactCount = (item) => supported.filter((other) => normalizedTitle(other.text) === normalizedTitle(item.text)).length;
+  const best = [...supported].sort((a, b) => exactCount(b) - exactCount(a)
+    || (b.line.confidence ?? 0) - (a.line.confidence ?? 0))[0];
+  return titleCandidates([best.line]);
+};
+
+const readDifficulties = (texts) => [...new Set(
+  texts.flatMap((text) => [...String(text).matchAll(DIFFICULTY_PATTERN)].map((match) => match[1].toUpperCase())),
+)];
+
+export const extractChartText = (lines, texts, { sharedFrames } = {}) => {
+  if (!sharedFrames) return {
+    titles: titleCandidates(lines), difficulties: readDifficulties(texts),
+    levels: summarizeLevels(texts), raw: texts,
+  };
+  const perFrame = sharedFrames.map((frame) => readDifficulties([frame.text]));
+  const difficulties = [...new Set(perFrame.flat())]
+    .filter((difficulty) => perFrame.filter((frame) => frame.includes(difficulty)).length >= 2);
+  return {
+    titles: sharedTitleCandidates(sharedFrames), difficulties,
+    levels: summarizeLevels(sharedFrames.map((frame) => frame.text)), raw: texts,
+  };
+};

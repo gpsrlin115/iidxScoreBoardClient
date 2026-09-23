@@ -28,31 +28,42 @@ export const youtubeEmbedUrl = (videoId) => {
 
 export const stopCapture = (stream) => stream?.getTracks?.().forEach((track) => track.stop());
 
-export const requestYouTubeTab = async (mediaDevices = navigator.mediaDevices, captureElement = null) => {
-  if (!mediaDevices?.getDisplayMedia) throw new Error('최신 Chrome 또는 Edge에서만 탭 공유를 지원합니다.');
+export const requestYouTubeTab = async (mediaDevices = navigator.mediaDevices, captureElement = null, { preferWindow = false } = {}) => {
+  if (!mediaDevices?.getDisplayMedia) throw new Error('화면 공유를 지원하는 최신 데스크톱 브라우저에서 HTTPS 또는 localhost로 접속하세요.');
   const stream = await mediaDevices.getDisplayMedia({
-    video: { frameRate: { ideal: 60, max: 60 } },
+    video: { frameRate: { ideal: 60, max: 60 }, ...(preferWindow ? { displaySurface: 'window' } : {}) },
     audio: false,
-    preferCurrentTab: true,
-    selfBrowserSurface: 'include',
-    surfaceSwitching: 'exclude',
+    ...(!preferWindow ? { preferCurrentTab: true, selfBrowserSurface: 'include', surfaceSwitching: 'exclude' } : {}),
   });
   const track = stream.getVideoTracks()[0];
-  const surface = track?.getSettings?.().displaySurface;
-  if (!track || (surface && surface !== 'browser')) {
+  const settings = track?.getSettings?.() || {};
+  // Firefox may omit both surface settings. Missing metadata must not reject
+  // a source the user explicitly selected in the browser's sharing dialog.
+  const surface = settings.displaySurface ?? ({ window: 'window', browser: 'browser', screen: 'monitor' }[settings.mediaSource]) ?? settings.mediaSource;
+  if (!track || (surface && (preferWindow ? !['window', 'browser'].includes(surface) : surface !== 'browser'))) {
     stopCapture(stream);
-    throw new Error('YouTube가 재생 중인 브라우저 탭을 선택하세요.');
+    throw new Error(preferWindow ? '전체 화면 대신 별도로 연 IIDX 영상 공유 창을 선택하세요.' : 'YouTube가 재생 중인 브라우저 탭을 선택하세요.');
   }
   let elementRestricted = false;
   try {
-    if (captureElement && window.RestrictionTarget?.fromElement && typeof track.restrictTo === 'function') {
-      const target = await window.RestrictionTarget.fromElement(captureElement);
+    if (preferWindow) {
+      // Firefox exposes window capture without Element/Region Capture. The
+      // user selects the dedicated player window, never a recursive preview.
+      elementRestricted = false;
+    } else if (captureElement && globalThis.RestrictionTarget?.fromElement && typeof track.restrictTo === 'function') {
+      const target = await globalThis.RestrictionTarget.fromElement(captureElement);
       await track.restrictTo(target);
       elementRestricted = true;
+    } else if (captureElement && globalThis.CropTarget?.fromElement && typeof track.cropTo === 'function') {
+      const target = await globalThis.CropTarget.fromElement(captureElement);
+      await track.cropTo(target);
+      elementRestricted = true;
+    } else {
+      throw new Error('플레이어 영역 공유를 지원하는 최신 데스크톱 Chrome 또는 Edge가 필요합니다.');
     }
   } catch (error) {
     stopCapture(stream);
-    throw new Error(`YouTube 플레이어 영역을 캡처하지 못했습니다: ${error instanceof Error ? error.message : String(error)}`);
+    throw new Error(`플레이어 영역을 연결하지 못했습니다. 공유 목록에서 이 ScoreBoard 탭을 선택하세요. ${error instanceof Error ? error.message : String(error)}`);
   }
   Object.defineProperty(stream, 'iidaranElementRestricted', { value: elementRestricted });
   return stream;
@@ -62,14 +73,19 @@ export const attachStream = async (video, stream) => {
   video.srcObject = stream;
   video.muted = true;
   video.playsInline = true;
-  if (video.readyState < 1) {
-    await new Promise((resolve, reject) => {
-      const timeout = window.setTimeout(() => reject(new Error('공유 탭 영상을 열지 못했습니다.')), 5_000);
-      video.addEventListener('loadedmetadata', () => {
-        window.clearTimeout(timeout);
-        resolve();
-      }, { once: true });
-    });
-  }
+  if (!video.videoWidth || video.readyState < 1) await waitForMetadata(video);
   await video.play();
 };
+
+const waitForMetadata = (video) => new Promise((resolve, reject) => {
+  const cleanup = () => {
+    clearTimeout(timer);
+    video.removeEventListener('loadedmetadata', ready);
+    video.removeEventListener('error', failed);
+  };
+  const ready = () => { cleanup(); resolve(); };
+  const failed = () => { cleanup(); reject(new Error('공유 탭 영상을 열지 못했습니다. 공유할 영상을 재생하세요.')); };
+  const timer = setTimeout(failed, 5_000);
+  video.addEventListener('loadedmetadata', ready, { once: true });
+  video.addEventListener('error', failed, { once: true });
+});
