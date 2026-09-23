@@ -11,6 +11,7 @@ import ImportErrorAlert from '../components/import/ImportErrorAlert';
 import ImportResultPanel from '../components/import/ImportResultPanel';
 import GuideAccordion from '../components/import/GuideAccordion';
 import BasicCourseCard from '../components/import/BasicCourseCard';
+import CurrentReleaseCsvNotice from '../components/import/CurrentReleaseCsvNotice';
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
 
@@ -170,6 +171,8 @@ const CsvUpload = () => {
             e-amusement gate에서 내려받은 성적 CSV를 올리면 스코어와 서열표가 함께 갱신됩니다.
           </p>
         </div>
+
+        <CurrentReleaseCsvNotice />
 
         {showBasicCourse && (
           <>

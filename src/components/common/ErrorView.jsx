@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { FiRefreshCw, FiHome } from 'react-icons/fi';
 import Button from './Button';
@@ -30,6 +31,11 @@ const resolveDescription = (message, preset) => {
  * the visual treatment stays consistent and only needs to change in one
  * place.
  *
+ * Statuses with a drawn illustration show it above the title; the rest keep
+ * the emoji. The illustration is decorative — the title and description
+ * already carry the meaning — so it is hidden from assistive tech rather
+ * than given alt text that would repeat the heading.
+ *
  * @param {number | null} [status] - HTTP status code, or null for a
  *   network/timeout failure (no response received at all).
  * @param {string} [message] - Pre-normalized user-facing message. When
@@ -50,10 +56,19 @@ const ErrorView = ({
   showHomeLink = true,
 }) => {
   const navigate = useNavigate();
+  /**
+   * Tracks the src that failed rather than a boolean, so a view whose status
+   * changes (an inline error retried into a different failure) still tries
+   * the new illustration instead of staying on the emoji fallback.
+   */
+  const [failedImageSrc, setFailedImageSrc] = useState(null);
   const preset = getErrorPreset(status);
   const description = resolveDescription(message, preset);
   const isPage = variant === 'page';
   const hasActions = Boolean(onRetry) || showHomeLink;
+  const image = preset.image && preset.image.src !== failedImageSrc
+    ? preset.image
+    : null;
 
   return (
     <div
@@ -75,7 +90,24 @@ const ErrorView = ({
           </span>
         )}
 
-        <div className={isPage ? 'text-6xl' : 'text-3xl'}>{preset.emoji}</div>
+        {image ? (
+          <img
+            src={image.src}
+            width={image.width}
+            height={image.height}
+            alt=""
+            aria-hidden="true"
+            decoding="async"
+            onError={() => setFailedImageSrc(image.src)}
+            className={
+              isPage
+                ? 'h-44 w-auto max-w-full sm:h-64'
+                : 'h-20 w-auto max-w-full'
+            }
+          />
+        ) : (
+          <div className={isPage ? 'text-6xl' : 'text-3xl'}>{preset.emoji}</div>
+        )}
 
         <h2
           className={

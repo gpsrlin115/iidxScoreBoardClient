@@ -32,6 +32,32 @@ example.com, www.example.com {
 		file_server
 	}
 
+	# Konami-code easter egg sounds. The audio is copyrighted and this
+	# repository is public, so the files never pass through git or dist/
+	# (every deploy replaces dist/ wholesale). Place gradiusCoin.mp3,
+	# KonamiLogo1.mp3 and KonamiLogo2.mp3 on the server by hand in
+	# /opt/iidx-scoreboard/media/ (file names are case-sensitive).
+	handle_path /media/* {
+		root * /opt/iidx-scoreboard/media
+		header Cache-Control "no-cache"
+		file_server
+	}
+
+	# Konami-code easter egg: serve the app at /418 with a real
+	# "418 I'm a teapot" status. The easter egg fetches this path before it
+	# switches screens, and opening it directly gets the same status. The path
+	# is TEAPOT_PATH in src/constants/teapot.js, and vite.config.js answers it
+	# the same way.
+	# The deploy workflow only ships dist/, so copy this block into the
+	# server's Caddyfile by hand and reload Caddy.
+	handle /418 {
+		header Cache-Control "no-cache"
+		rewrite * /index.html
+		file_server {
+			status 418
+		}
+	}
+
 	handle {
 		header Cache-Control "no-cache"
 		try_files {path} /index.html

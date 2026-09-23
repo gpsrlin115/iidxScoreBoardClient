@@ -27,7 +27,7 @@ export const classifyImportError = (err) => {
       tag: 'unreadable',
       message:
         message
-        || '내용을 읽을 수 없습니다. 빈 파일이거나 CSV 형식이 아닙니다. 1행에서 version · title 열을 찾지 못했습니다.',
+        || '내용을 읽을 수 없습니다. e-amusement에서 현재 작품의 성적 CSV를 다시 내려받아 올려 주세요.',
       retryable: false,
     };
   }
