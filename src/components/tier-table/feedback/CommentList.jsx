@@ -43,7 +43,7 @@ const CommentItem = ({ comment, isMine, myVote, myVoteStale, onRemove }) => {
     <li className="rounded-[4px] border border-line bg-surface p-3">
       <div className="flex items-start justify-between gap-2">
         <div className="flex flex-wrap items-center gap-1.5 text-xs">
-          <span className="font-semibold text-text2">{comment.username}</span>
+          <span className="font-semibold text-text2">{comment.nickname ?? comment.username}</span>
           <VoteBadge value={badgeValue} isStale={badgeStale} />
           <time
             dateTime={comment.createdAt}

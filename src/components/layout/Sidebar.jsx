@@ -109,7 +109,7 @@ const Sidebar = () => {
           'max-md:mt-0 max-md:ml-auto'
         )}
       >
-        {user?.username && <span className="text-muted">DJ {user.username}</span>}
+        {(user?.nickname || user?.username) && <span className="text-muted">DJ {user.nickname || user.username}</span>}
         <Link to="/profile" className={clsx('text-faint2 hover:text-accent', FOCUS_RING)}>
           profile
         </Link>
