@@ -1,0 +1,82 @@
+name: Weekly Dependency Audit
+
+# 주 1회 npm audit을 돌려 결과를 GitHub 이슈로 남깁니다. 이슈는 하나만
+# 유지하고(제목으로 중복 판별) audit이 다시 0건이 되면 스스로 닫습니다.
+#
+# 취약점이 있어도 잡을 실패시키지 않습니다. 취약점이 열려 있는 동안 Actions
+# 탭이 계속 빨갛게 남으면 금방 무감각해지고 진짜 봐야 할 빨간불과 섞입니다.
+# 행동해야 할 대상은 이슈 쪽입니다.
+on:
+  schedule:
+    # 매주 월요일 09:00 KST. cron은 UTC로 평가되므로 00:00 UTC입니다.
+    - cron: '0 0 * * 1'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  group: dependency-audit
+  cancel-in-progress: false
+
+jobs:
+  audit:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    defaults:
+      run:
+        shell: bash
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Set up Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run audit
+        id: audit
+        run: |
+          set -uo pipefail
+          # npm audit은 취약점을 찾으면 0이 아닌 코드로 끝납니다. 그건 실패가
+          # 아니라 결과이므로 `|| true`로 받아 다음 단계에서 해석합니다.
+          npm audit --json > audit-all.json || true
+          npm audit --omit=dev --json > audit-prod.json || true
+          # audit 자체가 실패해 JSON이 없으면 이 스크립트가 0이 아닌 코드로
+          # 끝납니다. 그때 잡이 빨개지는 건 "취약점이 있다"가 아니라
+          # "검사를 못 돌렸다"는 뜻이고, 그건 실제로 봐야 할 상태입니다.
+          node .github/scripts/audit-report.mjs >> "$GITHUB_OUTPUT"
+
+      - name: Open, update, or close the report issue
+        run: |
+          set -euo pipefail
+          title='의존성 취약점 보고 (npm audit)'
+          existing="$(gh issue list --state open --search "in:title \"$title\"" \
+            --json number --jq '.[0].number // empty')"
+
+          if [ '${{ steps.audit.outputs.total }}' = '0' ]; then
+            if [ -n "$existing" ]; then
+              gh issue comment "$existing" --body 'npm audit이 다시 0건입니다. 자동으로 닫습니다.'
+              gh issue close "$existing"
+              echo "이슈 #$existing 닫음"
+            else
+              echo '취약점 없음 — 열린 이슈도 없습니다.'
+            fi
+            exit 0
+          fi
+
+          if [ -n "$existing" ]; then
+            gh issue edit "$existing" --body-file audit-report.md
+            echo "기존 이슈 #$existing 갱신"
+          else
+            gh issue create --title "$title" --body-file audit-report.md
+          fi

@@ -1,0 +1,27 @@
+version: 2
+
+# 여기서 켜지는 것은 "version update"(정기 버전 올리기)입니다.
+# 취약점 전용 자동 수정 PR을 여는 "Dependabot security update"는 저장소
+# 설정 토글이라 이 파일로는 켤 수 없습니다. Settings -> Advanced Security의
+# Dependabot 항목에서 alerts와 security updates를 따로 켜 주세요.
+#
+# 이 PR들도 Verify Frontend(verify-frontend.yml) 검증을 받으므로, 깨지는
+# 업데이트는 머지 전에 걸립니다.
+updates:
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      time: "09:00"
+      timezone: Asia/Seoul
+    # 매주 PR이 쏟아지지 않도록 운영/개발 둘로 묶고 개수를 제한합니다.
+    open-pull-requests-limit: 5
+    groups:
+      production-dependencies:
+        dependency-type: production
+      development-dependencies:
+        dependency-type: development
+    commit-message:
+      prefix: chore
+      include: scope
