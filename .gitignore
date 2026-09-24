@@ -55,3 +55,9 @@ test/fixtures/ocr-banners/
 test/fixtures/worker-clips/
 # Downloaded by tesseract.js on its first run.
 *.traineddata
+
+# .github/workflows/dependency-audit.yml이 만드는 중간 산출물. CI에서는 러너
+# 안에서만 살지만, 리포트 스크립트를 로컬에서 돌려볼 때도 생깁니다.
+audit-all.json
+audit-prod.json
+audit-report.md
