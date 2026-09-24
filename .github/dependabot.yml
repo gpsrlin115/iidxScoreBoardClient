@@ -17,11 +17,17 @@ updates:
       timezone: Asia/Seoul
     # 매주 PR이 쏟아지지 않도록 운영/개발 둘로 묶고 개수를 제한합니다.
     open-pull-requests-limit: 5
+    # 그룹에는 minor/patch만 담습니다. 메이저 업데이트는 그룹에 걸리지 않아
+    # 패키지마다 PR이 따로 열립니다. 메이저가 섞여 있으면 하나가 깨질 때
+    # 나머지 안전한 업데이트까지 같이 막히기 때문입니다(#54: eslint 10이
+    # eslint-plugin-react peer 범위를 벗어나 그룹 전체가 npm ci에서 실패).
     groups:
       production-dependencies:
         dependency-type: production
+        update-types: [minor, patch]
       development-dependencies:
         dependency-type: development
+        update-types: [minor, patch]
     commit-message:
       prefix: chore
       include: scope
