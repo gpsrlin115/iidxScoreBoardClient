@@ -51,9 +51,10 @@ jobs:
           # 아니라 결과이므로 `|| true`로 받아 다음 단계에서 해석합니다.
           npm audit --json > audit-all.json || true
           npm audit --omit=dev --json > audit-prod.json || true
-          # audit 자체가 실패해 JSON이 없으면 이 스크립트가 0이 아닌 코드로
-          # 끝납니다. 그때 잡이 빨개지는 건 "취약점이 있다"가 아니라
-          # "검사를 못 돌렸다"는 뜻이고, 그건 실제로 봐야 할 상태입니다.
+          # audit 자체가 실패하면(JSON이 깨졌거나, 레지스트리 연결 실패 등으로
+          # metadata 없이 error만 담긴 JSON이 나오면) 이 스크립트가 0이 아닌
+          # 코드로 끝나고 다음 단계로 가지 않습니다. 그때 잡이 빨개지는 건
+          # "취약점이 있다"가 아니라 "검사를 못 돌렸다"는 뜻입니다.
           node .github/scripts/audit-report.mjs >> "$GITHUB_OUTPUT"
 
       - name: Open, update, or close the report issue

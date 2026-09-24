@@ -17,19 +17,51 @@ import { readFileSync, writeFileSync } from 'node:fs';
 const REPORT_FILE = 'audit-report.md';
 
 /**
- * audit JSON을 읽습니다.
+ * 정상적으로 끝난 검사 결과가 아니면 그 이유를, 맞으면 null을 돌려줍니다.
  *
- * 레지스트리 장애 등으로 `npm audit`이 JSON을 못 뱉는 경우가 있습니다.
- * 여기서 예외를 던지면 워크플로만 죽고 아무도 모르게 되므로, null을
- * 돌려주고 리포트에 그 사실을 적는 쪽을 택합니다.
+ * `npm audit`이 실패하는 모양은 두 가지입니다.
+ * - JSON이 깨지거나 비어 있음
+ * - 레지스트리 연결 실패 등에서 파싱은 되는 오류 JSON을 냄.
+ *   `{"message": "...", "error": {...}}` 모양이고 metadata가 없습니다.
+ *
+ * 어느 쪽이든 취약점 유무를 알 수 없습니다. 이를 0건으로 읽으면 워크플로가
+ * 열려 있던 이슈를 "해결됨"으로 닫아버립니다.
  */
-const readAudit = (file) => {
-  try {
-    return JSON.parse(readFileSync(file, 'utf8'));
-  } catch (error) {
-    console.error(`[warn] ${file}을 읽지 못했습니다: ${error.message}`);
-    return null;
+const auditProblem = (audit) => {
+  if (audit === null || typeof audit !== 'object') return 'JSON 객체가 아닙니다';
+  if (audit.error) {
+    const detail = audit.message || audit.error.summary || audit.error.code || JSON.stringify(audit.error);
+    return `npm이 오류를 보고했습니다: ${detail}`;
   }
+  if (typeof audit.metadata?.vulnerabilities?.total !== 'number') {
+    return 'metadata.vulnerabilities.total이 없습니다';
+  }
+  return null;
+};
+
+/**
+ * audit JSON을 읽고 검사 결과로 쓸 수 있는지 확인합니다. 쓸 수 없으면 이유를
+ * 남기고 0이 아닌 코드로 끝냅니다. 이때 stdout에는 아무것도 쓰지 않으므로
+ * 워크플로는 `total`을 받지 못하고 다음 단계(이슈 처리)로 가지 않습니다.
+ *
+ * 운영 전용 결과도 같은 기준을 적용합니다. 그쪽만 오류 JSON이면 운영 건수가
+ * 0으로 읽혀 리포트가 "운영 의존성에는 취약점이 없습니다"라고 잘못 말합니다.
+ */
+const loadAudit = (file) => {
+  let audit = null;
+  try {
+    audit = JSON.parse(readFileSync(file, 'utf8'));
+  } catch (error) {
+    console.error(`${file}을 파싱하지 못했습니다: ${error.message}`);
+  }
+  const problem = auditProblem(audit);
+  if (problem) {
+    console.error(
+      `${file}: ${problem}. 취약점 유무를 판단할 수 없으므로 이슈를 건드리지 않고 실패로 끝냅니다.`
+    );
+    process.exit(1);
+  }
+  return audit;
 };
 
 const SEVERITIES = ['critical', 'high', 'moderate', 'low', 'info'];
@@ -58,25 +90,12 @@ const advisoriesOf = (entry) =>
 const severityTable = (label, counts) =>
   `| ${label} | ${counts.critical} | ${counts.high} | ${counts.moderate} | ${counts.low} | **${counts.total}** |`;
 
-const all = readAudit('audit-all.json');
-const prod = readAudit('audit-prod.json');
-
-// 전체 audit을 읽지 못했다면 취약점 유무를 알 수 없습니다. 여기서 total=0을
-// 내보내면 워크플로가 "깨끗해졌다"고 판단해 열려 있던 이슈를 닫아버립니다.
-// 취약점이 사라진 것과 도구가 고장난 것은 전혀 다르므로 크게 실패시킵니다.
-// (운영 전용 audit만 못 읽은 경우는 아래에서 단서를 달고 계속 진행합니다.)
-if (all === null) {
-  console.error(
-    'audit-all.json을 읽을 수 없습니다. npm audit 자체가 실패했을 가능성이 큽니다 ' +
-      '(레지스트리 장애, 네트워크 차단 등). 취약점 유무를 판단할 수 없으므로 ' +
-      '이슈를 건드리지 않고 실패로 끝냅니다.'
-  );
-  process.exit(1);
-}
+const all = loadAudit('audit-all.json');
+const prod = loadAudit('audit-prod.json');
 
 const allCounts = countsOf(all);
 const prodCounts = countsOf(prod);
-const prodNames = new Set(Object.keys(prod?.vulnerabilities ?? {}));
+const prodNames = new Set(Object.keys(prod.vulnerabilities ?? {}));
 
 // 취약점이 없으면 리포트를 쓸 필요가 없습니다. 워크플로가 total=0을 보고
 // 열려 있던 이슈를 닫는 분기로 갑니다.
@@ -96,9 +115,7 @@ lines.push(severityTable('전체 (개발 포함)', allCounts));
 lines.push(severityTable('운영 의존성만', prodCounts));
 lines.push('');
 
-if (prod === null) {
-  lines.push('> 운영 전용 audit(`--omit=dev`)을 읽지 못해 운영 영향 범위를 가르지 못했습니다. 위 "운영 의존성만" 행은 신뢰하지 마세요.', '');
-} else if (prodCounts.total === 0) {
+if (prodCounts.total === 0) {
   lines.push('> **운영 의존성에는 취약점이 없습니다.** 아래는 모두 빌드·린트 등 개발 도구의 간접 의존성이며, 배포된 번들에는 들어가지 않습니다.', '');
 } else {
   lines.push(`> **운영 의존성에 ${prodCounts.total}건**이 있습니다. 배포된 번들에 포함되는 경로이므로 먼저 보세요.`, '');
@@ -106,7 +123,7 @@ if (prod === null) {
 
 lines.push('## 상세', '');
 
-const entries = Object.values(all?.vulnerabilities ?? {}).sort(
+const entries = Object.values(all.vulnerabilities ?? {}).sort(
   (a, b) => SEVERITIES.indexOf(a.severity) - SEVERITIES.indexOf(b.severity)
 );
 
