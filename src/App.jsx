@@ -1,4 +1,4 @@
-import { lazy, useEffect } from 'react';
+import { lazy, Suspense, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
 import { useAuthStore } from './store/authStore';
@@ -20,12 +20,18 @@ import Signup from './pages/Signup';
 import FindAccount from './pages/FindAccount';
 import ResetPasswordConfirm from './pages/ResetPasswordConfirm';
 import Ddr from './pages/Ddr';
+import GoogleSignup from './pages/GoogleSignup';
+import { RouteContentSpinner } from './components/common/Spinner';
+import { ENABLE_LAYOUT_ANALYSIS } from './config/features';
 
 const Dashboard = lazy(() => import('./pages/Dashboard'));
 const Scores = lazy(() => import('./pages/Scores'));
 const TierTable = lazy(() => import('./pages/TierTable'));
 const CsvUpload = lazy(() => import('./pages/CsvUpload'));
 const AdminTierTable = lazy(() => import('./pages/AdminTierTable'));
+const Profile = lazy(() => import('./pages/Profile'));
+const PublicTierTable = lazy(() => import('./pages/PublicTierTable'));
+const LayoutAnalysis = lazy(() => import('./pages/LayoutAnalysis'));
 
 /**
  * 🎓 학습 포인트: 중첩 라우트 (Nested Routes) 패턴
@@ -43,16 +49,6 @@ const AdminTierTable = lazy(() => import('./pages/AdminTierTable'));
  *   → 부모 라우트가 한 번에 인증 + 레이아웃을 처리
  *   → 자식 라우트는 순수한 콘텐츠만 담당
  */
-
-// 임시 placeholder (차후 실제 페이지로 교체)
-const PlaceholderPage = ({ title }) => (
-  <div className="flex items-center justify-center min-h-[60vh]">
-    <div className="text-center">
-      <h1 className="text-3xl font-bold text-ink mb-2">{title}</h1>
-      <p className="text-muted text-sm">개발 중입니다...</p>
-    </div>
-  </div>
-);
 
 /**
  * 라우트 정의 + 최상위 ErrorBoundary
@@ -78,9 +74,18 @@ function AppRoutes() {
          * ─────────────────────────────────────────────── */}
         <Route path="/login" element={<Login />} />
         <Route path="/signup" element={<Signup />} />
+        <Route path="/signup/google" element={<GoogleSignup />} />
         <Route path="/find-account" element={<FindAccount />} />
         <Route path="/reset-password" element={<ResetPasswordConfirm />} />
         <Route path="/ddr" element={<Ddr />} />
+        <Route
+          path="/shared/tier-table/:shareId"
+          element={
+            <Suspense fallback={<RouteContentSpinner />}>
+              <PublicTierTable />
+            </Suspense>
+          }
+        />
         {/* 코나미 커맨드 이스터에그 도착지. 서버가 이 경로를 실제 418 상태로 응답합니다 */}
         <Route path={TEAPOT_PATH} element={<TeapotPage />} />
 
@@ -106,7 +111,8 @@ function AppRoutes() {
           <Route path="/tier-table/:level" element={<Navigate to="/tier-table" replace />} />
           <Route path="/import" element={<Navigate to="/import/csv" replace />} />
           <Route path="/import/csv" element={<CsvUpload />} />
-          <Route path="/profile/*" element={<PlaceholderPage title="프로필" />} />
+          {ENABLE_LAYOUT_ANALYSIS && <Route path="/layout-analysis" element={<LayoutAnalysis />} />}
+          <Route path="/profile" element={<Profile />} />
           <Route
             path="/admin/tier-table"
             element={
