@@ -1,0 +1,7 @@
+Mediabunny 1.59.0 — Copyright (c) Vanilagy and contributors
+Used unmodified for reading browser-generated WebM captures.
+License: Mozilla Public License 2.0 (see mediabunny-MPL-2.0.txt)
+Source and package (including the original source files):
+https://github.com/Vanilagy/mediabunny
+https://www.npmjs.com/package/mediabunny/v/1.59.0
+https://registry.npmjs.org/mediabunny/-/mediabunny-1.59.0.tgz

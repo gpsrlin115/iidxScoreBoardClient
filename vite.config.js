@@ -61,6 +61,7 @@ const teapotStatus = () => {
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [react(), tailwindcss(), teapotStatus()],
+  worker: { format: 'es' },
   server: {
     allowedHosts: ['entryway-manhole-colony.ngrok-free.dev'],
     proxy: {
