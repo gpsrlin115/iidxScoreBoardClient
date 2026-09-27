@@ -10,6 +10,10 @@ version: 2
 updates:
   - package-ecosystem: npm
     directory: /
+    # 버전 업데이트 PR은 다른 기능 PR처럼 dev로 보냅니다. main으로 보내면 dev가 뒤처집니다.
+    # 보안 업데이트는 이 설정과 상관없이 기본 브랜치(main)로 열리고, 머지되면
+    # back-merge-main-to-dev.yml이 dev에 되돌려 합칩니다.
+    target-branch: dev
     schedule:
       interval: weekly
       day: monday
