@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 
 import { describePlayCount } from '../src/utils/playCount.js';
 
-const LOWER_BOUND_HINT = '선곡 회수를 채보별로 나눌 수 없어, 기록이 바뀐 플레이만 센 최솟값입니다.';
+const LOWER_BOUND_HINT = '이 채보만 친 횟수를 알 수 없어, 기록이 바뀐 플레이만 센 최솟값입니다.';
 
 test('exact release count reads as a plain count, with no lower-bound hint', () => {
   assert.deepEqual(describePlayCount({
@@ -79,7 +79,7 @@ test('blank release label or non-integer chart count is treated as no release da
   assert.equal(describePlayCount(null), null);
 });
 
-test('missing song selection count drops only the 선곡 part and stays a lower bound', () => {
+test('crawler-counted play (selection count cleared) drops only the 선곡 part and stays a lower bound', () => {
   assert.deepEqual(describePlayCount({
     playCount: 3,
     songPlayCount: null,
@@ -88,6 +88,22 @@ test('missing song selection count drops only the 선곡 part and stays a lower 
     releasePlayCountExact: false,
   }), {
     text: '34 이 채보 3회 이상',
+    lowerBoundHint: LOWER_BOUND_HINT,
+    cumulative: null,
+  });
+});
+
+test('a selection count smaller than the chart count is stale and left out', () => {
+  // A chart can't be played more often than its song was selected. This only
+  // shows up when an older CSV is re-uploaded after the crawler counted plays.
+  assert.deepEqual(describePlayCount({
+    playCount: 6,
+    songPlayCount: 5,
+    playCountRelease: '34',
+    releasePlayCount: 6,
+    releasePlayCountExact: false,
+  }), {
+    text: '34 이 채보 6회 이상',
     lowerBoundHint: LOWER_BOUND_HINT,
     cumulative: null,
   });

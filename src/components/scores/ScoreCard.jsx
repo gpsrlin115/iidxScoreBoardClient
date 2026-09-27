@@ -20,8 +20,9 @@ const META_TAG_CLASS =
  * Play count: when the row carries release data (`playCountRelease`,
  * `releasePlayCount`), a second footer line shows the release's song
  * selection count and this chart's count, marked "이상" when it is only a
- * lower bound — see utils/playCount.js. Without it (crawler-only rows, or a
- * server from before those fields) the footer stays the single legacy line.
+ * lower bound — see utils/playCount.js. Without it (rows with no play seen in
+ * a tracked release, such as an inherited-lamp-only chart, or a server from
+ * before those fields) the footer stays the single legacy line.
  *
  * @param {object} score - one row of the server score contract
  * @param {string} [tier] - tier label from tierStore's enrichedTierData;

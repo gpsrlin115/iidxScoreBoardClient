@@ -61,7 +61,7 @@ test('lower-bound release count is marked 이상, with the cumulative count when
   assert.ok(text.includes('34 선곡 9회 · 이 채보 3회 이상'));
   assert.ok(text.includes('누적 15회 이상'));
   assert.ok(!text.includes('plays'));
-  assert.ok(html.includes('title="선곡 회수를 채보별로 나눌 수 없어, 기록이 바뀐 플레이만 센 최솟값입니다."'));
+  assert.ok(html.includes('title="이 채보만 친 횟수를 알 수 없어, 기록이 바뀐 플레이만 센 최솟값입니다."'));
 });
 
 test('old server without the release keys keeps the legacy single line', () => {
