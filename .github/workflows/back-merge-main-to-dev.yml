@@ -1,0 +1,54 @@
+name: Back-merge main into dev
+
+# main 에 push 될 때마다 main 을 dev 에 되돌려 합칩니다.
+# 릴리스 PR(dev → main)은 main 에만 머지 커밋을 남기고, 보안 업데이트처럼 main 으로 바로
+# 들어오는 PR 도 있습니다. 되돌려 합치지 않으면 dev 가 main 보다 뒤처지고 그 변경이 dev 에서
+# 빠집니다. 2026-09-27에는 dev 가 main 보다 18커밋 뒤처져 PR 검증 워크플로조차 없었습니다.
+#
+# GITHUB_TOKEN 으로 한 push 는 다른 워크플로를 깨우지 않습니다. 합치는 내용은 이미 main 에서
+# 검증된 것이라 dev 에서 다시 돌리지 않아도 됩니다. 충돌이 나면 이 잡이 실패하니
+# BRANCHING.md 의 수동 절차를 따릅니다.
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: back-merge-main-to-dev
+  cancel-in-progress: false
+
+jobs:
+  back-merge:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: dev
+          fetch-depth: 0
+
+      - name: Merge main into dev
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          # 사이에 dev 로 다른 머지가 들어와 push 가 거절되면 처음부터 다시 합니다.
+          for attempt in 1 2 3; do
+            git fetch origin main dev
+            git checkout -B dev origin/dev
+            if git merge-base --is-ancestor origin/main HEAD; then
+              echo "dev already contains main"
+              exit 0
+            fi
+            git merge --no-ff --no-edit -m "chore: main 변경을 dev에 되돌려 합친다" origin/main
+            if git push origin dev; then
+              exit 0
+            fi
+            echo "push rejected (attempt $attempt), retrying"
+            sleep 5
+          done
+          exit 1
