@@ -1,8 +1,8 @@
-import { normalizeClearType, CLEAR_RANK } from './clearTypes';
+import { normalizeClearType, CLEAR_RANK } from './clearTypes.js';
 
 /**
  * Pure client-side query pipeline for the /scores screen: filter -> sort ->
- * paginate. useScores.js fetches one size:1000 page per scope and runs these
+ * takeVisible. useScores.js fetches one size:1000 page per scope and runs these
  * over it in memory (see scoresStore.js decision notes for why).
  *
  * Server-side migration map, if these ever move back to real API params:
@@ -14,8 +14,9 @@ import { normalizeClearType, CLEAR_RANK } from './clearTypes';
  *     the wire value as-is.
  *   - sortScores(scores, sort) -> a `sort=ex|clear|date` param, paired with
  *     a matching server-side order-by.
- *   - paginate(scores, page, size) -> the existing page/size params, just
- *     applied against the full scope instead of a pre-sliced page.
+ *   - takeVisible(scores, count) -> the existing page/size params, fetched
+ *     one page per infinite-scroll step and appended, instead of slicing a
+ *     list that is already fully in memory.
  */
 
 // clear/chart: '' means "no filter". q: case-insensitive substring match on
@@ -69,19 +70,11 @@ export const sortScores = (scores, sort) => {
   return sorted;
 };
 
-// Clamps out-of-range pages to the last valid page instead of returning an
-// empty slice, so e.g. narrowing a filter while on page 5 doesn't strand the
-// user on a blank page.
-export const paginate = (scores, page, size) => {
-  const totalElements = scores.length;
-  const totalPages = Math.max(1, Math.ceil(totalElements / size));
-  const currentPage = Math.min(Math.max(0, page), totalPages - 1);
-  const start = currentPage * size;
-
-  return {
-    items: scores.slice(start, start + size),
-    totalElements,
-    totalPages,
-    currentPage,
-  };
-};
+// The first `count` rows plus whether anything is left below them. The
+// infinite-scroll grid calls this with a count that only grows, so a count
+// past the end just returns everything with hasMore false.
+export const takeVisible = (scores, count) => ({
+  items: scores.slice(0, Math.max(0, count)),
+  totalElements: scores.length,
+  hasMore: count < scores.length,
+});

@@ -1,10 +1,13 @@
 import { create } from 'zustand';
 
-// Cards per page in the client-side pagination (see utils/scoreQuery.js#paginate).
-export const PAGE_SIZE = 12;
+// Cards revealed per infinite-scroll step (see utils/scoreQuery.js#takeVisible).
+// 24 rather than the old 12-card page: the grid is up to four columns wide on
+// desktop, so 12 cards barely filled one screen and every scroll hit the
+// sentinel again.
+export const BATCH_SIZE = 24;
 
 /**
- * Scores screen filter/sort/pagination state.
+ * Scores screen filter/sort/infinite-scroll state.
  *
  * `level` has three states, all distinct from each other:
  * - null: no local override — follow the global scope's level (useScopeStore).
@@ -22,16 +25,18 @@ export const useScoresStore = create((set) => ({
   clear: '',
   q: '',
   sort: 'ex', // 'ex' | 'clear' | 'date' — see docs decision: no achievement-rate sort.
-  page: 0,
+  // How many cards of the sorted result are on screen. Grows by BATCH_SIZE as
+  // the user scrolls to the bottom of the grid.
+  visibleCount: BATCH_SIZE,
 
-  // Merges patch into state and resets to the first page, since any filter
-  // change can shrink or reorder the result set.
-  setFilter: (patch) => set(() => ({ ...patch, page: 0 })),
+  // Merges patch into state and collapses back to the first batch, since any
+  // filter change can shrink or reorder the result set.
+  setFilter: (patch) => set(() => ({ ...patch, visibleCount: BATCH_SIZE })),
 
-  setSort: (sort) => set({ sort, page: 0 }),
+  setSort: (sort) => set({ sort, visibleCount: BATCH_SIZE }),
 
-  setPage: (page) => set({ page }),
+  showMore: () => set((state) => ({ visibleCount: state.visibleCount + BATCH_SIZE })),
 
   resetFilters: () =>
-    set({ level: null, chart: '', clear: '', q: '', sort: 'ex', page: 0 }),
+    set({ level: null, chart: '', clear: '', q: '', sort: 'ex', visibleCount: BATCH_SIZE }),
 }));
