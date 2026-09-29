@@ -1,6 +1,7 @@
 import { format } from 'date-fns';
 import ClearBadge from '../common/ClearBadge';
 import { djColor } from '../../utils/djLevels';
+import { describePlayCount } from '../../utils/playCount';
 
 const META_TAG_CLASS =
   'rounded-[3px] bg-[rgba(236,234,244,.05)] px-[6px] py-[2px] font-mono text-[9px] text-muted';
@@ -16,6 +17,13 @@ const META_TAG_CLASS =
  * sort-field note). If the backend later adds those fields, the bar
  * belongs right after the EX/DJ-level row below.
  *
+ * Play count: when the row carries release data (`playCountRelease`,
+ * `releasePlayCount`), a second footer line shows the release's song
+ * selection count and this chart's count, marked "이상" when it is only a
+ * lower bound — see utils/playCount.js. Without it (rows with no play seen in
+ * a tracked release, such as an inherited-lamp-only chart, or a server from
+ * before those fields) the footer stays the single legacy line.
+ *
  * @param {object} score - one row of the server score contract
  * @param {string} [tier] - tier label from tierStore's enrichedTierData;
  *   omitted (no tag rendered) when the song has no tier-table entry
@@ -23,6 +31,7 @@ const META_TAG_CLASS =
 const ScoreCard = ({ score, tier }) => {
   const { song, chart } = score;
   const date = score.lastPlayedAt ?? score.bestPlayedAt;
+  const playCount = describePlayCount(score);
 
   return (
     <div className="rounded-[4px] border border-line bg-surface p-4 pt-[15px] transition-colors hover:border-[rgba(231,155,187,.4)]">
@@ -60,9 +69,15 @@ const ScoreCard = ({ score, tier }) => {
 
       <div className="mt-[11px] flex gap-[10px] font-mono text-[9px] text-faint2">
         <span>miss {score.bestMissCount ?? '-'}</span>
-        <span>plays {score.playCount}</span>
+        {!playCount && <span>plays {score.playCount}</span>}
         <span className="ml-auto">{date ? format(new Date(date), 'yy/MM/dd') : ''}</span>
       </div>
+      {playCount && (
+        <div className="mt-[3px] flex flex-wrap gap-x-[10px] font-mono-ko text-[9px] text-faint2">
+          <span title={playCount.lowerBoundHint ?? undefined}>{playCount.text}</span>
+          {playCount.cumulative && <span>{playCount.cumulative}</span>}
+        </div>
+      )}
     </div>
   );
 };
