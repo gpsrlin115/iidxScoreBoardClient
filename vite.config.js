@@ -61,6 +61,10 @@ const teapotStatus = () => {
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [react(), tailwindcss(), teapotStatus()],
+  // Vite 8 raised the default 'baseline-widely-available' target to Chrome/Edge 111,
+  // Firefox 114 and Safari 16.4. Keep the Vite 7 baseline so the upgrade does not
+  // quietly drop browsers the app supports today.
+  build: { target: ['chrome107', 'edge107', 'firefox104', 'safari16'] },
   worker: { format: 'es' },
   server: {
     allowedHosts: ['entryway-manhole-colony.ngrok-free.dev'],
