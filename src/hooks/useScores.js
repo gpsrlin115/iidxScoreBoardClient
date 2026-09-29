@@ -1,20 +1,20 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { scoresApi } from '../api/scores';
-import { useScoresStore, PAGE_SIZE } from '../store/scoresStore';
+import { useScoresStore } from '../store/scoresStore';
 import { useScopeStore } from '../store/scopeStore';
 import { toAppError } from '../utils/httpError';
-import { filterScores, sortScores, paginate } from '../utils/scoreQuery';
+import { filterScores, sortScores, takeVisible } from '../utils/scoreQuery';
 
 // Single client-side fetch cap for one scope. Everything past this point
-// (filter/sort/paginate) runs in memory over the fetched rows — see
+// (filter/sort/takeVisible) runs in memory over the fetched rows — see
 // scoresStore.js's decision notes for why this screen went fully
 // client-side instead of paging through the server.
 const MAX_FETCH_SIZE = 1000;
 
 /**
  * Scores screen data hook: one size:MAX_FETCH_SIZE fetch per
- * [effectiveLevel, playStyle], then filter -> sort -> paginate entirely in
- * memory as scoresStore's filter/sort/page state changes.
+ * [effectiveLevel, playStyle], then filter -> sort -> takeVisible entirely in
+ * memory as scoresStore's filter/sort/visibleCount state changes.
  */
 const useScores = () => {
   const level = useScoresStore((state) => state.level);
@@ -22,7 +22,7 @@ const useScores = () => {
   const clear = useScoresStore((state) => state.clear);
   const q = useScoresStore((state) => state.q);
   const sort = useScoresStore((state) => state.sort);
-  const page = useScoresStore((state) => state.page);
+  const visibleCount = useScoresStore((state) => state.visibleCount);
   const scopeLevel = useScopeStore((state) => state.level);
   const playStyle = useScopeStore((state) => state.playStyle);
 
@@ -85,23 +85,22 @@ const useScores = () => {
 
   const sorted = useMemo(() => sortScores(filtered, sort), [filtered, sort]);
 
-  const { items, totalElements, totalPages, currentPage } = useMemo(
-    () => paginate(sorted, page, PAGE_SIZE),
-    [sorted, page]
+  const { items, totalElements, hasMore } = useMemo(
+    () => takeVisible(sorted, visibleCount),
+    [sorted, visibleCount]
   );
 
   return {
     scores: items,
     totalElements, // post-filter count, not the raw fetched total
-    totalPages,
-    currentPage,
+    hasMore,
     isLoading,
     error,
     // Exposed so the page can load the tier data its TIER tags need without
     // recomputing the level/scope precedence and letting the two drift.
     effectiveLevel,
     playStyle,
-    // The scope holds more rows than one fetch can cover — filter/sort/page
+    // The scope holds more rows than one fetch can cover — filter/sort/scroll
     // above only ever sees the first MAX_FETCH_SIZE (server order).
     truncated: fetchedTotal > MAX_FETCH_SIZE,
     refetch: fetchScores,
