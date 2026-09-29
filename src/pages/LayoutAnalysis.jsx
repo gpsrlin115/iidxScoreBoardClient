@@ -23,7 +23,6 @@ const MIN_ANALYSIS_SECONDS = 15;
 
 const LayoutAnalysis = () => {
   const runRef = useRef(null);
-  const observedNotesRef = useRef(null);
 
   const [ocr, setOcr] = useState({ titles: [], difficulties: [] });
   const [search, setSearch] = useState('');
@@ -36,11 +35,14 @@ const LayoutAnalysis = () => {
   const [recognizing, setRecognizing] = useState(false);
   const [detecting, setDetecting] = useState(false);
   const [result, setResult] = useState(null);
+  // Note events of the last analysis, kept so a suggested re-match skips a second
+  // capture. State rather than a ref: the result panel renders from it.
+  const [keptNotes, setKeptNotes] = useState(null);
   const [actionNotice, setActionNotice] = useState('');
 
   const resetAnalysis = useCallback(
     () => {
-      resetAnalysisArtifacts({ setResult, setCandidates, setSelected, observedNotesRef });
+      resetAnalysisArtifacts({ setResult, setCandidates, setSelected, setKeptNotes });
       setProgress(0);
       setOcr({ titles: [], difficulties: [] });
       setManualDifficulty('');
@@ -178,7 +180,7 @@ const LayoutAnalysis = () => {
       return;
     }
     runRef.current = null;
-    observedNotesRef.current = observedNotes;
+    setKeptNotes(observedNotes);
     const problem = extractionProblem(observedNotes);
     if (problem) {
       setResult({ status: 'NOT_SENT', clientProblem: problem });
@@ -207,7 +209,7 @@ const LayoutAnalysis = () => {
   };
 
   const rematchSuggested = async () => {
-    const observedNotes = observedNotesRef.current;
+    const observedNotes = keptNotes;
     const textageChartKey = result?.suggestedTextageChartKey;
     if (!observedNotes || !textageChartKey) return;
     setStatus('제안된 채보로 다시 대조하는 중입니다…');
@@ -273,10 +275,10 @@ const LayoutAnalysis = () => {
 
         <ResultPanel
           result={result}
-          canRematch={Boolean(observedNotesRef.current)}
+          canRematch={Boolean(keptNotes)}
           onRematch={rematchSuggested}
           busy={running}
-          observedNotes={observedNotesRef.current}
+          observedNotes={keptNotes}
           videoId={mode === 'youtube' ? youtube?.videoId ?? null : null}
         />
       </section>

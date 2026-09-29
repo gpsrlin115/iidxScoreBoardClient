@@ -67,18 +67,16 @@ test('a re-match moves the selection to the chart the server compared', () => {
 
 test('starting a new video drops the events kept for a re-match', () => {
   // They survive a completed analysis on purpose, so nothing else clears them.
-  const observedNotesRef = { current: { events: [{ timeMs: 1, lane: 0 }] } };
   const cleared = [];
 
   resetAnalysisArtifacts({
     setResult: (value) => cleared.push(['result', value]),
     setCandidates: (value) => cleared.push(['candidates', value]),
     setSelected: (value) => cleared.push(['selected', value]),
-    observedNotesRef,
+    setKeptNotes: (value) => cleared.push(['keptNotes', value]),
   });
 
-  assert.equal(observedNotesRef.current, null);
-  assert.deepEqual(cleared, [['result', null], ['candidates', []], ['selected', null]]);
+  assert.deepEqual(cleared, [['result', null], ['candidates', []], ['selected', null], ['keptNotes', null]]);
 });
 
 test('the play side is read from the top level of the answer', () => {

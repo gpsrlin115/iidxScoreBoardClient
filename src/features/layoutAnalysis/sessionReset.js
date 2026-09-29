@@ -5,9 +5,9 @@
  * second tab share, and nothing used to clear them. A new video would inherit
  * the old events and could be re-matched against a chart it never played.
  */
-export const resetAnalysisArtifacts = ({ setResult, setCandidates, setSelected, observedNotesRef }) => {
+export const resetAnalysisArtifacts = ({ setResult, setCandidates, setSelected, setKeptNotes }) => {
   setResult(null);
   setCandidates([]);
   setSelected(null);
-  if (observedNotesRef) observedNotesRef.current = null;
+  setKeptNotes(null);
 };

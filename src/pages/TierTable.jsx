@@ -153,19 +153,22 @@ const TierTable = () => {
 
       {capture && (
         <div
-          ref={exportRef}
           aria-hidden="true"
           inert
           style={{ position: 'fixed', left: -10000, top: 0, width: 1280, zIndex: -1 }}
         >
-          <TierShareCard
-            username={capture.username}
-            level={capture.level}
-            playStyle={capture.playStyle}
-            mode={capture.mode}
-            tiers={capture.tiers}
-            generatedAt={capture.generatedAt}
-          />
+          {/* html-to-image copies the root's computed styles onto its clone, so the
+              capture root must not carry the off-screen position of this wrapper. */}
+          <div ref={exportRef}>
+            <TierShareCard
+              username={capture.username}
+              level={capture.level}
+              playStyle={capture.playStyle}
+              mode={capture.mode}
+              tiers={capture.tiers}
+              generatedAt={capture.generatedAt}
+            />
+          </div>
         </div>
       )}
     </div>

@@ -122,6 +122,9 @@ const useSongComments = (chartId, currentUserId) => {
   }, [chartId]);
 
   useEffect(() => {
+    // Fetch-on-change is intended here: the fetch resets isLoading/error synchronously before it
+    // awaits, and the request-id guard drops responses a newer request has superseded.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     fetchPage(0);
   }, [fetchPage]);
 

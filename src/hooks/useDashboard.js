@@ -101,6 +101,9 @@ const useDashboard = () => {
   }, [isAuthenticated, level, playStyle]);
 
   useEffect(() => {
+    // Fetch-on-change is intended here: the fetch resets isLoading/error synchronously before it
+    // awaits, and the request-id guard drops responses a newer request has superseded.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     fetchDashboardData();
     // Fire-and-forget: tierStore owns its own loading/error state and
     // fetchedKey memo, so this hook doesn't need to await or track it.
