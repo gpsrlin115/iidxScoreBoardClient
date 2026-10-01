@@ -10,7 +10,8 @@
     "lint": "eslint .",
     "preview": "vite preview",
     "test": "node --test",
-    "perf:login": "node scripts/perf-login.mjs"
+    "perf": "node scripts/perf-lighthouse.mjs",
+    "perf:login": "node scripts/perf-lighthouse.mjs login"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",
