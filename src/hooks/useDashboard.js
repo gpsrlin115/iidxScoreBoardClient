@@ -30,6 +30,7 @@ const useDashboard = () => {
   // lets tierScopeReady below re-derive on every fetch settle, not just on
   // mount.
   const tierFetchedKey = useTierStore((state) => state.fetchedKey);
+  const tierLoading = useTierStore((state) => state.isLoading);
 
   const [stats, setStats] = useState({
     total: 0,
@@ -121,6 +122,16 @@ const useDashboard = () => {
   // never consulted here.
   const tierScopeReady = isTierDataUsable(tierFetchedKey, buildFetchedKey(level, playStyle), level);
 
+  // Hold the whole page on the spinner until this scope's tier data settles,
+  // too. Rendered as soon as the stats landed, the tier progress list started
+  // out empty and then grew by several hundred pixels when the tier fetch
+  // resolved -- on a phone that pushed the top-scores column below it down
+  // inside the first screen, a 0.2 layout shift in Lighthouse. Both fetches
+  // start together, so this waits only for whichever is slower. A failed tier
+  // fetch ends with isLoading false, so the page still renders, without the
+  // tier list, exactly as before.
+  const tierPending = tierLoading && !tierScopeReady;
+
   // Per-tier progress rows, derived from the subscribed enrichedTierData.
   const tierRows = !tierScopeReady ? [] : enrichedTierData.map(({ tier, songs }) => {
     const total = songs.length;
@@ -170,7 +181,7 @@ const useDashboard = () => {
     tierRows,
     tierTotals,
     topScores,
-    isLoading,
+    isLoading: isLoading || tierPending,
     error,
     refetch: fetchDashboardData,
   };
