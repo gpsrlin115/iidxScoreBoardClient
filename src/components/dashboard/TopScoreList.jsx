@@ -31,7 +31,7 @@ const TopScoreList = ({ topScores }) => {
         <p className="font-mono text-[9.5px] uppercase tracking-[.24em] text-label">최고 기록</p>
         <Link
           to="/scores"
-          className="font-mono text-[9px] uppercase tracking-[.14em] text-faint2 hover:text-accent"
+          className="font-mono text-[9px] uppercase tracking-[.14em] text-faint hover:text-accent"
         >
           all
         </Link>
@@ -59,11 +59,11 @@ const TopScoreList = ({ topScores }) => {
                 >
                   {score.bestDjLevel}
                 </span>
-                <span className="ml-auto font-mono text-[8.5px] tracking-[.1em] text-faint2">
+                <span className="ml-auto font-mono text-[8.5px] tracking-[.1em] text-faint">
                   {date}
                 </span>
               </div>
-              <p className="mt-[6px] font-mono text-[9px] tracking-[.1em] text-faint2">
+              <p className="mt-[6px] font-mono text-[9px] tracking-[.1em] text-faint">
                 {chart.playStyle} · ☆{chart.level} · {chart.chartType}
               </p>
             </div>
