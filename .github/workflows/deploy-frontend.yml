@@ -44,6 +44,8 @@ jobs:
         run: npm test
 
       - name: Build OCI bundle
+        env:
+          VITE_ENABLE_LAYOUT_ANALYSIS: ${{ vars.VITE_ENABLE_LAYOUT_ANALYSIS || '0' }}
         run: npm run build:oci
 
       - name: Validate static bundle
