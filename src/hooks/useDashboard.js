@@ -6,6 +6,7 @@ import useTierStore, { buildFetchedKey } from '../store/tierStore';
 import { toAppError } from '../utils/httpError';
 import { isClearTypeCleared, DIST_GROUPS } from '../utils/clearTypes';
 import { isTierDataUsable } from '../utils/tierScopeKey';
+import { useScoreRefreshStore } from '../store/scoreRefreshStore';
 
 /**
  * Dashboard data hook.
@@ -19,6 +20,7 @@ import { isTierDataUsable } from '../utils/tierScopeKey';
 const useDashboard = () => {
   const level = useScopeStore((state) => state.level);
   const playStyle = useScopeStore((state) => state.playStyle);
+  const scoreRevision = useScoreRefreshStore((state) => state.revision);
   // Selector, not the isAuthenticated() action itself — binding the action
   // makes this always-truthy (a function), which silently disables the
   // guard below and lets every scope change fire 6 requests while logged out.
@@ -110,7 +112,7 @@ const useDashboard = () => {
     if (isAuthenticated) {
       useTierStore.getState().fetchTierData(level, playStyle);
     }
-  }, [fetchDashboardData, isAuthenticated, level, playStyle]);
+  }, [fetchDashboardData, isAuthenticated, level, playStyle, scoreRevision]);
 
   // tierStore's fetchTierData is fire-and-forget from this hook's own
   // request lifecycle (see below) and can resolve well after -- or never,

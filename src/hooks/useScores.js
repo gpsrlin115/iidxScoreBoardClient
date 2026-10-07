@@ -4,6 +4,7 @@ import { useScoresStore } from '../store/scoresStore';
 import { useScopeStore } from '../store/scopeStore';
 import { toAppError } from '../utils/httpError';
 import { filterScores, sortScores, takeVisible } from '../utils/scoreQuery';
+import { useScoreRefreshStore } from '../store/scoreRefreshStore';
 
 // Single client-side fetch cap for one scope. Everything past this point
 // (filter/sort/takeVisible) runs in memory over the fetched rows — see
@@ -25,6 +26,7 @@ const useScores = () => {
   const visibleCount = useScoresStore((state) => state.visibleCount);
   const scopeLevel = useScopeStore((state) => state.level);
   const playStyle = useScopeStore((state) => state.playStyle);
+  const scoreRevision = useScoreRefreshStore((state) => state.revision);
 
   // null -> follow global scope. '' and 1-12 are explicit per-screen
   // overrides and pass through unchanged (see scoresStore.js).
@@ -76,7 +78,7 @@ const useScores = () => {
     // awaits, and the request-id guard drops responses a newer request has superseded.
     // eslint-disable-next-line react-hooks/set-state-in-effect
     fetchScores();
-  }, [fetchScores]);
+  }, [fetchScores, scoreRevision]);
 
   const filtered = useMemo(
     () => filterScores(allScores, { chart, clear, q }),
