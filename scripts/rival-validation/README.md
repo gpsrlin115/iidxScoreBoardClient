@@ -4,16 +4,16 @@
 
 ## 실행
 
-저장소 명령은 WSL Ubuntu 경로에서 실행한다.
+저장소 루트에서 실행한다. WSL에서는 Windows 쪽 경로(`\\wsl.localhost\...`)가 아니라 Ubuntu 안의 경로에서 실행한다. `node`가 PATH에 없으면 nvm으로 설치한 Node의 `bin` 폴더를 PATH 앞에 붙인다.
 
 ```bash
-cd /home/administrator/iidxScoreBoardClient
-export PATH=/home/administrator/.nvm/versions/node/v22.23.2/bin:/usr/local/bin:/usr/bin:/bin
+cd <저장소 루트>
+export PATH="$HOME/.nvm/versions/node/<버전>/bin:$PATH"   # node가 이미 잡혀 있으면 생략
 npm run build:oci
-/home/administrator/.nvm/versions/node/v22.23.2/bin/node scripts/rival-validation/server.mjs --dist dist --port 5310
+node scripts/rival-validation/server.mjs --dist dist --port 5310
 ```
 
-브라우저에서 [http://127.0.0.1:5310/import/csv](http://127.0.0.1:5310/import/csv)를 연다. 모의 API의 기본 시나리오는 `normal`이다. 테스트 계정은 가짜 로그인 사용자이며, 확인 입력란에는 실제 쿠키를 넣지 않는다.
+브라우저에서 [http://127.0.0.1:5310/import/csv](http://127.0.0.1:5310/import/csv)를 연다. 모의 API의 기본 시나리오는 `normal`이다. 테스트 계정은 가짜 로그인 사용자다. 어떤 입력란에도 실제 e-amusement 쿠키를 넣지 않는다.
 
 다른 터미널에서 시나리오를 설정하고 요청 추적을 확인할 수 있다.
 
@@ -28,6 +28,8 @@ curl -sS http://127.0.0.1:5310/__mock
 
 ## 지원 시나리오
 
+> 이 도구는 쿠키 확인으로 연결하던 시절의 화면에 맞춰 만들었다. 지금 화면은 미연결 사용자에게 쿠키 입력란을 보여 주지 않고 북마클릿으로 연결하므로, `normal`·`verification-*`처럼 쿠키 확인부터 시작하는 시나리오는 화면에서 그대로 재현되지 않는다. 북마클릿 등록 API(`/crawler/iidx/bookmarklet/me`) 목은 아직 없다.
+
 시나리오 이름은 서버 소스의 허용 목록과 일치한다.
 
 | 시나리오 | 확인할 동작 |
@@ -37,7 +39,7 @@ curl -sS http://127.0.0.1:5310/__mock
 | `rate-limit` | `Retry-After: 3` 기반 확인 재시도 제한 |
 | `rate-limit-no-time` | 재시도 시각이 없는 429 처리 |
 | `already-linked` | 이미 다른 계정에 연결된 코드 오류 |
-| `disabled` | 서버 기능 비활성 및 CSV/북마클릿 대체 안내 |
+| `disabled` | 서버 기능 비활성 및 CSV 업로드 대체 안내 |
 | `disabled-active` | 기능 비활성 중에도 기존 활성 작업 취소 가능 |
 | `undeployed` | 작업 API 404 및 배포 상태 안내 |
 | `operator-unavailable` | 등록 시 운영 수집 세션 준비 안 됨 오류 |
