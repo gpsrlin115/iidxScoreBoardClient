@@ -10,6 +10,10 @@ const DEFINITE_FAILURES = new Set([
   'REGISTRATION_EXPIRED', 'REGISTRATION_RATE_LIMIT', 'RIVAL_COLLECTION_DISABLED',
 ]);
 const COMPLETE_TIMEOUT_MS = 20000;
+// Each follow-up GET (binding, job status, registration) gets its own limit. Without it a
+// single hung read kept the popup on "completing" after the link had already been saved.
+const READ_TIMEOUT_MS = 10000;
+const READ_FAILED = Object.freeze({ ok: false });
 
 /**
  * Phases, in the order a successful run passes them:
@@ -26,7 +30,8 @@ const COMPLETE_TIMEOUT_MS = 20000;
  *   failed     timeout, server refusal, or an unconfirmed result
  */
 export function createLinkSession({ api, win, timeoutMs = READY_TIMEOUT_MS,
-  completeTimeoutMs = COMPLETE_TIMEOUT_MS, schedule = setTimeout, unschedule = clearTimeout }) {
+  completeTimeoutMs = COMPLETE_TIMEOUT_MS, readTimeoutMs = READ_TIMEOUT_MS,
+  schedule = setTimeout, unschedule = clearTimeout }) {
   // bindingChecked is false when the done screen could not re-read the binding.
   let state = { phase: 'checking', binding: null, status: null, bindingChecked: false, registrationStatus: null, error: null };
   let disposed = false;
@@ -49,12 +54,34 @@ export function createLinkSession({ api, win, timeoutMs = READY_TIMEOUT_MS,
   };
   const fail = (error) => { stopListening(); update({ phase: 'failed', error }); };
 
+  // One follow-up GET that always settles: { ok: true, value } or READ_FAILED on an
+  // error, on readTimeoutMs, or on dispose. The timer races the request instead of
+  // only aborting it, so a transport that ignores abort still cannot hold the popup.
+  function boundedRead(read) {
+    const request = new AbortController();
+    const onDispose = () => request.abort();
+    signal.addEventListener('abort', onDispose);
+    let readTimer;
+    const timedOut = new Promise((resolve) => {
+      readTimer = schedule(() => { request.abort(); resolve(READ_FAILED); }, readTimeoutMs);
+    });
+    const answered = Promise.resolve()
+      .then(() => read(request.signal))
+      .then((value) => ({ ok: true, value }), () => READ_FAILED);
+    return Promise.race([answered, timedOut]).finally(() => {
+      unschedule(readTimer);
+      signal.removeEventListener('abort', onDispose);
+    });
+  }
+
   // Reads only. Used after any answer that leaves the outcome unclear.
   async function reread(submittedId) {
-    const [binding, registration] = await Promise.all([
-      api.getBinding({ signal }).catch(() => null),
-      api.getRegistration({ signal }).catch(() => null),
+    const [bindingRead, registrationRead] = await Promise.all([
+      boundedRead((s) => api.getBinding({ signal: s })),
+      boundedRead((s) => api.getRegistration({ signal: s })),
     ]);
+    const binding = bindingRead.ok ? bindingRead.value : null;
+    const registration = registrationRead.ok ? registrationRead.value : null;
     const linked = isLinkedBinding(binding);
     return { binding, registration, linkedToSubmitted: linked && normalizeIidxId(binding.iidxId) === submittedId };
   }
@@ -62,17 +89,19 @@ export function createLinkSession({ api, win, timeoutMs = READY_TIMEOUT_MS,
   // The popup shows the result itself, so the outcome is what the server reports
   // now, not what complete answered: another tab may have unlinked in between.
   async function finishLinked(binding, submittedId) {
-    const [fresh, status] = await Promise.all([
-      api.getBinding({ signal }).then((value) => ({ ok: true, binding: value }), () => ({ ok: false })),
-      api.getStatus({ signal }).catch(() => null),
+    const [fresh, statusRead] = await Promise.all([
+      boundedRead((s) => api.getBinding({ signal: s })),
+      boundedRead((s) => api.getStatus({ signal: s })),
     ]);
     if (disposed) return;
+    // A missing job status only changes the hint on the done screen ("cannot check now").
+    const status = statusRead.ok ? statusRead.value : null;
     if (!fresh.ok) {
       update({ phase: 'done', binding, status, bindingChecked: false, error: null });
       return;
     }
-    const stillLinked = isLinkedBinding(fresh.binding) && normalizeIidxId(fresh.binding.iidxId) === submittedId;
-    update({ phase: stillLinked ? 'done' : 'changed', binding: fresh.binding, status, bindingChecked: true, error: null });
+    const stillLinked = isLinkedBinding(fresh.value) && normalizeIidxId(fresh.value.iidxId) === submittedId;
+    update({ phase: stillLinked ? 'done' : 'changed', binding: fresh.value, status, bindingChecked: true, error: null });
   }
 
   async function complete(iidxId) {

@@ -35,7 +35,8 @@ function setup({ registrations = [pending()], binding = { ...EMPTY_BINDING }, co
     addEventListener: (type, fn) => { if (type === 'message') messageListeners.add(fn); },
     removeEventListener: (type, fn) => { if (type === 'message') messageListeners.delete(fn); },
   };
-  const h = { calls, posted, timers, win, opener: popupOpener, messageListeners, binding, registrations: [...registrations] };
+  const h = { calls, posted, timers, win, opener: popupOpener, messageListeners, binding, registrations: [...registrations],
+    status: idleStatus };
   const api = {
     getRegistration: (...args) => {
       calls.getRegistration.push(args);
@@ -43,7 +44,7 @@ function setup({ registrations = [pending()], binding = { ...EMPTY_BINDING }, co
       return next instanceof Error ? Promise.reject(next) : Promise.resolve(next);
     },
     getBinding: (...args) => { calls.getBinding.push(args); return Promise.resolve(h.binding); },
-    getStatus: (...args) => { calls.getStatus.push(args); return Promise.resolve(idleStatus); },
+    getStatus: (...args) => { calls.getStatus.push(args); return Promise.resolve(h.status); },
     completeRegistration: (...args) => {
       calls.completeRegistration.push(args);
       return complete ? complete(...args) : Promise.resolve(registeredBinding());
@@ -437,4 +438,54 @@ test('when the re-read itself fails the result stays done and says it was not re
   assert.equal(h.session.getSnapshot().bindingChecked, false);
   assert.equal(h.session.getSnapshot().binding.iidxId, '1234-5678', 'the complete answer is shown');
   assert.equal(h.calls.completeRegistration.length, 1);
+});
+
+// Review follow-up (PR #79): every follow-up GET is bounded, so a saved link always
+// reaches a result screen even when one read never answers.
+const NEVER = () => new Promise(() => {});
+const fireReadTimeouts = (h) => h.timers.filter((timer) => timer.delay === 10000 && !timer.cleared)
+  .forEach((timer) => timer.callback());
+
+test('a job status read that never answers still ends on the done screen without a status', async () => {
+  const h = setup({ binding: registeredBinding() });
+  await h.session.start();
+  h.status = NEVER();
+  h.send(profile());
+  await drain();
+  assert.equal(h.phase(), 'completing', 'still waiting before the read limit');
+  fireReadTimeouts(h);
+  await drain();
+  assert.equal(h.phase(), 'done');
+  assert.equal(h.session.getSnapshot().status, null, 'the done screen then says it cannot check collection now');
+  assert.equal(h.session.getSnapshot().bindingChecked, true);
+  assert.equal(h.calls.completeRegistration.length, 1);
+});
+
+test('a binding read that never answers ends as done with the complete answer, marked unchecked', async () => {
+  const h = setup();
+  await h.session.start();
+  h.binding = NEVER();
+  h.send(profile());
+  await drain();
+  fireReadTimeouts(h);
+  await drain();
+  assert.equal(h.phase(), 'done');
+  assert.equal(h.session.getSnapshot().bindingChecked, false);
+  assert.equal(h.session.getSnapshot().binding.iidxId, '1234-5678');
+  assert.equal(h.calls.completeRegistration.length, 1);
+});
+
+test('after a lost complete response, hung re-reads end as failed instead of waiting forever', async () => {
+  const h = setup({ complete: () => Promise.reject(lostResponse()) });
+  await h.session.start();
+  h.binding = NEVER();
+  h.registrations = [NEVER()];
+  h.send(profile());
+  await drain();
+  assert.equal(h.phase(), 'completing');
+  fireReadTimeouts(h);
+  await drain();
+  assert.equal(h.phase(), 'failed');
+  assert.match(h.session.getSnapshot().error.message, /결과를 확인하지 못했습니다/);
+  assert.equal(h.calls.completeRegistration.length, 1, 'never resent');
 });
