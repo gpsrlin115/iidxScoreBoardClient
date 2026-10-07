@@ -123,6 +123,14 @@ const Sidebar = () => {
             admin
           </Link>
         )}
+        {isAdmin && (
+          <Link
+            to="/admin/crawler"
+            className={clsx('text-faint2 hover:text-accent', FOCUS_RING)}
+          >
+            crawler
+          </Link>
+        )}
         <button
           type="button"
           onClick={handleLogout}
