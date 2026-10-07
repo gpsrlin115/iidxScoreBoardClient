@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { setImmediate } from 'node:timers';
 
 import { createRivalController } from '../src/features/rivalCrawler/controller.js';
+import { EMPTY_BINDING } from '../src/utils/rivalCrawler.js';
 
 const verifiedBinding = { iidxId: '1234-5678', verified: true, verifiedAt: '2026-10-06T10:00:00' };
 const emptyBinding = { iidxId: null, verified: false, verifiedAt: null };
@@ -19,7 +20,7 @@ const deferred = () => {
 const tick = () => new Promise((resolve) => setImmediate(resolve));
 const drain = async () => { for (let i = 0; i < 4; i += 1) await tick(); };
 
-function harness(overrides = {}) {
+function harness(overrides = {}, options = {}) {
   const calls = { getStatus: [], getBinding: [], verify: [], enqueue: [], cancel: [], unlink: [] };
   const api = {
     getStatus: (...args) => { calls.getStatus.push(args); return Promise.resolve(idleStatus); },
@@ -34,6 +35,7 @@ function harness(overrides = {}) {
   const controller = createRivalController({ api, interval: 10,
     schedule: (callback, delay) => { const item = { callback, delay, cleared: false }; timers.push(item); return item; },
     unschedule: (item) => { if (item) item.cleared = true; },
+    ...options,
   });
   return { api, calls, timers, controller };
 }
@@ -358,4 +360,219 @@ test('observed terminal state invalidates caches even when binding refresh fails
   assert.equal(controller.getSnapshot().status.latestJob.status, 'DONE');
   assert.equal(controller.getSnapshot().ready, false);
   controller.dispose();
+});
+
+// --- Bookmarklet registration -------------------------------------------------
+
+const NOW = Date.parse('2026-10-06T02:00:00Z');
+const RETRY_AT = '2026-10-06T02:30:00Z';
+const ATTEMPT_ID = '3f2a9c1e-8b4d-4e6f-9a1b-2c3d4e5f6a7b';
+const registeredBinding = { iidxId: '1234-5678', verified: false, verifiedAt: null, registered: true,
+  source: 'BOOKMARKLET', registeredAt: '2026-10-06T02:04:05Z' };
+const pendingBinding = { iidxId: null, verified: false, verifiedAt: null, registered: false, source: null, registeredAt: null };
+const noAttempt = () => ({ status: 'NONE', attemptId: null, retryAt: null });
+const pendingAttempt = () => ({ status: 'PENDING', attemptId: ATTEMPT_ID, expiresAt: '2026-10-06T02:05:00Z', retryAt: null });
+const httpFailure = (status, data = {}, headers = {}) => Object.assign(new Error(`http ${status}`), { response: { status, data, headers } });
+
+/** `h.registration` is what GET /bookmarklet/me answers next; `clock.t` is the controller's now(). */
+function regHarness(overrides = {}, clock = { t: NOW }) {
+  const h = harness({}, { now: () => clock.t });
+  h.clock = clock;
+  h.registration = noAttempt();
+  Object.assign(h.calls, { getRegistration: [], startRegistration: [], cancelRegistration: [] });
+  Object.assign(h.api, {
+    getRegistration: (...args) => { h.calls.getRegistration.push(args); return Promise.resolve(h.registration); },
+    startRegistration: (...args) => { h.calls.startRegistration.push(args); h.registration = pendingAttempt(); return Promise.resolve(pendingAttempt()); },
+    cancelRegistration: (...args) => { h.calls.cancelRegistration.push(args); h.registration = noAttempt(); return Promise.resolve(undefined); },
+    ...overrides,
+  });
+  return h;
+}
+const liveTimers = (h, delay) => h.timers.filter((timer) => !timer.cleared && timer.delay === delay);
+
+test('a REGISTERED bookmarklet binding may enqueue and never needs the cookie verify', async () => {
+  const h = regHarness({ getBinding: async (...args) => { h.calls.getBinding.push(args); return registeredBinding; } });
+  h.controller.start();
+  await drain();
+  assert.equal(h.controller.getSnapshot().ready, true);
+  assert.equal(h.controller.getSnapshot().registration, null, 'a linked account skips the registration GET');
+  assert.equal(h.calls.getRegistration.length, 0);
+  await h.controller.verify('synthetic-cookie');
+  assert.equal(h.calls.verify.length, 0);
+  await h.controller.enqueue();
+  assert.equal(h.calls.enqueue.length, 1);
+});
+
+test('PENDING and REVOKED bindings carry no ID, so enqueue is never called for them', async () => {
+  for (const binding of [pendingBinding, { ...EMPTY_BINDING }]) {
+    const h = regHarness({ getBinding: async (...args) => { h.calls.getBinding.push(args); return binding; } });
+    h.controller.start();
+    await drain();
+    assert.equal(h.controller.getSnapshot().ready, true);
+    await h.controller.enqueue();
+    assert.equal(h.calls.enqueue.length, 0);
+  }
+});
+
+test('a verified binding from an older server without the registered field can still enqueue', async () => {
+  const h = regHarness({ getBinding: async (...args) => { h.calls.getBinding.push(args); return verifiedBinding; } });
+  assert.equal('registered' in verifiedBinding, false);
+  h.controller.start();
+  await drain();
+  await h.controller.enqueue();
+  assert.equal(h.calls.enqueue.length, 1);
+  assert.equal(h.calls.verify.length, 0);
+});
+
+test('starting a registration needs an explicit user action and start() or refresh() never calls it', async () => {
+  const h = regHarness();
+  h.controller.start();
+  await drain();
+  await h.controller.refresh(true);
+  await h.controller.refresh(false);
+  assert.ok(h.calls.getRegistration.length >= 1, 'the registration is read with GET');
+  assert.equal(h.calls.startRegistration.length, 0);
+  assert.equal(h.controller.getSnapshot().registration.status, 'NONE');
+  await h.controller.startRegistration();
+  assert.equal(h.calls.startRegistration.length, 1);
+  assert.equal(h.calls.startRegistration[0].length, 1);
+  assert.ok(h.calls.startRegistration[0][0].signal instanceof AbortSignal);
+  assert.equal(h.controller.getSnapshot().registration.attemptId, ATTEMPT_ID);
+});
+
+test('registration start is refused for a linked account, an active job, a disabled feature, or a stale screen', async () => {
+  const linked = regHarness({ getBinding: async () => registeredBinding });
+  const active = regHarness({ getStatus: async () => ({ ...idleStatus, latestJob: activeJob({ status: 'RUNNING' }) }) });
+  const disabled = regHarness({ getStatus: async () => ({ ...idleStatus, enabled: false }) });
+  const notReady = regHarness({ getStatus: async () => { throw httpFailure(502); } });
+  for (const h of [linked, active, disabled, notReady]) {
+    h.controller.start();
+    await drain();
+    await h.controller.startRegistration();
+    assert.equal(h.calls.startRegistration.length, 0);
+  }
+  assert.equal(notReady.controller.getSnapshot().ready, false);
+});
+
+test('start 429 with a body retryAt blocks further starts until that instant and never blocks verify', async () => {
+  const h = regHarness({ startRegistration: async (...args) => {
+    h.calls.startRegistration.push(args);
+    throw httpFailure(429, { code: 'REGISTRATION_RATE_LIMIT', message: 'RAW', retryAt: RETRY_AT });
+  } });
+  h.controller.start();
+  await drain();
+  await h.controller.startRegistration();
+  const until = Date.parse(RETRY_AT);
+  assert.equal(h.calls.startRegistration.length, 1);
+  assert.equal(h.controller.getSnapshot().registrationBlockedUntil, until);
+  assert.equal(h.controller.getSnapshot().error.code, 'REGISTRATION_RATE_LIMIT');
+  assert.equal(h.controller.getSnapshot().error.retryAt, until);
+  assert.equal(h.controller.getSnapshot().retryBlockedAction, null, 'the start limit has its own field');
+  assert.equal(liveTimers(h, until - NOW).length, 1);
+
+  await h.controller.startRegistration();
+  assert.equal(h.calls.startRegistration.length, 1, 'blocked starts do not reach the API');
+  await h.controller.verify('synthetic-cookie');
+  assert.equal(h.calls.verify.length, 1, 'the hourly start limit is not a verify limit');
+
+  h.api.startRegistration = async (...args) => { h.calls.startRegistration.push(args); h.registration = pendingAttempt(); return pendingAttempt(); };
+  liveTimers(h, until - NOW)[0].callback();
+  assert.equal(h.controller.getSnapshot().registrationBlockedUntil, null);
+  await h.controller.startRegistration();
+  assert.equal(h.calls.startRegistration.length, 2);
+  h.controller.dispose();
+});
+
+test('start 429 with only Retry-After seconds blocks from now, and without either it blocks nothing', async () => {
+  const header = regHarness({ startRegistration: async (...args) => {
+    header.calls.startRegistration.push(args);
+    throw httpFailure(429, { code: 'REGISTRATION_RATE_LIMIT' }, { 'retry-after': '120' });
+  } });
+  header.controller.start();
+  await drain();
+  await header.controller.startRegistration();
+  assert.equal(header.controller.getSnapshot().registrationBlockedUntil, NOW + 120000);
+  assert.equal(liveTimers(header, 120000).length, 1);
+
+  const bare = regHarness({ startRegistration: async (...args) => { bare.calls.startRegistration.push(args); throw httpFailure(429, {}); } });
+  bare.controller.start();
+  await drain();
+  await bare.controller.startRegistration();
+  assert.equal(bare.controller.getSnapshot().registrationBlockedUntil, null);
+  await bare.controller.startRegistration();
+  assert.equal(bare.calls.startRegistration.length, 2);
+});
+
+test('a future retryAt in the GET registration blocks the start, and a past one does not', async () => {
+  const blocked = regHarness();
+  blocked.registration = { ...noAttempt(), retryAt: RETRY_AT };
+  blocked.controller.start();
+  await drain();
+  assert.equal(blocked.controller.getSnapshot().registrationBlockedUntil, Date.parse(RETRY_AT));
+  assert.equal(liveTimers(blocked, Date.parse(RETRY_AT) - NOW).length, 1);
+  await blocked.controller.startRegistration();
+  assert.equal(blocked.calls.startRegistration.length, 0);
+  blocked.controller.dispose();
+  assert.equal(liveTimers(blocked, Date.parse(RETRY_AT) - NOW).length, 0, 'dispose clears the unblock timer');
+
+  const expired = regHarness();
+  expired.registration = { ...noAttempt(), retryAt: '2026-10-06T01:00:00Z' };
+  expired.controller.start();
+  await drain();
+  assert.equal(expired.controller.getSnapshot().registrationBlockedUntil, null);
+  await expired.controller.startRegistration();
+  assert.equal(expired.calls.startRegistration.length, 1);
+});
+
+test('cancelRegistration sends the PENDING attemptId and is skipped when nothing is pending', async () => {
+  const idle = regHarness();
+  idle.controller.start();
+  await drain();
+  await idle.controller.cancelRegistration();
+  assert.equal(idle.calls.cancelRegistration.length, 0);
+
+  const h = regHarness();
+  h.registration = pendingAttempt();
+  h.controller.start();
+  await drain();
+  assert.equal(h.controller.getSnapshot().registration.attemptId, ATTEMPT_ID);
+  await h.controller.cancelRegistration();
+  assert.equal(h.calls.cancelRegistration.length, 1);
+  assert.equal(h.calls.cancelRegistration[0][0], ATTEMPT_ID);
+  assert.ok(h.calls.cancelRegistration[0][1].signal instanceof AbortSignal);
+  assert.equal(h.controller.getSnapshot().registration.status, 'NONE');
+});
+
+test('unlink leaves exactly EMPTY_BINDING, drops the old attempt, and re-opens registration', async () => {
+  let unlinked = false;
+  const h = regHarness({
+    getBinding: async (...args) => { h.calls.getBinding.push(args); return unlinked ? { ...EMPTY_BINDING } : registeredBinding; },
+    unlink: async (...args) => { h.calls.unlink.push(args); unlinked = true; },
+  });
+  const seen = [];
+  h.controller.subscribe(() => seen.push(h.controller.getSnapshot()));
+  h.controller.start();
+  await drain();
+  assert.equal(h.controller.getSnapshot().binding.registered, true);
+  await h.controller.unlink();
+  assert.equal(h.calls.unlink.length, 1);
+  assert.deepEqual(h.controller.getSnapshot().binding, EMPTY_BINDING);
+  const direct = seen.find((snapshot) => snapshot.action === 'unlink' && snapshot.ready === false && snapshot.registration === null);
+  assert.ok(direct, 'the controller itself sets the binding to the empty shape before re-reading');
+  assert.deepEqual(direct.binding, EMPTY_BINDING);
+  assert.equal(h.controller.getSnapshot().registration.status, 'NONE');
+  await h.controller.startRegistration();
+  assert.equal(h.calls.startRegistration.length, 1);
+});
+
+test('a missing registration API (404) does not make the collection card unusable', async () => {
+  const h = regHarness({ getRegistration: async (...args) => { h.calls.getRegistration.push(args); throw httpFailure(404); } });
+  h.controller.start();
+  await drain();
+  const snapshot = h.controller.getSnapshot();
+  assert.equal(h.calls.getRegistration.length, 1);
+  assert.equal(snapshot.ready, true);
+  assert.equal(snapshot.error, null);
+  assert.equal(snapshot.registration, null);
+  assert.equal(snapshot.registrationBlockedUntil, null);
 });

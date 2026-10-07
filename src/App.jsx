@@ -32,6 +32,7 @@ const AdminTierTable = lazy(() => import('./pages/AdminTierTable'));
 const Profile = lazy(() => import('./pages/Profile'));
 const PublicTierTable = lazy(() => import('./pages/PublicTierTable'));
 const LayoutAnalysis = lazy(() => import('./pages/LayoutAnalysis'));
+const IidxLinkPopup = lazy(() => import('./pages/IidxLinkPopup'));
 
 /**
  * 🎓 학습 포인트: 중첩 라우트 (Nested Routes) 패턴
@@ -83,6 +84,16 @@ function AppRoutes() {
           element={
             <Suspense fallback={<RouteContentSpinner />}>
               <PublicTierTable />
+            </Suspense>
+          }
+        />
+        {/* 북마클릿이 eagate 프로필에서 여는 IIDX 코드 연결 팝업. 로그인 확인은 페이지가 직접 하고,
+            로그인 화면으로 보내지 않는다(새 로그인에서는 앞서 시작한 연결 시도를 쓸 수 없다). */}
+        <Route
+          path="/crawler/iidx-link"
+          element={
+            <Suspense fallback={<RouteContentSpinner />}>
+              <IidxLinkPopup />
             </Suspense>
           }
         />

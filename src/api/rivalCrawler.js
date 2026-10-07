@@ -2,9 +2,11 @@ import apiClient from './client';
 
 const BINDING_URL = '/crawler/iidx/me';
 const JOB_URL = '/crawler/rival/jobs/me';
+const REGISTRATION_URL = '/crawler/iidx/bookmarklet/me';
 
 // Axios keeps the request config on its rejection object. For verification that
-// config contains the user's cookie, so reject with a response-only copy.
+// config contains the user's cookie, and for registration it contains the
+// attemptId and IIDX ID, so reject with a response-only copy.
 function withoutRequestConfig(error) {
   const safeError = new Error('내 기록 수집 요청에 실패했습니다.');
   safeError.name = 'RivalCrawlerApiError';
@@ -36,6 +38,15 @@ export const rivalCrawlerApi = {
   getStatus: ({ signal } = {}) => request(apiClient.get(JOB_URL, { signal })),
   enqueue: ({ signal } = {}) => request(apiClient.post(JOB_URL, undefined, { signal })),
   cancel: ({ signal } = {}) => request(apiClient.delete(JOB_URL, { signal })),
+  // Bookmarklet registration. The server rejects any extra body key with 400,
+  // so each body is rebuilt from named values instead of spreading a caller object.
+  startRegistration: ({ signal } = {}) =>
+    request(apiClient.post(REGISTRATION_URL, undefined, { signal })),
+  getRegistration: ({ signal } = {}) => request(apiClient.get(REGISTRATION_URL, { signal })),
+  completeRegistration: (attemptId, iidxId, { signal } = {}) =>
+    request(apiClient.post(`${REGISTRATION_URL}/complete`, { attemptId, iidxId }, { signal })),
+  cancelRegistration: (attemptId, { signal } = {}) =>
+    request(apiClient.delete(REGISTRATION_URL, { data: { attemptId }, signal })),
 };
 
 export default rivalCrawlerApi;

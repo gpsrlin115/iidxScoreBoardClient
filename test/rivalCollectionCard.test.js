@@ -5,12 +5,17 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import { createServer } from 'vite';
 import { MemoryRouter } from 'react-router-dom';
 
+import { PROFILE_URL } from '../src/features/rivalCrawler/bookmarklet.js';
+import { EMPTY_BINDING } from '../src/utils/rivalCrawler.js';
+
 let vite;
 let RivalCollectionCard;
 
 before(async () => {
   vite = await createServer({ server: { middlewareMode: true, hmr: false } });
   ({ default: RivalCollectionCard } = await vite.ssrLoadModule('/src/components/import/RivalCollectionCard.jsx'));
+  const { useAuthStore } = await vite.ssrLoadModule('/src/store/authStore.js');
+  useAuthStore.getState().setUser({ id: 1, username: 'tester' });
 });
 
 after(async () => {
@@ -32,11 +37,12 @@ const render = (state = {}) => renderToStaticMarkup(createElement(
   null,
   createElement(RivalCollectionCard, {
     state: { ...baseState, ...state },
-    onVerify: () => {},
     onEnqueue: () => {},
     onCancel: () => {},
     onUnlink: () => {},
     onRefresh: () => {},
+    onStartRegistration: () => {},
+    onCancelRegistration: () => {},
   }),
 ));
 
@@ -70,9 +76,10 @@ test('34 pages and 38 requests do not change a RUNNING status or enable duplicat
   assert.match(button(html, '내 기록 수집 요청'), /disabled=/);
 });
 
-test('disabled backend points to CSV and existing bookmarklet fallback', () => {
+test('disabled backend points to CSV upload and offers no bookmarklet fallback', () => {
   const text = textOf(render({ status: { enabled: false, latestJob: null, cooldownUntil: null } }));
-  assert.ok(text.includes('CSV 업로드나 기존 북마클릿'));
+  assert.ok(text.includes('아래 CSV 업로드를 이용해 주세요'));
+  assert.ok(!text.includes('기존 북마클릿'));
   assert.ok(!text.includes('기능 활성화'));
 });
 
@@ -104,10 +111,13 @@ test('verified account shows its ID without asking for another cookie', () => {
   assert.ok(!html.includes('type="password"'));
 });
 
-test('unverified account uses a masked cookie input with autocomplete disabled', () => {
+test('an account without a binding is never asked for an e-amusement cookie', () => {
   const html = render({ binding: null });
-  assert.match(html, /type="password"/);
-  assert.match(html, /autoComplete="off"/);
+  const text = textOf(html);
+  assert.ok(!html.includes('type="password"'));
+  assert.ok(!html.includes('<input'));
+  assert.ok(!text.includes('세션 쿠키'));
+  assert.equal(button(html, '본인 코드 확인'), undefined);
 });
 
 test('FAILED, PARTIAL, and CANCELLED explain retry, possible saved rows, and retained scores', () => {
@@ -142,10 +152,93 @@ test('missing status API still shows a refresh action', () => {
 });
 
 test('actual retry-after blocks only its matching action', () => {
-  const verifyHtml = render({ binding: null, retryBlockedAction: 'verify' });
-  assert.match(button(verifyHtml, '본인 코드 확인'), /disabled=/);
-
   const enqueueHtml = render({ retryBlockedAction: 'enqueue' });
   assert.match(button(enqueueHtml, '내 기록 수집 요청'), /disabled=/);
-  assert.doesNotMatch(button(enqueueHtml, '본인 코드 확인') || '', /disabled=/);
+  assert.doesNotMatch(button(enqueueHtml, '연결 해제'), /disabled=/);
+
+  // A verify block left over from the controller has no button to disable any more.
+  const verifyHtml = render({ binding: null, retryBlockedAction: 'verify' });
+  assert.equal(button(verifyHtml, '본인 코드 확인'), undefined);
+  assert.doesNotMatch(button(verifyHtml, '연결 시작'), /disabled=/);
+});
+
+const ATTEMPT_ID = '3f2a9c1e-8b4d-4e6f-9a1b-2c3d4e5f6a7b';
+const registeredBinding = { iidxId: '1234-5678', verified: false, verifiedAt: null, registered: true,
+  source: 'BOOKMARKLET', registeredAt: '2026-10-06T02:04:05Z' };
+const unlinked = { binding: { ...EMPTY_BINDING }, registration: null };
+const pendingAttempt = { status: 'PENDING', attemptId: ATTEMPT_ID, expiresAt: '2026-10-06T02:05:00Z', retryAt: null };
+
+test('a REGISTERED bookmarklet link can collect and shows its source without the verified badge or any link form', () => {
+  const html = render({ binding: registeredBinding });
+  const text = textOf(html);
+  assert.doesNotMatch(button(html, '내 기록 수집 요청'), /disabled=/);
+  assert.ok(text.includes('연결된 IIDX ID'));
+  assert.ok(text.includes('1234-5678'));
+  assert.ok(text.includes('북마클릿'));
+  assert.ok(text.includes('연결 시각'));
+  assert.ok(!text.includes('확인됨'));
+  assert.equal(button(html, '연결 시작'), undefined);
+  assert.ok(!html.includes('type="password"'));
+  assert.ok(!text.includes('서버 시각 · 시간대 미확정'), 'registeredAt is a UTC instant, not a server local time');
+});
+
+test('a VERIFIED cookie link shows the verified badge', () => {
+  const html = render({ binding: { iidxId: '1234-5678', verified: true, verifiedAt: null, registered: true, source: 'EAGATE_SESSION', registeredAt: null } });
+  assert.ok(textOf(html).includes('확인됨'));
+  assert.doesNotMatch(button(html, '내 기록 수집 요청'), /disabled=/);
+});
+
+test('an unlinked account cannot collect and is offered only the bookmarklet link', () => {
+  const html = render(unlinked);
+  const text = textOf(html);
+  assert.match(button(html, '내 기록 수집 요청'), /disabled=/);
+  assert.ok(button(html, '연결 시작'));
+  assert.doesNotMatch(button(html, '연결 시작'), /disabled=/);
+  assert.ok(text.includes('북마클릿을 실행하면 이 계정에 IIDX 코드가 연결됩니다'));
+  // zustand v5 serves its initial state to server rendering, so the username itself
+  // cannot appear here; the browser check covers it. Only the account line is asserted.
+  assert.ok(text.includes('현재 사이트 계정'), 'the current site account line is shown');
+  // The cookie check is not offered on this screen at all, folded away or not.
+  assert.ok(!html.includes('<details'));
+  assert.ok(!html.includes('type="password"'));
+  assert.ok(!text.includes('쿠키로 본인 확인'));
+});
+
+test('the profile link appears only for a PENDING attempt, opens safely, and never exposes the attemptId', () => {
+  const idle = render(unlinked);
+  assert.ok(!idle.includes(PROFILE_URL));
+  assert.ok(!button(idle, '시도 취소'));
+
+  const html = render({ binding: { ...EMPTY_BINDING }, registration: pendingAttempt });
+  const anchor = (html.match(/<a\b[^>]*>/g) || []).find((tag) => tag.includes(`href="${PROFILE_URL}"`));
+  assert.ok(anchor, 'profile link is rendered');
+  assert.match(anchor, /target="_blank"/);
+  assert.match(anchor, /rel="noopener noreferrer"/);
+  assert.ok(button(html, '시도 취소'));
+  assert.ok(button(html, '다시 시작'));
+  assert.equal(button(html, '연결 시작'), undefined);
+  assert.ok(!html.includes(ATTEMPT_ID));
+});
+
+test('the start button is disabled while rate-limited, while a job is active, or when the feature is off', () => {
+  assert.doesNotMatch(button(render(unlinked), '연결 시작'), /disabled=/);
+
+  const blocked = render({ ...unlinked, registrationBlockedUntil: Date.parse('2026-10-06T02:30:00Z') });
+  assert.match(button(blocked, '연결 시작'), /disabled=/);
+  assert.ok(textOf(blocked).includes('다시 시작 가능 시각'));
+  assert.ok(!textOf(render(unlinked)).includes('다시 시작 가능 시각'));
+
+  const active = render({ ...unlinked, status: { enabled: true, latestJob: { status: 'QUEUED' }, cooldownUntil: null } });
+  assert.match(button(active, '연결 시작'), /disabled=/);
+
+  const off = render({ ...unlinked, status: { enabled: false, latestJob: null, cooldownUntil: null } });
+  assert.match(button(off, '연결 시작'), /disabled=/);
+});
+
+test('server rendering leaves the bookmarklet anchor without an href so no javascript: URL is in the HTML', () => {
+  const html = render(unlinked);
+  assert.ok(!html.includes('javascript:'));
+  const anchor = (html.match(/<a\b[^>]*>\s*IIDX 코드 연결\s*<\/a>/) || [])[0];
+  assert.ok(anchor, 'the draggable bookmarklet anchor is rendered');
+  assert.doesNotMatch(anchor, /href=/);
 });

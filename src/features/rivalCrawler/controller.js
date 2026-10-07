@@ -1,10 +1,15 @@
-import { classifyRivalError, isActiveJob, isTerminalJob } from '../../utils/rivalCrawler.js';
+import { classifyRivalError, EMPTY_BINDING, isActiveJob, isLinkedBinding, isTerminalJob, parseUtcInstant }
+  from '../../utils/rivalCrawler.js';
 
-const initialState = () => ({ binding: null, status: null, loading: true, ready: false, action: null, error: null, retryBlockedAction: null });
+// `registration` is the GET /crawler/iidx/bookmarklet/me view of this login round.
+// `registrationBlockedUntil` (epoch ms) holds the hourly start limit apart from
+// `retryBlockedAction`, so a verify 429 and a start 429 cannot overwrite each other.
+const initialState = () => ({ binding: null, status: null, registration: null, loading: true, ready: false,
+  action: null, error: null, retryBlockedAction: null, registrationBlockedUntil: null });
 
 /** One owner for mutations, status polling, and response generations. No credentials live in state. */
 export function createRivalController({ api, onTerminal = () => {}, interval = 5000,
-  schedule = setTimeout, unschedule = clearTimeout }) {
+  schedule = setTimeout, unschedule = clearTimeout, now = Date.now }) {
   let state = initialState();
   let live = false;
   let generation = 0;
@@ -13,6 +18,7 @@ export function createRivalController({ api, onTerminal = () => {}, interval = 5
   let readAbort;
   let mutationAbort;
   let retryTimer;
+  let registrationTimer;
   const listeners = new Set();
   const terminals = new Set();
   const update = (patch) => {
@@ -33,6 +39,24 @@ export function createRivalController({ api, onTerminal = () => {}, interval = 5
     if (terminals.has(key)) return;
     terminals.add(key);
     onTerminal(job);
+  };
+  const blockRegistrationUntil = (untilMs) => {
+    if (untilMs == null || untilMs <= now()) return;
+    if (state.registrationBlockedUntil != null && state.registrationBlockedUntil >= untilMs) return;
+    unschedule(registrationTimer);
+    update({ registrationBlockedUntil: untilMs });
+    registrationTimer = schedule(() => {
+      if (live) update({ registrationBlockedUntil: null });
+    }, untilMs - now());
+  };
+  // Older servers have no registration API; that must not make the collection card unusable.
+  const readRegistration = async (signal) => {
+    try {
+      return await api.getRegistration({ signal });
+    } catch (error) {
+      if (cancelled(error)) throw error;
+      return null;
+    }
   };
   const later = () => {
     clearTimer();
@@ -61,11 +85,16 @@ export function createRivalController({ api, onTerminal = () => {}, interval = 5
         // A terminal status is enough to invalidate scores, even when the binding read fails.
         noticeTerminal(job);
         let binding = state.binding;
+        let registration = state.registration;
         if (full || terminalChanged) {
           binding = await api.getBinding({ signal: abort.signal });
           if (!current(owner)) return;
+          // A linked account cannot start; skip the extra GET instead of showing an old attempt.
+          registration = isLinkedBinding(binding) ? null : await readRegistration(abort.signal);
+          if (!current(owner)) return;
         }
-        update({ status, binding, ready: true, error: null });
+        update({ status, binding, registration, ready: true, error: null });
+        blockRegistrationUntil(parseUtcInstant(registration?.retryAt));
       } catch (error) {
         if (!current(owner) || cancelled(error)) return;
         const info = classifyRivalError(error, 'status');
@@ -85,10 +114,18 @@ export function createRivalController({ api, onTerminal = () => {}, interval = 5
     // Unlink may supersede a pending verification. All other writes share a synchronous lock.
     if (state.action && !(action === 'unlink' && state.action === 'verify')) return;
     const active = isActiveJob(state.status?.latestJob);
-    if (action === 'verify' && (!state.ready || active)) return;
-    if (action === 'enqueue' && (!state.ready || !state.binding?.verified || state.status?.enabled !== true
+    const linked = isLinkedBinding(state.binding);
+    const attemptId = state.registration?.status === 'PENDING' ? state.registration.attemptId : null;
+    // Re-verifying a linked binding first clears it server-side, and a failure leaves it unlinked.
+    if (action === 'verify' && (!state.ready || active || linked)) return;
+    if (action === 'enqueue' && (!state.ready || !linked || state.status?.enabled !== true
       || active || state.status?.cooldownUntil != null)) return;
     if (action === 'cancel' && !active) return;
+    // Start only on an explicit user action; the server answers 409/429 for the rest, but
+    // these local gates keep a stale screen from spending one of the three hourly starts.
+    if (action === 'register' && (!state.ready || linked || active || state.status?.enabled !== true
+      || state.registrationBlockedUntil != null)) return;
+    if (action === 'cancelRegistration' && !attemptId) return;
     mutationAbort?.abort();
     invalidateReads();
     const owner = generation;
@@ -102,7 +139,12 @@ export function createRivalController({ api, onTerminal = () => {}, interval = 5
         if (current(owner)) update({ binding });
       } else if (action === 'unlink') {
         await api.unlink({ signal: abort.signal });
-        if (current(owner)) update({ binding: { iidxId: null, verified: false, verifiedAt: null }, ready: false });
+        if (current(owner)) update({ binding: { ...EMPTY_BINDING }, registration: null, ready: false });
+      } else if (action === 'register') {
+        const started = await api.startRegistration({ signal: abort.signal });
+        if (current(owner)) update({ registration: { ...started, retryAt: null } });
+      } else if (action === 'cancelRegistration') {
+        await api.cancelRegistration(attemptId, { signal: abort.signal });
       } else {
         const job = await api[action]({ signal: abort.signal });
         if (current(owner)) {
@@ -113,8 +155,11 @@ export function createRivalController({ api, onTerminal = () => {}, interval = 5
       }
     } catch (error) {
       if (!current(owner) || cancelled(error)) return;
-      errorInfo = classifyRivalError(error, action);
-      if (errorInfo.status === 429 && errorInfo.retryAfterSeconds > 0) {
+      errorInfo = classifyRivalError(error, action, now(), { binding: state.binding });
+      if (action === 'register' && errorInfo.status === 429) {
+        blockRegistrationUntil(errorInfo.retryAt ?? (errorInfo.retryAfterSeconds > 0
+          ? now() + errorInfo.retryAfterSeconds * 1000 : null));
+      } else if (errorInfo.status === 429 && errorInfo.retryAfterSeconds > 0) {
         unschedule(retryTimer);
         update({ retryBlockedAction: action });
         retryTimer = schedule(() => {
@@ -149,6 +194,7 @@ export function createRivalController({ api, onTerminal = () => {}, interval = 5
       invalidateReads();
       mutationAbort?.abort();
       unschedule(retryTimer);
+      unschedule(registrationTimer);
       update(initialState());
     },
     refresh,
@@ -156,5 +202,7 @@ export function createRivalController({ api, onTerminal = () => {}, interval = 5
     enqueue: () => mutate('enqueue'),
     cancel: () => mutate('cancel'),
     unlink: () => mutate('unlink'),
+    startRegistration: () => mutate('register'),
+    cancelRegistration: () => mutate('cancelRegistration'),
   };
 }

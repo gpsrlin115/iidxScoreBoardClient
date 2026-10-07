@@ -18,10 +18,23 @@ const useRivalCollection = () => {
     const unsubscribe = useAuthStore.subscribe((next) => {
       if (next.user?.id !== userId) controller.dispose();
     });
-    return () => { unsubscribe(); controller.dispose(); };
+    // The bookmarklet finishes in a popup on another tab. Re-read when the user
+    // comes back, but only while this screen has an attempt in flight.
+    const onVisible = () => {
+      if (document.visibilityState === 'visible' && controller.getSnapshot().registration?.status === 'PENDING') {
+        void controller.refresh();
+      }
+    };
+    document.addEventListener('visibilitychange', onVisible);
+    return () => {
+      document.removeEventListener('visibilitychange', onVisible);
+      unsubscribe();
+      controller.dispose();
+    };
   }, [controller, userId]);
-  return { state, onVerify: controller.verify, onEnqueue: controller.enqueue,
-    onCancel: controller.cancel, onUnlink: controller.unlink, onRefresh: controller.refresh };
+  return { state, onEnqueue: controller.enqueue,
+    onCancel: controller.cancel, onUnlink: controller.unlink, onRefresh: controller.refresh,
+    onStartRegistration: controller.startRegistration, onCancelRegistration: controller.cancelRegistration };
 };
 
 export default useRivalCollection;

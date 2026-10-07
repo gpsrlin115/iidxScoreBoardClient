@@ -1,8 +1,11 @@
-import { useRef, useState } from 'react';
+import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import Input from '../common/Input';
 import MonoButton from '../common/MonoButton';
-import { formatServerTime, isActiveJob, isTerminalJob, STATUS_LABELS } from '../../utils/rivalCrawler';
+import IidxLinkGuide from './IidxLinkGuide';
+import { useAuthStore } from '../../store/authStore';
+import {
+  formatServerTime, formatUtcTime, isActiveJob, isLinkedBinding, isTerminalJob, SOURCE_LABELS, STATUS_LABELS,
+} from '../../utils/rivalCrawler';
 
 const FIELD_ITEMS = [
   ['pagesDone', 'pagesTotal', '목록 페이지'],
@@ -72,24 +75,18 @@ function jobMessage(job) {
   }
 }
 
-const RivalCollectionCard = ({ state, onVerify, onEnqueue, onCancel, onUnlink, onRefresh }) => {
-  const cookieInput = useRef(null);
+const RivalCollectionCard = ({
+  state, onEnqueue, onCancel, onUnlink, onRefresh, onStartRegistration, onCancelRegistration,
+}) => {
+  const username = useAuthStore((s) => s.user?.username);
   const [confirmUnlink, setConfirmUnlink] = useState(false);
   const binding = state.binding;
+  const linked = isLinkedBinding(binding);
   const job = state.status?.latestJob;
   const active = isActiveJob(job);
   const terminal = isTerminalJob(job);
   const busy = state.action != null;
-  const verifyDisabled = busy || active || state.loading || !state.ready || state.retryBlockedAction === 'verify';
-  const collectionDisabled = busy || active || state.loading || !state.ready || !binding?.verified || state.status?.enabled !== true || state.status?.cooldownUntil != null || state.retryBlockedAction === 'enqueue';
-
-  const submitVerification = (event) => {
-    event.preventDefault();
-    const cookie = cookieInput.current?.value || '';
-    if (cookieInput.current) cookieInput.current.value = '';
-    if (!cookie.trim()) return;
-    onVerify?.(cookie);
-  };
+  const collectionDisabled = busy || active || state.loading || !state.ready || !linked || state.status?.enabled !== true || state.status?.cooldownUntil != null || state.retryBlockedAction === 'enqueue';
 
   const requestUnlink = () => {
     setConfirmUnlink(false);
@@ -97,7 +94,9 @@ const RivalCollectionCard = ({ state, onVerify, onEnqueue, onCancel, onUnlink, o
   };
 
   const statusLabel = job ? (STATUS_LABELS[job.status] || job.status) : null;
-  const needsServerTimeNote = (binding?.verifiedAt != null)
+  // registeredAt is a UTC instant, so it is formatted apart and stays out of the server-time note.
+  const registeredAt = formatUtcTime(binding?.registeredAt);
+  const needsServerTimeNote = (binding?.verified === true && binding?.verifiedAt != null)
     || (state.status?.cooldownUntil != null)
     || (job && ['queuedAt', 'startedAt', 'finishedAt', 'estimatedStartAt', 'estimatedFinishAt', 'nextRequestAt'].some((key) => job[key] != null));
 
@@ -123,50 +122,30 @@ const RivalCollectionCard = ({ state, onVerify, onEnqueue, onCancel, onUnlink, o
       </aside>
 
       <div className="mt-4 rounded-[4px] border border-line-strong bg-night/40 p-4" aria-live="polite">
-        {binding?.verified ? (
-          <div className="flex flex-wrap items-center justify-between gap-3">
+        {linked ? (
+          <div className="flex flex-wrap items-start justify-between gap-3">
             <div>
-              <p className="text-[11px] text-faint">확인된 본인 IIDX 코드</p>
-              <p className="mt-1 font-mono text-[16px] text-ink">{binding.iidxId}</p>
-              {binding.verifiedAt != null && <p className="mt-1 text-[11px] text-faint">확인 시각 · {formatServerTime(binding.verifiedAt)}</p>}
+              <p className="text-[11px] text-faint">연결된 IIDX ID</p>
+              <p className="mt-1 flex flex-wrap items-center gap-2 font-mono text-[16px] text-ink">
+                {binding.iidxId}
+                {binding.verified === true && <span className="rounded-sm border border-[rgba(76,154,255,.3)] px-2 py-[2px] text-[10px] tracking-wide text-info">확인됨</span>}
+              </p>
+              {SOURCE_LABELS[binding.source] && <p className="mt-1 text-[11px] text-faint">연결 방법 · {SOURCE_LABELS[binding.source]}</p>}
+              {registeredAt && <p className="mt-1 text-[11px] text-faint">연결 시각 · {registeredAt}</p>}
+              {binding.verified === true && binding.verifiedAt != null && <p className="mt-1 text-[11px] text-faint">확인 시각 · {formatServerTime(binding.verifiedAt)}</p>}
             </div>
             <MonoButton variant="ghost" disabled={busy} onClick={() => setConfirmUnlink((value) => !value)}>
               연결 해제
             </MonoButton>
+            <p className="w-full text-[11px] text-faint">코드를 바꾸려면 연결을 해제한 뒤 다시 등록해 주세요.</p>
           </div>
         ) : (
-          <>
-            <p className="text-[13px] text-ink">수집하려면 먼저 본인 IIDX 코드를 확인해 주세요.</p>
-            <p className="mt-1 text-[12px] text-muted">e-amusement 본인 세션 쿠키로 프로필을 한 번 확인합니다. 확인용 쿠키는 서버에 저장되지 않습니다.</p>
-            <p className="mt-1 text-[11px] text-faint">실패한 시도도 포함해 계정별 한 시간에 최대 3회 확인할 수 있습니다.</p>
-            <form className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-end" onSubmit={submitVerification}>
-              <div className="min-w-0 flex-1">
-                <Input
-                  ref={cookieInput}
-                  id="rival-eagate-cookie"
-                  label="본인 e-amusement 세션 쿠키"
-                  type="password"
-                  autoComplete="off"
-                  autoCapitalize="off"
-                  spellCheck={false}
-                  placeholder="쿠키 값을 붙여 넣으세요"
-                  disabled={verifyDisabled}
-                />
-              </div>
-              <MonoButton type="submit" disabled={verifyDisabled}>
-                {state.action === 'verify' ? '확인 중…' : '본인 코드 확인'}
-              </MonoButton>
-            </form>
-          </>
+          // The bookmarklet is the only way to link from this screen. The older cookie
+          // check stays in the API for existing VERIFIED bindings but is not offered here.
+          <IidxLinkGuide state={state} username={username} onStartRegistration={onStartRegistration} onCancelRegistration={onCancelRegistration} />
         )}
 
-      {state.action === 'verify' && !binding?.verified && !confirmUnlink && (
-        <button type="button" className="mt-3 text-[11px] text-muted underline underline-offset-2" onClick={() => setConfirmUnlink(true)}>
-          확인 요청 중단 및 연결 해제
-        </button>
-      )}
-
-      {confirmUnlink && (binding?.verified || state.action === 'verify') && (
+      {confirmUnlink && linked && (
           <div className="mt-4 border-t border-line pt-3" role="group" aria-label="연결 해제 확인">
             <p className="text-[12px] text-text2">연결을 해제하면 진행 중인 기록 수집 작업도 취소됩니다. 이미 저장된 점수는 유지됩니다.</p>
             <div className="mt-3 flex gap-2">
@@ -191,18 +170,18 @@ const RivalCollectionCard = ({ state, onVerify, onEnqueue, onCancel, onUnlink, o
 
       {state.status?.enabled === false ? (
         <div className="mt-4 border-l-2 border-line-strong pl-3 text-[12px] text-muted">
-          서버 내 기록 수집을 현재 사용할 수 없습니다. 아래 CSV 업로드나 기존 북마클릿을 이용해 주세요.
+          서버 내 기록 수집을 현재 사용할 수 없습니다. 아래 CSV 업로드를 이용해 주세요.
         </div>
       ) : (
         <div className="mt-4 flex flex-wrap items-center gap-3">
           <MonoButton disabled={collectionDisabled} onClick={() => onEnqueue?.()} trailing="→">
             {state.action === 'enqueue' ? '요청 중…' : '내 기록 수집 요청'}
           </MonoButton>
-          {state.status?.enabled === true && !binding?.verified && <p className="text-[11px] text-faint">본인 코드 확인 후 수집을 요청할 수 있습니다.</p>}
-          {state.status?.enabled === true && binding?.verified && !active && <p className="text-[11px] text-faint">확인된 본인 코드로 요청합니다. 쿠키를 다시 입력할 필요가 없습니다.</p>}
+          {state.status?.enabled === true && !linked && <p className="text-[11px] text-faint">IIDX 코드를 연결한 뒤 수집을 요청할 수 있습니다.</p>}
+          {state.status?.enabled === true && linked && !active && <p className="text-[11px] text-faint">연결된 IIDX 코드로 요청합니다. 쿠키를 입력할 필요가 없습니다.</p>}
           {state.status?.enabled === true && <p className="w-full text-[11px] text-faint">서버 준비 상태에 따라 요청이 거절될 수 있습니다.</p>}
           {state.status?.enabled == null && !state.loading && (
-            <p className="text-[11px] text-faint">서버 상태를 확인할 수 없습니다. 기존 CSV 업로드나 북마클릿을 이용해 주세요.</p>
+            <p className="text-[11px] text-faint">서버 상태를 확인할 수 없습니다. CSV 업로드를 이용해 주세요.</p>
           )}
         </div>
       )}
