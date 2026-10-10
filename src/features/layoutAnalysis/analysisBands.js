@@ -21,8 +21,21 @@ const VOLUME_CAP = 500;
  * to the judgement line to collect the judgement flash as if it were notes.
  * Reading several and keeping the best is what makes that survivable.
  */
-export const candidateBandsY = ({ visibleTopY, visibleBottomY, height }) => {
-  const margin = Math.max(3, Math.round(height * 0.015));
+export const analysisBandHeight = ({ visibleTopY, visibleBottomY, height }) => {
+  const visibleHeight = visibleBottomY - visibleTopY;
+  if (!Number.isFinite(visibleHeight) || visibleHeight < 12) {
+    throw new Error('노트가 보이는 구간이 너무 좁습니다. 분석 영역을 확인하세요.');
+  }
+  return Math.min(Math.max(12, Math.round(height * 0.035)), visibleHeight - 6);
+};
+
+export const candidateBandsY = ({ visibleTopY, visibleBottomY, height }, bandHeight = 0) => {
+  // Keep the entire sampled strip above the raised line and below the cover,
+  // not merely its centre. Narrow windows may need a thinner strip.
+  const margin = Math.min(
+    Math.max(3, Math.round(height * 0.015), Math.ceil(bandHeight / 2)),
+    Math.floor((visibleBottomY - visibleTopY) / 2),
+  );
   const top = visibleTopY + margin;
   const bottom = visibleBottomY - margin;
   if (bottom - top < 8) return [Math.round((visibleTopY + visibleBottomY) / 2)];

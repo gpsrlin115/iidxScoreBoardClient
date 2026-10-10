@@ -54,6 +54,12 @@ const percentile = (values, ratio) => {
 // 98% of its events at 99.6% precision, and precision falls away below 3.
 const THRESHOLD_FLOOR = 4;
 const SPREAD_MULTIPLIER = 3.2;
+// Old skins can draw measure lines and key beams well above the quiet floor.
+// Scale the gate to each lane's note peaks, with a cap so an unusually bright
+// effect cannot erase weaker notes. A global floor also erased white notes.
+const PEAK_PERCENTILE = 0.995;
+const PEAK_SHARE = 0.35;
+const MAX_PEAK_GATE = 35.7;
 
 /**
  * Turns a stream of analysis-band frames into note events.
@@ -89,7 +95,8 @@ export const createEventDetector = ({ laneCenters, laneWidths, durationMs, fps }
         if (!values.length) continue;
         const quiet = percentile(values, 0.5);
         const spread = percentile(values.map((value) => Math.abs(value - quiet)), 0.5) * 1.4826;
-        const threshold = quiet + Math.max(THRESHOLD_FLOOR, spread * SPREAD_MULTIPLIER);
+        const peakGate = Math.min((percentile(values, PEAK_PERCENTILE) - quiet) * PEAK_SHARE, MAX_PEAK_GATE);
+        const threshold = quiet + Math.max(THRESHOLD_FLOOR, peakGate, spread * SPREAD_MULTIPLIER);
         let active = false;
         for (let index = 0; index < values.length; index += 1) {
           const above = values[index] > threshold;
