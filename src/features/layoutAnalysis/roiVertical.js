@@ -20,10 +20,11 @@ const MOTION_SPAN = 5;
  * to the field when the inner boundaries are drawn on it and the lanes between
  * them are dark.
  */
-export const detectVerticalExtent = ({ grays, width, height, left, fieldWidth, laneBoundaries, laneCenters }) => {
-  if (grays.length < 1 || fieldWidth < 8) return { ok: false };
-  const median = medianStack(grays, width * height);
-  const edges = sobelXAbs(median, width, height);
+export const detectVerticalExtents = ({ grays, width, height, left, fieldWidth, laneBoundaries, laneCenters,
+  median: pooledMedian = null, edges: pooledEdges = null }) => {
+  if (grays.length < 1 || fieldWidth < 8) return [];
+  const median = pooledMedian ?? medianStack(grays, width * height);
+  const edges = pooledEdges ?? sobelXAbs(median, width, height);
 
   const innerColumns = laneBoundaries.slice(1, -1)
     .map((ratio) => Math.round(left + ratio * fieldWidth))
@@ -31,7 +32,7 @@ export const detectVerticalExtent = ({ grays, width, height, left, fieldWidth, l
   const centerColumns = laneCenters
     .map((ratio) => Math.round(left + ratio * fieldWidth))
     .filter((column) => column >= 0 && column < width);
-  if (!innerColumns.length || !centerColumns.length) return { ok: false };
+  if (!innerColumns.length || !centerColumns.length) return [];
 
   const top = Math.round(height * 0.02);
   const bottom = Math.round(height * 0.9);
@@ -53,46 +54,58 @@ export const detectVerticalExtent = ({ grays, width, height, left, fieldWidth, l
   // over that gap keeps one field from being read as two. The kernel stays well
   // under the height of the control panel below the field.
   const closed = morphClose(inField, Math.max(3, Math.round(height * 0.07)));
-  const found = runsOf(closed);
-  if (!found.length) return { ok: false };
-  const [start, end] = found.reduce((longest, run) => (run[1] - run[0] > longest[1] - longest[0] ? run : longest));
-  if (end - start < height * 0.22) return { ok: false };
-
-  let sum = 0;
-  let count = 0;
-  for (let row = start; row < end; row += 4) {
-    for (let column = left; column < left + fieldWidth; column += 4) {
-      sum += median[row * width + column];
-      count += 1;
-    }
-  }
-  if (sum / Math.max(1, count) > MAX_MEAN_BRIGHTNESS) return { ok: false };
-
-  if (grays.length >= 3) {
-    let moving = 0;
-    let probes = 0;
+  // LIFT can leave a short, fully readable grid. Its scale follows lane width,
+  // not the height of the surrounding video. Keep every structurally valid
+  // span so a longer control panel cannot hide the actual playing field.
+  const found = runsOf(closed)
+    .filter(([start, end]) => end - start >= Math.max(24, Math.round(fieldWidth * 0.18)))
+    .sort((a, b) => (b[1] - b[0]) - (a[1] - a[0]));
+  const extents = [];
+  for (const [start, end] of found) {
+    let sum = 0;
+    let count = 0;
     for (let row = start; row < end; row += 4) {
       for (let column = left; column < left + fieldWidth; column += 4) {
-        let low = 255;
-        let high = 0;
-        for (const gray of grays) {
-          const value = gray[row * width + column];
-          if (value < low) low = value;
-          if (value > high) high = value;
-        }
-        if (high - low > MOTION_SPAN) moving += 1;
-        probes += 1;
+        sum += median[row * width + column];
+        count += 1;
       }
     }
-    if (moving / Math.max(1, probes) < MOTION_SHARE) return { ok: false };
-  }
+    if (sum / Math.max(1, count) > MAX_MEAN_BRIGHTNESS) continue;
 
-  const pad = Math.max(3, Math.round(height * 0.012));
-  const padded = Math.max(0, start - pad);
-  return {
-    ok: true,
-    top: padded,
-    height: Math.min(height, end + pad) - padded,
-    confidence: 0.75,
-  };
+    if (grays.length >= 3) {
+      let moving = 0;
+      let probes = 0;
+      for (let row = start; row < end; row += 4) {
+        for (let column = left; column < left + fieldWidth; column += 4) {
+          let low = 255;
+          let high = 0;
+          for (const gray of grays) {
+            const value = gray[row * width + column];
+            if (value < low) low = value;
+            if (value > high) high = value;
+          }
+          if (high - low > MOTION_SPAN) moving += 1;
+          probes += 1;
+        }
+      }
+      if (moving / Math.max(1, probes) < MOTION_SHARE) continue;
+    }
+
+    // Notes and the judgement flash can hide the final grid rows. Extend the
+    // search by a few lane widths' pixels to include the line, even with LIFT.
+    const pad = Math.max(3, Math.round(height * 0.012), Math.round(fieldWidth * 0.1));
+    const linePad = Math.max(pad, Math.round(fieldWidth * 0.25));
+    const padded = Math.max(0, start - pad);
+    extents.push({
+      top: padded,
+      height: Math.min(height, end + linePad) - padded,
+      confidence: 0.75,
+    });
+  }
+  return extents;
+};
+
+export const detectVerticalExtent = (input) => {
+  const [extent] = detectVerticalExtents(input);
+  return extent ? { ok: true, ...extent } : { ok: false };
 };
