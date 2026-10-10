@@ -168,7 +168,7 @@ const Signup = () => {
       <Starfield litRatio={0.5} />
       <LoginArtwork />
 
-      <div className="relative mx-auto w-full max-w-[1180px] px-6 py-12 sm:px-14">
+      <main className="relative mx-auto w-full max-w-[1180px] px-6 py-12 sm:px-14">
         <div className="max-w-[400px]">
           <div className="mb-14 flex items-center gap-[11px]">
             <img src="/favicon.png" alt="" width={22} height={22} className="block rounded-[3px]" />
@@ -228,7 +228,7 @@ const Signup = () => {
             </Link>
           </div>
         </div>
-      </div>
+      </main>
     </div>
   );
 };

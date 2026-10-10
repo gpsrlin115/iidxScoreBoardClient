@@ -19,10 +19,10 @@ import { isTierDataUsable } from '../utils/tierScopeKey';
 const useDashboard = () => {
   const level = useScopeStore((state) => state.level);
   const playStyle = useScopeStore((state) => state.playStyle);
-  // Selector, not the isAuthenticated() action itself — binding the action
-  // makes this always-truthy (a function), which silently disables the
-  // guard below and lets every scope change fire 6 requests while logged out.
-  const isAuthenticated = useAuthStore((state) => state.user !== null);
+  // Subscribe to identity, so switching users also invalidates the scoped stats.
+  const userId = useAuthStore((state) => state.user?.id ?? null);
+  const isAuthenticated = userId !== null;
+  const scopeKey = buildFetchedKey(level, playStyle);
   // Subscribed (not read once via getState()) so a later fetchTierData
   // resolution re-renders this hook's derived tierRows/tierTotals.
   const enrichedTierData = useTierStore((state) => state.enrichedTierData);
@@ -30,6 +30,10 @@ const useDashboard = () => {
   // lets tierScopeReady below re-derive on every fetch settle, not just on
   // mount.
   const tierFetchedKey = useTierStore((state) => state.fetchedKey);
+  const tierLoading = useTierStore((state) => state.isLoading);
+  const tierError = useTierStore((state) => state.error);
+  const [tierRetryKey, setTierRetryKey] = useState(null);
+  const [statsKey, setStatsKey] = useState(null);
 
   const [stats, setStats] = useState({
     total: 0,
@@ -90,21 +94,24 @@ const useDashboard = () => {
         clear: clearRes.totalElements,
       });
       setTopScores(topRes.content);
+      setStatsKey(scopeKey);
     } catch (err) {
       if (!isCurrentRequest()) return;
+      setStatsKey(scopeKey);
       setError(toAppError(err, { fallback: '대시보드 데이터를 불러오는데 실패했습니다.' }));
     } finally {
       // Guarded too: a superseded request must not clear the spinner the
       // request that replaced it is still showing.
       if (isCurrentRequest()) setIsLoading(false);
     }
-  }, [isAuthenticated, level, playStyle]);
+  }, [isAuthenticated, level, playStyle, scopeKey]);
 
   useEffect(() => {
     // Fetch-on-change is intended here: the fetch resets isLoading/error synchronously before it
     // awaits, and the request-id guard drops responses a newer request has superseded.
     // eslint-disable-next-line react-hooks/set-state-in-effect
     fetchDashboardData();
+    setTierRetryKey(null);
     // Fire-and-forget: tierStore owns its own loading/error state and
     // fetchedKey memo, so this hook doesn't need to await or track it.
     if (isAuthenticated) {
@@ -112,14 +119,16 @@ const useDashboard = () => {
     }
   }, [fetchDashboardData, isAuthenticated, level, playStyle]);
 
-  // tierStore's fetchTierData is fire-and-forget from this hook's own
-  // request lifecycle (see below) and can resolve well after -- or never,
-  // on a failed request -- the 6-query stats fetch above does. Without this
-  // gate, switching SP -> DP could show DP's stat strip next to SP's
-  // tier-clear percentage for however long the tier fetch takes, or
-  // indefinitely if it errors, since tierStore's own isLoading/error are
-  // never consulted here.
-  const tierScopeReady = isTierDataUsable(tierFetchedKey, buildFetchedKey(level, playStyle), level);
+  // Never render another user's or scope's cached tier totals.
+  const tierScopeReady = isTierDataUsable(tierFetchedKey, scopeKey, level);
+
+  // Preserve the initial loading gate to avoid layout shifts. Manual tier
+  // retries stay inline so that already-loaded statistics remain accessible.
+  const tierPending = tierLoading && !tierScopeReady && tierRetryKey !== scopeKey;
+  const retryTier = () => {
+    setTierRetryKey(scopeKey);
+    useTierStore.getState().fetchTierData(level, playStyle, { force: true });
+  };
 
   // Per-tier progress rows, derived from the subscribed enrichedTierData.
   const tierRows = !tierScopeReady ? [] : enrichedTierData.map(({ tier, songs }) => {
@@ -170,8 +179,12 @@ const useDashboard = () => {
     tierRows,
     tierTotals,
     topScores,
-    isLoading,
-    error,
+    isLoading: isAuthenticated && (statsKey !== scopeKey || isLoading || (!error && tierPending)),
+    error: statsKey === scopeKey ? error : null,
+    tierScopeReady,
+    tierLoading,
+    tierError,
+    retryTier,
     refetch: fetchDashboardData,
   };
 };
