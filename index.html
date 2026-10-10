@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en">
+<html lang="ko">
   <head>
     <meta charset="UTF-8" />
     <link rel="shortcut icon" href="/favicon.ico" />
@@ -7,6 +7,10 @@
     <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
     <link rel="icon" type="image/png" sizes="512x512" href="/icon-512.png" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta
+      name="description"
+      content="beatmania IIDX 스코어와 서열표 클리어 현황을 관리하는 개인 스코어보드"
+    />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
@@ -20,6 +24,9 @@
         preload.as = 'image';
         preload.type = 'image/webp';
         preload.href = '/assets/login-character-v1.webp';
+        // Same srcset/sizes as src/components/auth/LoginArtwork.jsx.
+        preload.setAttribute('imagesrcset', '/assets/login-character-v1-480.webp 480w, /assets/login-character-v1.webp 941w');
+        preload.setAttribute('imagesizes', '(min-width: 1024px) 63vh, (min-width: 640px) 48vh, 26vh');
         preload.setAttribute('fetchpriority', 'high');
         document.head.appendChild(preload);
       }

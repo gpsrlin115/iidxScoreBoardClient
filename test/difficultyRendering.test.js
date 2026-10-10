@@ -31,6 +31,10 @@ const renderShared = (difficulty) => renderToStaticMarkup(createElement(TierSong
   song: { title: 'Test Song', difficulty },
 }));
 
+// LEGGENDARIA's " L" marker is CSS-generated (see TierSongChip.jsx), so the
+// markup carries it as a class, not text. React escapes the quotes.
+const L_MARKER = "after:content-[&#x27;_L&#x27;]";
+
 test('viewer accessible name omits missing difficulty rather than reading an admin placeholder', () => {
   for (const difficulty of [undefined, null, '', '   ']) {
     const html = renderViewer(difficulty);
@@ -46,7 +50,8 @@ test('viewer accessible name uses full chart names, including BEGINNER and NORMA
 });
 
 test('viewer keeps normalized LEGGENDARIA marking and unknown difficulty text', () => {
-  assert.ok(renderViewer(' leggendaria ').includes('> L</span>'));
+  assert.ok(renderViewer(' leggendaria ').includes(L_MARKER));
+  assert.ok(!renderViewer('ANOTHER').includes(L_MARKER));
   assert.ok(renderViewer('EXPERT').includes('aria-label="Test Song EXPERT 채보 상세 점수 보기"'));
 });
 
@@ -65,7 +70,7 @@ test('shared read-only chip names full charts and keeps normalized LEGGENDARIA m
   }
 
   const normalized = renderShared(' leggendaria ');
-  assert.ok(normalized.includes('> L</span>'));
+  assert.ok(normalized.includes(L_MARKER));
   assert.ok(normalized.includes('class="sr-only"> LEGGENDARIA 채보</span>'));
   assert.ok(renderShared('EXPERT').includes('class="sr-only"> EXPERT 채보</span>'));
 });

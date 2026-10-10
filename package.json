@@ -10,7 +10,8 @@
     "lint": "eslint .",
     "preview": "vite preview",
     "test": "node --test",
-    "perf:login": "node scripts/perf-login.mjs"
+    "perf": "node scripts/perf-lighthouse.mjs",
+    "perf:login": "node scripts/perf-lighthouse.mjs login"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",
@@ -20,7 +21,7 @@
     "clsx": "^2.1.0",
     "date-fns": "^4.4.0",
     "html-to-image": "^1.11.13",
-    "mediabunny": "1.59.1",
+    "mediabunny": "1.61.0",
     "react": "^19.3.0",
     "react-dom": "^19.3.0",
     "react-hot-toast": "^2.6.1",
@@ -40,6 +41,7 @@
     "eslint-plugin-react-hooks": "^7.1.1",
     "eslint-plugin-react-refresh": "^0.5.7",
     "globals": "^16.5.0",
-    "vite": "^8.3.1"
+    "jsdom": "^29.0.0",
+    "vite": "^8.3.2"
   }
 }

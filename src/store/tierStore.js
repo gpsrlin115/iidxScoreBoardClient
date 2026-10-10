@@ -12,6 +12,7 @@ import { createTierFetchGate } from '../utils/tierFetchGate';
 // Request admission: monotonic request ids plus the in-flight slot. Every
 // staleness and cache rule lives in the gate; this store only obeys it.
 const gate = createTierFetchGate();
+const TIER_REQUEST_TIMEOUT_MS = 10_000;
 
 // The cache key names the USER as well as the scope. enrichedTierData carries
 // that user's clear lamps and best scores, so a key of scope alone let a
@@ -146,7 +147,7 @@ const useTierStore = create((set, get) => ({
 
     try {
       // 1. Fetch static tier data for the requested level/style
-      const rawTierData = await tierApi.getTierData(level, playStyle);
+      const rawTierData = await tierApi.getTierData(level, playStyle, { timeout: TIER_REQUEST_TIMEOUT_MS });
       if (!isCurrentRequest()) return;
 
       if (!rawTierData || Object.keys(rawTierData).length === 0) {
@@ -164,7 +165,7 @@ const useTierStore = create((set, get) => ({
         level,
         playStyle,
         size: 1000 // A large enough number to get all scores for mapping
-      });
+      }, { timeout: TIER_REQUEST_TIMEOUT_MS });
       if (!isCurrentRequest()) return;
 
       const userScores = response.content || [];

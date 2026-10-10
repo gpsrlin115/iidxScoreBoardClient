@@ -18,6 +18,12 @@ const NAV_ITEMS = [
 const FOCUS_RING =
   'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent';
 
+// profile / admin / logout. The 8.5px labels used to be 13px-tall tap
+// targets packed 3px apart; min-h-6 makes each one 24px tall (WCAG 2.5.8,
+// Lighthouse target-size) without changing the type. faint, not faint2:
+// faint2 is 3.3:1 on the night background, under the 4.5:1 small text needs.
+const FOOTER_LINK = 'flex min-h-6 items-center text-faint hover:text-accent';
+
 /**
  * Left-hand fixed nav: logo, primary routes, global SP/DP switch, and the
  * user/session footer. Replaces the old top Header — every action that
@@ -64,7 +70,22 @@ const Sidebar = () => {
         </span>
       </Link>
 
-      <nav className={clsx('flex flex-col gap-[2px]', 'max-md:flex-row')}>
+      {/*
+        Mobile: the nav always takes the whole second row, and never wraps
+        inside it. Left in the wrapping row with the other blocks, which of
+        them fell to the second line depended on how wide the Hangul labels
+        rendered -- so the header changed height (165px -> 155px at 412px)
+        the moment Gothic A1 replaced the fallback font, and every page below
+        it jumped. That swap was the largest layout shift Lighthouse found on
+        the protected pages. The overflow scroll is only a guard for very
+        narrow screens; the labels fit in one row at 320px.
+      */}
+      <nav
+        className={clsx(
+          'flex flex-col gap-[2px]',
+          'max-md:order-last max-md:w-full max-md:flex-row max-md:overflow-x-auto max-md:whitespace-nowrap'
+        )}
+      >
         {NAV_ITEMS.map(({ to, label, end }) => (
           <NavLink
             key={to}
@@ -106,19 +127,19 @@ const Sidebar = () => {
 
       <div
         className={clsx(
-          'mt-auto flex flex-col gap-[3px]',
+          'mt-auto flex flex-col',
           'font-mono text-[8.5px] uppercase tracking-[.14em]',
           'max-md:mt-0 max-md:ml-auto'
         )}
       >
         {user?.username && <span className="text-muted">DJ {user.username}</span>}
-        <Link to="/profile" className={clsx('text-faint2 hover:text-accent', FOCUS_RING)}>
+        <Link to="/profile" className={clsx(FOOTER_LINK, FOCUS_RING)}>
           profile
         </Link>
         {isAdmin && (
           <Link
             to="/admin/tier-table"
-            className={clsx('text-faint2 hover:text-accent', FOCUS_RING)}
+            className={clsx(FOOTER_LINK, FOCUS_RING)}
           >
             admin
           </Link>
@@ -126,7 +147,7 @@ const Sidebar = () => {
         <button
           type="button"
           onClick={handleLogout}
-          className={clsx('text-left text-faint2 hover:text-accent', FOCUS_RING)}
+          className={clsx(FOOTER_LINK, 'text-left', FOCUS_RING)}
         >
           logout
         </button>
