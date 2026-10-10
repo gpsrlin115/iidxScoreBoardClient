@@ -29,6 +29,7 @@ const Scores = lazy(() => import('./pages/Scores'));
 const TierTable = lazy(() => import('./pages/TierTable'));
 const CsvUpload = lazy(() => import('./pages/CsvUpload'));
 const AdminTierTable = lazy(() => import('./pages/AdminTierTable'));
+const AdminCrawlerBudget = lazy(() => import('./pages/AdminCrawlerBudget'));
 const Profile = lazy(() => import('./pages/Profile'));
 const PublicTierTable = lazy(() => import('./pages/PublicTierTable'));
 const LayoutAnalysis = lazy(() => import('./pages/LayoutAnalysis'));
@@ -118,6 +119,14 @@ function AppRoutes() {
             element={
               <ProtectedRoute allowedRoles={['ADMIN']}>
                 <AdminTierTable />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/admin/crawler"
+            element={
+              <ProtectedRoute allowedRoles={['ADMIN']}>
+                <AdminCrawlerBudget />
               </ProtectedRoute>
             }
           />
