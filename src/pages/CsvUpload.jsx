@@ -12,6 +12,8 @@ import ImportResultPanel from '../components/import/ImportResultPanel';
 import GuideAccordion from '../components/import/GuideAccordion';
 import BasicCourseCard from '../components/import/BasicCourseCard';
 import CurrentReleaseCsvNotice from '../components/import/CurrentReleaseCsvNotice';
+import RivalCollectionCard from '../components/import/RivalCollectionCard';
+import useRivalCollection from '../hooks/useRivalCollection';
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
 
@@ -26,6 +28,7 @@ const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
  * it's `uploadState === 'idle' && file != null`.
  */
 const CsvUpload = () => {
+  const rivalCollection = useRivalCollection();
   const level = useScopeStore((state) => state.level);
 
   const fileInputRef = useRef(null);
@@ -168,11 +171,15 @@ const CsvUpload = () => {
         <div>
           <h1 className="text-[21px] font-normal text-ink">가져오기</h1>
           <p className="mt-[6px] text-[13.5px] text-muted">
-            e-amusement gate에서 내려받은 성적 CSV를 올리면 스코어와 서열표가 함께 갱신됩니다.
+            본인 IIDX 코드로 기록을 수집하거나 성적 CSV를 올리면 스코어와 서열표가 함께 갱신됩니다.
           </p>
         </div>
 
         <CurrentReleaseCsvNotice />
+
+        <div className="mt-[26px]">
+          <RivalCollectionCard {...rivalCollection} />
+        </div>
 
         {showBasicCourse && (
           <>
@@ -189,7 +196,7 @@ const CsvUpload = () => {
           </>
         )}
 
-        <div className="mt-[26px]">
+        <div id="csv-upload" className="mt-[26px] scroll-mt-24">
           <div className="mb-[6px] flex items-baseline justify-between gap-2">
             <p id="import-play-style-label" className="font-mono text-[8.5px] uppercase tracking-[.2em] text-label">
               play style

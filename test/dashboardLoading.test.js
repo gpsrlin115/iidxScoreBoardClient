@@ -14,7 +14,7 @@ const deferred = () => {
 const rawTiers = { A: [{ title: 'Review Song', difficulty: 'ANOTHER' }] };
 const timeout = () => Object.assign(new Error('timeout'), { code: 'ECONNABORTED' });
 let dom, vite, Dashboard, auth, scope, tiers, tierApi, scoresApi, root, container;
-let statsCalls;
+let statsCalls, refreshCollectedScores;
 
 before(async () => {
   dom = new JSDOM('<body></body>', { url: 'http://localhost/' });
@@ -28,6 +28,7 @@ before(async () => {
   ({ default: tiers } = await vite.ssrLoadModule('/src/store/tierStore.js'));
   ({ tierApi } = await vite.ssrLoadModule('/src/api/tiers.js'));
   ({ scoresApi } = await vite.ssrLoadModule('/src/api/scores.js'));
+  ({ refreshCollectedScores } = await vite.ssrLoadModule('/src/store/collectionRefresh.js'));
   await vite.ssrLoadModule('/src/store/sessionReset.js');
 });
 
@@ -160,3 +161,43 @@ test('late responses cannot restore a previous scope or user', async () => {
   assert.equal(tiers.getState().fetchedKey, '2:12:DP');
   assert.match(text(), /서열표 0단/);
 });
+
+
+test('collection refresh reloads statistics and tiers and ignores another user', async () => {
+  let tierCalls = 0;
+  tierApi.getTierData = async () => { tierCalls += 1; return rawTiers; };
+  await mount();
+  const initialStats = statsCalls;
+  const initialTiers = tierCalls;
+  await act(async () => refreshCollectedScores(2));
+  assert.equal(statsCalls, initialStats);
+  assert.equal(tierCalls, initialTiers);
+  scoresApi.getScores = async ({ size }) => {
+    if (size !== 1000) statsCalls += 1;
+    return { content: [], totalElements: 456 };
+  };
+  await act(async () => refreshCollectedScores(1));
+  assert.equal(statsCalls, initialStats + 6);
+  assert.equal(tierCalls, initialTiers + 1);
+  assert.match(text(), /play count456/);
+  assert.equal(tiers.getState().fetchedKey, '1:12:SP');
+});
+
+for (const trigger of ['collection', 'scope', 'user']) {
+  test(`late statistics cannot overwrite a newer ${trigger} result`, async () => {
+    const stale = deferred();
+    scoresApi.getScores = ({ size }) => size === 1000
+      ? Promise.resolve({ content: [], totalElements: 0 }) : stale.promise;
+    await mount();
+    scoresApi.getScores = async () => ({ content: [], totalElements: 456 });
+    await act(async () => {
+      if (trigger === 'collection') refreshCollectedScores(1);
+      if (trigger === 'scope') scope.getState().setPlayStyle('DP');
+      if (trigger === 'user') auth.getState().setUser({ id: 2 });
+    });
+    assert.match(text(), /play count456/);
+    await act(async () => stale.resolve({ content: [], totalElements: 999 }));
+    assert.match(text(), /play count456/);
+    assert.doesNotMatch(text(), /play count999/);
+  });
+}

@@ -9,6 +9,7 @@ import GoogleButton from '../components/auth/GoogleButton';
 import GoogleCallbackError from '../components/auth/GoogleCallbackError';
 import GooglePendingConfirm from '../components/auth/GooglePendingConfirm';
 import MonoButton from '../components/common/MonoButton';
+import IidxBindingSummary from '../components/profile/IidxBindingSummary';
 
 export default function Profile() {
   const user = useAuthStore((state) => state.user);
@@ -88,6 +89,7 @@ export default function Profile() {
           <div><dt className="text-muted">가입 이메일</dt><dd className="mt-1 break-all text-ink">{user?.email || '등록된 이메일 없음'}</dd></div>
         </dl>
       </section>
+      <IidxBindingSummary />
       {flow.loading && <p role="status" className="mb-6 text-sm text-muted">Google 인증 결과를 확인하고 있습니다…</p>}
       <GooglePendingConfirm pending={pending} username={user?.username} busy={busy} onConfirm={confirm} />
       {!methods && !loadError && <p role="status" className="text-sm text-muted">로그인 수단을 확인하고 있습니다…</p>}

@@ -6,6 +6,7 @@ import useTierStore, { buildFetchedKey } from '../store/tierStore';
 import { toAppError } from '../utils/httpError';
 import { isClearTypeCleared, DIST_GROUPS } from '../utils/clearTypes';
 import { isTierDataUsable } from '../utils/tierScopeKey';
+import { useScoreRefreshStore } from '../store/scoreRefreshStore';
 
 /**
  * Dashboard data hook.
@@ -23,6 +24,7 @@ const useDashboard = () => {
   const userId = useAuthStore((state) => state.user?.id ?? null);
   const isAuthenticated = userId !== null;
   const scopeKey = buildFetchedKey(level, playStyle);
+  const scoreRevision = useScoreRefreshStore((state) => state.revision);
   // Subscribed (not read once via getState()) so a later fetchTierData
   // resolution re-renders this hook's derived tierRows/tierTotals.
   const enrichedTierData = useTierStore((state) => state.enrichedTierData);
@@ -117,7 +119,7 @@ const useDashboard = () => {
     if (isAuthenticated) {
       useTierStore.getState().fetchTierData(level, playStyle);
     }
-  }, [fetchDashboardData, isAuthenticated, level, playStyle]);
+  }, [fetchDashboardData, isAuthenticated, level, playStyle, scoreRevision]);
 
   // Never render another user's or scope's cached tier totals.
   const tierScopeReady = isTierDataUsable(tierFetchedKey, scopeKey, level);
