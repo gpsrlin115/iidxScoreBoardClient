@@ -40,6 +40,26 @@ export const redRowOccupancy = ({ data, width }, roi) => {
   return occupancy;
 };
 
+/** Recover a line whose different sections are hidden by successive flashes. */
+export const repeatedRedRowOccupancy = (images, roi) => {
+  const occupancy = new Float32Array(roi.height);
+  if (images.length < 3) return occupancy;
+  for (let row = 0; row < roi.height; row += 1) {
+    let repeated = 0;
+    for (let column = 0; column < roi.width; column += 1) {
+      let hits = 0;
+      for (const { data, width } of images) {
+        const at = ((roi.y + row) * width + roi.x + column) * 4;
+        if (isJudgementRed(data[at], data[at + 1], data[at + 2])) hits += 1;
+        if (hits >= 2) break;
+      }
+      if (hits >= 2) repeated += 1;
+    }
+    occupancy[row] = repeated / Math.max(1, roi.width);
+  }
+  return occupancy;
+};
+
 /**
  * The judgement line, as a row inside the playfield.
  *
@@ -49,8 +69,8 @@ export const redRowOccupancy = ({ data, width }, roi) => {
  * it is far taller than the line. Of the thin bands that survive, the lowest is
  * the line, because the text is drawn above it.
  */
-export const detectJudgementRow = (occupancies, roiHeight) => {
-  if (!occupancies.length) return null;
+export const detectJudgementRows = (occupancies, roiHeight) => {
+  if (!occupancies.length) return [];
   const persistent = percentileStack(occupancies, PERSISTENCE);
   const ignored = Math.round(roiHeight * IGNORED_TOP);
   const active = new Uint8Array(roiHeight);
@@ -60,8 +80,12 @@ export const detectJudgementRow = (occupancies, roiHeight) => {
     const thickness = end - start;
     return thickness >= MIN_THICKNESS && thickness <= MAX_THICKNESS;
   });
-  if (!thin.length) return null;
-
-  const [start, end] = thin.reduce((lowest, run) => (run[1] > lowest[1] ? run : lowest));
-  return Math.round((start + end - 1) / 2);
+  return thin.map(([start, end]) => ({
+    row: Math.round((start + end - 1) / 2),
+    strength: Math.max(...persistent.subarray(start, end)),
+  })).reverse();
 };
+
+export const detectJudgementRow = (occupancies, roiHeight) => (
+  detectJudgementRows(occupancies, roiHeight)[0]?.row ?? null
+);

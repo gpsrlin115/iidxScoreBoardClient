@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { bandStrip, candidateBandsY, pickBand, scoreBand } from '../src/features/layoutAnalysis/analysisBands.js';
+import { analysisBandHeight, bandStrip, candidateBandsY, pickBand, scoreBand } from '../src/features/layoutAnalysis/analysisBands.js';
 
 const geometry = { visibleTopY: 19, visibleBottomY: 328, height: 407, judgementY: 344 };
 
@@ -14,6 +14,20 @@ test('a window too small to spread over is read at its middle', () => {
   const narrow = { visibleTopY: 100, visibleBottomY: 106, height: 400, judgementY: 300 };
 
   assert.deepEqual(candidateBandsY(narrow), [103]);
+});
+
+test('the full sampled strips fit a lifted narrow window, not just their centres', () => {
+  for (const visibleHeight of [12, 18, 24, 40]) {
+    const narrow = { visibleTopY: 300, visibleBottomY: 300 + visibleHeight, height: 680, judgementY: 348 };
+    const bandHeight = analysisBandHeight(narrow);
+    const bandsY = candidateBandsY(narrow, bandHeight);
+    const { tops } = bandStrip({ bandsY, bandHeight, frameHeight: 720 });
+    for (const top of tops) {
+      assert.ok(top >= narrow.visibleTopY);
+      assert.ok(top + bandHeight <= narrow.visibleBottomY);
+    }
+  }
+  assert.throws(() => analysisBandHeight({ ...geometry, visibleTopY: 100, visibleBottomY: 111 }), /너무 좁/);
 });
 
 test('a band that left lanes silent loses to one that read them all', () => {

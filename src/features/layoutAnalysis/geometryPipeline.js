@@ -1,7 +1,8 @@
-import { toGray } from './imageOps.js';
-import { detectJudgementRow, redRowOccupancy } from './judgementLine.js';
+import { medianStack, sobelXAbs, toGray } from './imageOps.js';
+import { redRowOccupancy, repeatedRedRowOccupancy } from './judgementLine.js';
+import { rankJudgementRows } from './judgementGeometry.js';
 import { detectLaneColumnCandidates } from './laneColumns.js';
-import { detectVerticalExtent } from './roiVertical.js';
+import { detectVerticalExtents } from './roiVertical.js';
 import { detectVisibleBounds } from './verticalBounds.js';
 import { defaultGeometry } from './detector.js';
 import { isSeekable, sampleAcross } from './videoSampling.js';
@@ -61,22 +62,32 @@ const cropStack = (grays, width, roi) => grays.map((gray) => {
 
 const clampLane = (value) => Math.min(0.999999, Math.max(0.000001, value));
 
-const evaluateCandidate = (lanes, { video, contentRect, width, height, full, grays, scale, searchWidth, searchHeight }) => {
-  const extent = detectVerticalExtent({
-    grays, width: searchWidth, height: searchHeight,
-    left: lanes.left, fieldWidth: lanes.fieldWidth,
-    laneBoundaries: lanes.laneBoundaries, laneCenters: lanes.laneCenters,
-  });
-  if (!extent.ok) return { reason: 'vertical' };
-
+const evaluateCandidate = (lanes, extent, context) => {
+  const { full, width, height, scale, searchWidth, searchHeight, edges } = context;
   const ratio = 1 / scale;
   const x = Math.round(lanes.left * ratio);
   const fieldWidth = Math.round(lanes.fieldWidth * ratio);
   const y = Math.round(extent.top * ratio);
   const fieldHeight = Math.round(extent.height * ratio);
   const roi = { x, y, width: Math.min(fieldWidth, width - x), height: Math.min(fieldHeight, height - y) };
-  const judgementRow = detectJudgementRow(full.map((image) => redRowOccupancy(image, roi)), roi.height);
-  if (judgementRow === null) return { reason: 'judgement' };
+  const rankingContext = {
+    edges, width: searchWidth, height: searchHeight, scale, lanes,
+  };
+  let lines = rankJudgementRows(full.map((image) => redRowOccupancy(image, roi)), roi, rankingContext);
+  // Dense chords hide a different piece of the line in each sample. Require
+  // repeated red at each pixel instead of lowering the line occupancy floor.
+  if (!lines.length) lines = rankJudgementRows([repeatedRedRowOccupancy(full, roi)], roi, rankingContext);
+  for (const line of lines) {
+    const measured = evaluateVisibleWindow(lanes, extent, roi, line.row, context);
+    if (measured.geometry) return { ...measured, lineScore: line.score };
+  }
+  return { reason: lines.length ? 'visible' : 'judgement' };
+};
+
+const evaluateVisibleWindow = (lanes, extent, roi, judgementRow, {
+  video, contentRect, grays, scale, searchWidth, searchHeight,
+}) => {
+  const ratio = 1 / scale;
   const judgementY = roi.y + judgementRow;
   if (judgementY < roi.y + roi.height * 0.18 || judgementY > roi.y + roi.height - 1) {
     return { reason: 'judgement' };
@@ -133,19 +144,51 @@ export const detectGeometryMultiFrame = async (video, { onProgress = () => {}, c
     throw new Error('공유 중인 화면을 재생한 뒤 다시 누르세요. 멈춘 화면으로는 측정할 수 없습니다.');
   }
 
-  const { full, grays, scale, searchWidth, searchHeight } = await sampleFrames(video, onProgress, contentRect);
-  const candidates = detectLaneColumnCandidates({
-    grays, width: searchWidth, height: searchHeight,
-    rowStart: Math.round(searchHeight * 0.35),
-    rowEnd: Math.round(searchHeight * 0.97),
+  const frames = await sampleFrames(video, onProgress, contentRect);
+  return detectGeometryFromFrames(frames, {
+    frameWidth: video.videoWidth, frameHeight: video.videoHeight, contentRect,
   });
-  if (!candidates.length) throw new Error('플레이필드를 찾지 못했습니다. 분석 영역을 직접 입력하세요.');
+};
+
+/** The same measurements for files, shared frames and offline regression tests. */
+export const detectGeometryFromFrames = (frames, {
+  frameWidth = frames.width, frameHeight = frames.height, contentRect = null,
+} = {}) => {
+  const { grays, searchWidth, searchHeight } = frames;
+  const median = medianStack(grays, searchWidth * searchHeight);
+  const edges = sobelXAbs(median, searchWidth, searchHeight);
+  const context = { ...frames, edges, contentRect, video: { videoWidth: frameWidth, videoHeight: frameHeight } };
   const failures = new Set();
-  for (const lanes of candidates) {
-    const measured = evaluateCandidate(lanes, { video, contentRect, width, height, full, grays, scale, searchWidth, searchHeight });
-    if (measured.geometry) return measured.geometry;
-    failures.add(measured.reason);
+  const usable = [];
+  // Preserve the usual search first. A lifted field above that band must also
+  // be considered, with the same grid, motion and full-resolution line checks.
+  for (const [from, to] of [[0.35, 0.97], [0.02, 0.55], [0.02, 0.35]]) {
+    const candidates = detectLaneColumnCandidates({
+      grays, width: searchWidth, height: searchHeight,
+      rowStart: Math.round(searchHeight * from), rowEnd: Math.round(searchHeight * to),
+    });
+    for (const lanes of candidates) {
+      const extents = detectVerticalExtents({
+        grays, width: searchWidth, height: searchHeight, median, edges, ...lanes,
+      });
+      if (!extents.length) failures.add('vertical');
+      for (const extent of extents) {
+        const measured = evaluateCandidate(lanes, extent, context);
+        if (measured.geometry) {
+          const geometry = measured.geometry;
+          // A narrow GREAT-text fragment can fit a grid and red edge. Prefer a
+          // candidate exposing enough lane length to actually read notes.
+          const readableSpan = (geometry.visibleBottomY - geometry.visibleTopY) / geometry.width;
+          usable.push({ geometry, score: lanes.score + measured.lineScore + 0.5 * Math.min(1, readableSpan) });
+        }
+        else failures.add(measured.reason);
+      }
+    }
   }
+  // A lower search window can fit the scratch/gauge as a false narrow grid.
+  // Compare every validated window before deciding the field and play side.
+  usable.sort((a, b) => b.score - a.score);
+  if (usable.length) return usable[0].geometry;
   if (failures.has('visible')) throw new Error('노트가 보이는 구간이 너무 좁습니다. 분석 영역을 확인하세요.');
   if (failures.has('judgement')) throw new Error('판정선을 찾지 못했습니다. 분석 영역을 확인하세요.');
   throw new Error('플레이필드의 세로 범위를 찾지 못했습니다. 분석 영역을 확인하세요.');

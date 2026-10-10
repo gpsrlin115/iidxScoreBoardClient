@@ -1,7 +1,7 @@
 import { createEventDetector } from './laneEvents.js';
 import { detectStableSegments } from './stableSegments.js';
 import { detectJudgementRow, redRowOccupancy } from './judgementLine.js';
-import { bandStrip, candidateBandsY, pickBand, scoreBand } from './analysisBands.js';
+import { analysisBandHeight, bandStrip, candidateBandsY, pickBand, scoreBand } from './analysisBands.js';
 import { summarizeCapture } from './captureQuality.js';
 
 // The note band is read every frame; the playfield's geometry is re-checked
@@ -40,14 +40,14 @@ const rowSignature = (image) => {
  * once — a frame held open keeps a decoder buffer from being reused.
  */
 export const createFrameAnalyzer = ({ height, fps, durationMs, geometry, clock = 'media', source = 'playback', onProgress }) => {
-  const bandHeight = Math.max(12, Math.round(geometry.height * 0.035));
+  const bandHeight = analysisBandHeight(geometry);
   if (geometry.laneCenters?.length !== 8 || geometry.laneWidths?.length !== 8) {
     // Refusing beats guessing. Falling back to eight equal bins is what made
     // the right of the field read a lane off, and it did so silently.
     throw new Error('레인 좌표가 없는 지오메트리로는 분석할 수 없습니다.');
   }
   const fieldHeight = Math.max(24, geometry.judgementY - geometry.y);
-  const bandsY = candidateBandsY(geometry);
+  const bandsY = candidateBandsY(geometry, bandHeight);
   // One strip spanning every band, drawn from the video frame once. Drawing
   // each band on its own copied the frame out of the decoder once per band,
   // and a worker that falls behind holds its frames open: the decoder runs out
