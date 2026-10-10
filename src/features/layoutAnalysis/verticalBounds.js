@@ -102,7 +102,12 @@ export const detectVisibleBounds = ({ grays, width, height, judgementRow, laneBo
     supported[row] = support[row] >= SUPPORT_SHARE && dark[row] >= DARK_SHARE ? 1 : 0;
   }
   const opened = morphOpen(supported, 5);
-  const found = runsOf(opened);
+  const components = runsOf(opened);
+  const longest = Math.max(0, ...components.map(([start, end]) => end - start));
+  // A cover illustration can leave a few accidental grid-like rows above the
+  // real field. Do not join those isolated fragments into a long clear window.
+  const minimumRun = Math.min(Math.max(5, Math.round(width * 0.12)), longest / 2);
+  const found = components.filter(([start, end]) => end - start >= minimumRun);
   if (found.length) {
     const top = found[0][0];
     const bottom = found[found.length - 1][1] - 1;
@@ -132,10 +137,10 @@ export const detectVisibleBounds = ({ grays, width, height, judgementRow, laneBo
   const threshold = Math.max(0.2, baseline + 0.2 * (upper - baseline));
   const active = new Uint8Array(height);
   for (let row = searchStart; row < searchEnd; row += 1) active[row] = blended[row] >= threshold ? 1 : 0;
-  const components = runsOf(morphOpen(active, Math.max(4, Math.round(height * 0.08))));
-  if (!components.length) return fallback;
+  const movingComponents = runsOf(morphOpen(active, Math.max(4, Math.round(height * 0.08))));
+  if (!movingComponents.length) return fallback;
 
-  const [start, end] = components.reduce((best, run) => (
+  const [start, end] = movingComponents.reduce((best, run) => (
     0.65 * (run[1] - run[0]) + 0.35 * run[1] > 0.65 * (best[1] - best[0]) + 0.35 * best[1] ? run : best
   ));
   const pad = Math.max(2, Math.round(height * 0.01));
