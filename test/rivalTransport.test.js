@@ -193,6 +193,12 @@ test('a 401 inside the bookmarklet popup clears the user without redirecting to 
     assert.equal(auth.getState().user, null);
     assert.deepEqual(navigations, [], 'the popup keeps its own sign-in notice');
 
+    globalThis.window = { location: { pathname: '/note-radar/import' } };
+    auth.getState().setUser({ id: 9 });
+    handleSessionExpired('/note-radar/imports/current', 'SITE_LOGIN_REQUIRED');
+    assert.equal(auth.getState().user, null);
+    assert.deepEqual(navigations, [], 'the radar relay keeps the original attempt recovery notice');
+
     // Control: the same 401 on the import screen still goes to /login.
     globalThis.window = { location: { pathname: '/import/csv' } };
     auth.getState().setUser({ id: 9 });
