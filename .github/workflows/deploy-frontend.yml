@@ -46,6 +46,7 @@ jobs:
       - name: Build OCI bundle
         env:
           VITE_ENABLE_LAYOUT_ANALYSIS: ${{ vars.VITE_ENABLE_LAYOUT_ANALYSIS || '0' }}
+          VITE_ENABLE_NOTE_RADAR: ${{ vars.VITE_ENABLE_NOTE_RADAR || '0' }}
         run: npm run build:oci
 
       - name: Validate static bundle

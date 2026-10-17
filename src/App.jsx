@@ -22,7 +22,7 @@ import ResetPasswordConfirm from './pages/ResetPasswordConfirm';
 import Ddr from './pages/Ddr';
 import GoogleSignup from './pages/GoogleSignup';
 import { RouteContentSpinner } from './components/common/Spinner';
-import { ENABLE_LAYOUT_ANALYSIS } from './config/features';
+import { ENABLE_LAYOUT_ANALYSIS, ENABLE_NOTE_RADAR } from './config/features';
 
 const Dashboard = lazy(() => import('./pages/Dashboard'));
 const Scores = lazy(() => import('./pages/Scores'));
@@ -34,6 +34,8 @@ const Profile = lazy(() => import('./pages/Profile'));
 const PublicTierTable = lazy(() => import('./pages/PublicTierTable'));
 const LayoutAnalysis = lazy(() => import('./pages/LayoutAnalysis'));
 const IidxLinkPopup = lazy(() => import('./pages/IidxLinkPopup'));
+const NoteRadar = lazy(() => import('./pages/NoteRadar'));
+const NoteRadarImport = lazy(() => import('./pages/NoteRadarImport'));
 
 /**
  * 🎓 학습 포인트: 중첩 라우트 (Nested Routes) 패턴
@@ -98,6 +100,7 @@ function AppRoutes() {
             </Suspense>
           }
         />
+        {ENABLE_NOTE_RADAR && <Route path="/note-radar/import" element={<Suspense fallback={<RouteContentSpinner />}><NoteRadarImport /></Suspense>} />}
         {/* 코나미 커맨드 이스터에그 도착지. 서버가 이 경로를 실제 418 상태로 응답합니다 */}
         <Route path={TEAPOT_PATH} element={<TeapotPage />} />
 
@@ -124,6 +127,7 @@ function AppRoutes() {
           <Route path="/import" element={<Navigate to="/import/csv" replace />} />
           <Route path="/import/csv" element={<CsvUpload />} />
           {ENABLE_LAYOUT_ANALYSIS && <Route path="/layout-analysis" element={<LayoutAnalysis />} />}
+          {ENABLE_NOTE_RADAR && <Route path="/note-radar" element={<NoteRadar />} />}
           <Route path="/profile" element={<Profile />} />
           <Route
             path="/admin/tier-table"

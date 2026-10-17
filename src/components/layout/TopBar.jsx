@@ -16,6 +16,7 @@ const routeLabel = (pathname) => {
   if (pathname.startsWith('/tier-table')) return 'tier table';
   if (pathname.startsWith('/import')) return 'import';
   if (pathname.startsWith('/layout-analysis')) return 'layout analysis';
+  if (pathname.startsWith('/note-radar')) return 'note radar · SP';
   if (pathname.startsWith('/profile')) return 'profile';
   if (pathname.startsWith('/admin')) return 'admin';
   return '';
