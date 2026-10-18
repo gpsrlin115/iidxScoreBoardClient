@@ -13,6 +13,7 @@ const SCOPED_LABELS = new Set(['dashboard', 'scores', 'tier table']);
 const routeLabel = (pathname) => {
   if (pathname === '/') return 'dashboard';
   if (pathname.startsWith('/scores')) return 'scores';
+  if (pathname.startsWith('/note-radar')) return 'note radar · SP';
   if (pathname.startsWith('/tier-table')) return 'tier table';
   if (pathname.startsWith('/import')) return 'import';
   if (pathname.startsWith('/layout-analysis')) return 'layout analysis';

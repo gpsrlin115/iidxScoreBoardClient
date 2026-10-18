@@ -5,6 +5,8 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "dev:radar": "VITE_ENABLE_NOTE_RADAR=1 VITE_NOTE_RADAR_MOCK=1 VITE_API_BASE_URL=/api vite --host 127.0.0.1",
+    "mock:radar": "node scripts/note-radar-mock.mjs",
     "build": "vite build",
     "build:oci": "VITE_API_BASE_URL=/api vite build",
     "lint": "eslint .",

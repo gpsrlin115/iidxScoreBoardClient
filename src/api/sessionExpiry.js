@@ -4,6 +4,7 @@ import { navigateTo } from '../utils/navigation';
 import { isGoogleCredentialRecheck } from '../utils/googleAuth';
 import { isSessionExpiryExempt } from '../utils/sessionExpiryExempt';
 import { LINK_PATH as LINK_POPUP_PATH } from '../features/rivalCrawler/bookmarklet';
+import { IMPORT_PATH as RADAR_POPUP_PATH } from '../features/noteRadar/import/protocol.js';
 
 /**
  * Global 401 handler.
@@ -33,7 +34,7 @@ export function handleSessionExpired(requestUrl, code) {
   // The bookmarklet popup shows its own sign-in notice once the user is cleared.
   // Sending it to /login would not help: a new login cannot resume the attempt
   // started on the original screen.
-  if (typeof window !== 'undefined' && window.location?.pathname === LINK_POPUP_PATH) {
+  if (typeof window !== 'undefined' && [LINK_POPUP_PATH, RADAR_POPUP_PATH].includes(window.location?.pathname)) {
     useAuthStore.getState().logout();
     return;
   }
