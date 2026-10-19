@@ -28,13 +28,15 @@ export function readRadarPayload(value) {
       || seen.has(item.category) || !radarValue(item.value)) return null;
     seen.add(item.category);
     if (!Array.isArray(item.entries) || item.entries.length > 10) return null;
-    const songs = new Set();
+    const chartKeys = new Set();
     for (const entry of item.entries) {
       if (!exact(entry, ['externalId', 'title', 'chartType', 'value']) || entry.externalId !== null
         || typeof entry.title !== 'string' || entry.title.length < 1 || entry.title.length > 512
         || entry.title.trim() !== entry.title || hasControlCharacter(entry.title)
-        || !CHARTS.has(entry.chartType) || !radarValue(entry.value) || songs.has(entry.title)) return null;
-      songs.add(entry.title);
+        || !CHARTS.has(entry.chartType) || !radarValue(entry.value)) return null;
+      const chartKey = JSON.stringify([entry.title, entry.chartType]);
+      if (chartKeys.has(chartKey)) return null;
+      chartKeys.add(chartKey);
     }
   }
   return value;

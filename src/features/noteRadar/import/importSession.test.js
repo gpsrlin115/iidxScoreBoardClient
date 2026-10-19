@@ -41,6 +41,20 @@ test('popup uses only existing expiring server attempt and reviews before one-sh
   assert.equal(h.phase(), 'done'); assert.equal(h.session.getSnapshot().payload, null);
 });
 
+test('same-title charts at different difficulties survive review and one-shot completion unchanged', async () => {
+  const h = setup();
+  await h.session.start();
+  const imported = message();
+  imported.payload.categories[0].entries.push({ ...imported.payload.categories[0].entries[0], chartType: 'HYPER', value: 130 });
+  h.send(imported);
+  assert.equal(h.phase(), 'reviewing');
+  assert.deepEqual(h.session.getSnapshot().payload, imported.payload);
+  await Promise.all([h.session.confirm(), h.session.confirm()]);
+  assert.equal(h.calls.length, 1);
+  assert.deepEqual(h.calls[0].slice(0, 2), [ATTEMPT, imported.payload]);
+  assert.equal(h.phase(), 'done');
+});
+
 test('no opener, absent attempts, malformed nonce, and expired attempts never send READY', async () => {
   const cases = [setup({ opener: null }), setup({ opener: { closed: true } }), setup({ current: () => Promise.resolve({ status: 'NONE' }) }),
     setup({ current: () => Promise.resolve({ ...pending(), attemptId: 'x' }) }),

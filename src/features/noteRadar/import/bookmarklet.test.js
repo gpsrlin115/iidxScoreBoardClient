@@ -11,6 +11,8 @@ import { ATTEMPT, FRONTEND, documentOf, payload, plain, profileHtml, radarHtml }
 const parse = (html) => runInNewContext(`(${PARSER_SOURCE})`)(documentOf(html));
 const tick = () => new Promise((resolve) => setImmediate(resolve));
 const ready = () => ({ type: 'IIDX_RADAR_READY', version: 1, attemptId: ATTEMPT });
+const sameTitleHtml = (chartType) => radarHtml().replace('<td>-</td><td>-</td><td>-</td>',
+  `<td>130.00</td><td><a class="music_info">Synthetic &amp; Test</a></td><td>SP ${chartType}</td>`);
 
 test('verified parser reads all six SP tables including hidden tabs and decodes titles', () => {
   assert.equal(PARSER_VERIFIED, true);
@@ -18,6 +20,23 @@ test('verified parser reads all six SP tables including hidden tabs and decodes 
   assert.deepEqual(actual, payload().categories);
   assert.equal(actual[0].entries[0].externalId, null, 'temporary index=0 is never used as a stable id');
   assert.ok(plain(parse(radarHtml({ empty: true }))).every((item) => item.value === 0 && item.entries.length === 0));
+});
+
+test('parser and receiver accept the same title at distinct SP chart types in one category', () => {
+  for (const chartType of ['BEGINNER', 'NORMAL', 'HYPER', 'LEGGENDARIA']) {
+    const categories = plain(parse(sameTitleHtml(chartType)));
+    assert.deepEqual(categories[0].entries, [payload().categories[0].entries[0],
+      { externalId: null, title: 'Synthetic & Test', chartType, value: 130 }]);
+    const imported = { ...payload(), categories };
+    assert.equal(readRadarMessage({ type: 'IIDX_RADAR_DATA', version: 1, attemptId: ATTEMPT, payload: imported }, ATTEMPT), imported);
+  }
+});
+
+test('parser and receiver still reject the same title and chart type even with a different value', () => {
+  assert.throws(() => parse(sameTitleHtml('ANOTHER')));
+  const duplicate = payload();
+  duplicate.categories[0].entries.push({ ...duplicate.categories[0].entries[0], value: 130 });
+  assert.equal(readRadarMessage({ type: 'IIDX_RADAR_DATA', version: 1, attemptId: ATTEMPT, payload: duplicate }, ATTEMPT), null);
 });
 
 test('missing categories, malformed rows, DP rows, duplicates, and unknown layout fail closed', () => {
@@ -28,7 +47,7 @@ test('missing categories, malformed rows, DP rows, duplicates, and unknown layou
     html.replace('SP ANOTHER', 'DP ANOTHER'),
     html.replace('140.00', '140.000'),
     html.replace('<th>楽曲名</th>', '<th>新しい列</th>'),
-    html.replace('<td>-</td><td>-</td><td>-</td>', '<td>100.00</td><td><a class="music_info">Synthetic &amp; Test</a></td><td>SP HYPER</td>'),
+    sameTitleHtml('ANOTHER'),
     '<div id="error-page"><div class="error_login"></div></div>',
   ];
   cases.forEach((item) => assert.throws(() => parse(item)));
@@ -84,6 +103,21 @@ test('exact bookmarklet source sends only bounded structured fields to the inten
   assert.equal(h.requests[0].options.redirect, 'error');
   assert.ok(!JSON.stringify(h.posted).includes('html'));
   assert.equal(h.alerts.length, 0);
+});
+
+test('the production bookmarklet preserves both difficulties of the same title in its received payload', async () => {
+  const h = run({ html: sameTitleHtml('HYPER') });
+  h.send();
+  await tick();
+  h.send();
+  assert.equal(h.alerts.length, 0);
+  assert.equal(h.posted.length, 1);
+  const received = readRadarMessage(h.posted[0].data, ATTEMPT);
+  assert.ok(received);
+  assert.deepEqual(received.categories[0].entries.map(({ title, chartType, value }) => ({ title, chartType, value })), [
+    { title: 'Synthetic & Test', chartType: 'ANOTHER', value: 140 },
+    { title: 'Synthetic & Test', chartType: 'HYPER', value: 130 },
+  ]);
 });
 
 test('wrong URLs, popup blocks, expired waits, and profile failures never send records', async () => {

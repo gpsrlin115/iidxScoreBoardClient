@@ -28,7 +28,7 @@ export const PARSER_SOURCE = `function (D) {
     for (var h = 0; h < 4; h++) if (text(headers[h]) !== expected[h]) fail();
     var rows = tables[0].querySelectorAll('table tr');
     var entries = [];
-    var titles = [];
+    var chartKeys = [];
     var rank = 0;
     var empty = false;
     for (var j = 0; j < rows.length; j++) {
@@ -42,8 +42,10 @@ export const PARSER_SOURCE = `function (D) {
       var chart = /^SP (BEGINNER|NORMAL|HYPER|ANOTHER|LEGGENDARIA)$/.exec(text(cells[3]));
       if (links.length !== 1 || !chart) fail();
       var title = text(links[0]);
-      if (!title || title.length > 512 || /[\\u0000-\\u001f\\u007f]/.test(title) || titles.indexOf(title) >= 0) fail();
-      titles.push(title);
+      if (!title || title.length > 512 || /[\\u0000-\\u001f\\u007f]/.test(title)) fail();
+      var chartKey = JSON.stringify([title, chart[1]]);
+      if (chartKeys.indexOf(chartKey) >= 0) fail();
+      chartKeys.push(chartKey);
       // The music_info index is temporary page state, never a chart identifier.
       entries.push({ externalId: null, title: title, chartType: chart[1], value: decimal(cells[1]) });
     }
