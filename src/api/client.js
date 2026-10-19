@@ -1,9 +1,13 @@
 import axios from 'axios';
 import { toAppError } from '../utils/httpError';
 import { handleSessionExpired } from './sessionExpiry';
+import { guardNoteRadarMockRequest, isNoteRadarMockError, noteRadarApiBaseURL, noteRadarMockEnabled,
+  noteRadarMockError, requireNoteRadarMockResponse } from './noteRadarMockGuard.js';
+
+const mockEnabled = noteRadarMockEnabled(import.meta.env);
 
 const apiClient = axios.create({
-  baseURL: import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080/api',
+  baseURL: noteRadarApiBaseURL(import.meta.env),
   withCredentials: true, // ⚠️ CRITICAL: Send cookies with every request
   // Content-Type은 인터셉터에서 요청 데이터 유형에 따라 자동 설정합니다.
   // FormData → multipart/form-data (boundary 포함, 브라우저/axios 자동 설정)
@@ -13,6 +17,7 @@ const apiClient = axios.create({
 // Request Interceptor - Content-Type 자동 설정 + CSRF 토큰 주입
 apiClient.interceptors.request.use(
   (config) => {
+    if (mockEnabled) guardNoteRadarMockRequest(config, typeof window === 'undefined' ? undefined : window.location?.origin);
     // 1. Content-Type 자동 설정
     //    FormData면 헤더를 삭제 → axios/브라우저가 multipart/form-data; boundary=... 를 자동으로 붙임
     //    그 외 body가 있는 요청이면 application/json 설정
@@ -40,8 +45,12 @@ apiClient.interceptors.request.use(
 
 // Response Interceptor for error handling
 apiClient.interceptors.response.use(
-  (response) => response,
+  (response) => mockEnabled ? requireNoteRadarMockResponse(response) : response,
   (error) => {
+    if (mockEnabled) {
+      const guarded = noteRadarMockError(error);
+      if (guarded !== error || isNoteRadarMockError(guarded)) return Promise.reject(guarded);
+    }
     error.appError = toAppError(error);
     if (error.appError.status === 401) {
       handleSessionExpired(error.config?.url, error.response?.data?.code);

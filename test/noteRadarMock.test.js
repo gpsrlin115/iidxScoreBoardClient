@@ -2,6 +2,8 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createNoteRadarMockServer } from '../scripts/note-radar-mock.mjs';
 import { CHARTS } from '../scripts/note-radar-mock-data.mjs';
+import { NOTE_RADAR_MOCK_PORT, NOTE_RADAR_MOCK_ORIGIN, NOTE_RADAR_MOCK_HEADER,
+  NOTE_RADAR_MOCK_IDENTITY } from '../scripts/note-radar-mock-contract.mjs';
 
 async function mock(t, scenario = 'normal') {
   const server = createNoteRadarMockServer({ scenario, delayMs: 60 });
@@ -179,6 +181,35 @@ test('mock control rejects unknown scenario and remote origins', async (t) => {
   const { request } = await mock(t);
   assert.equal((await request('/__mock/scenario', { method: 'POST', body: { scenario: 'invented' } })).status, 400);
   const denied = await request('/api/note-radar/me', { headers: { Origin: 'https://production.example' } });
+  assert.equal(denied.status, 403);
+  assert.equal((await denied.json()).code, 'MOCK_LOCAL_ONLY');
+});
+
+test('shared mock contract fixes the dedicated default port and exact identity marker', () => {
+  assert.equal(NOTE_RADAR_MOCK_PORT, 18084);
+  assert.equal(NOTE_RADAR_MOCK_ORIGIN, 'http://127.0.0.1:18084');
+  assert.equal(NOTE_RADAR_MOCK_HEADER, 'x-note-radar-mock');
+  assert.deepEqual(NOTE_RADAR_MOCK_IDENTITY, { service: 'iidx-note-radar-mock', version: 1 });
+});
+
+test('mock identity is exact, read-only, and available before disabled and signed-out gates', async (t) => {
+  const { request, scenarioTo } = await mock(t);
+  for (const scenario of ['normal', 'disabled', 'signed-out']) {
+    await scenarioTo(scenario);
+    const before = await (await request('/__mock/state')).json();
+    const response = await request('/__mock/identity');
+    assert.equal(response.status, 200, scenario);
+    assert.equal(response.headers.get(NOTE_RADAR_MOCK_HEADER), '1');
+    assert.equal(response.headers.get('cache-control'), 'no-store');
+    assert.deepEqual(await response.json(), { service: 'iidx-note-radar-mock', version: 1 });
+    const after = await (await request('/__mock/state')).json();
+    assert.deepEqual(after, before, `${scenario}: identity must not mutate state or record API activity`);
+  }
+});
+
+test('identity endpoint retains the local Origin restriction', async (t) => {
+  const { request } = await mock(t, 'disabled');
+  const denied = await request('/__mock/identity', { headers: { Origin: 'https://production.example' } });
   assert.equal(denied.status, 403);
   assert.equal((await denied.json()).code, 'MOCK_LOCAL_ONLY');
 });

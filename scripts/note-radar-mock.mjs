@@ -1,16 +1,17 @@
-// Explicit local mock only. Run: node scripts/note-radar-mock.mjs --port 8080
+// Explicit local mock only. Run: node scripts/note-radar-mock.mjs --port 18084
 import { createServer } from 'node:http';
 import { pathToFileURL } from 'node:url';
 import { randomUUID } from 'node:crypto';
 import { CHARTS, CATEGORIES, SCENARIOS, IIDX_ID, IMPORTED_AT, USER, initialGoals,
   summaryData, recommendationData, officialPayload, simulateData } from './note-radar-mock-data.mjs';
+import { NOTE_RADAR_MOCK_HEADER, NOTE_RADAR_MOCK_IDENTITY, NOTE_RADAR_MOCK_PORT } from './note-radar-mock-contract.mjs';
 
 const TOKEN = 'synthetic-note-radar-xsrf';
 const cookies = (req) => Object.fromEntries((req.headers.cookie ?? '').split(/;\s*/).filter(Boolean)
   .map((part) => { const i = part.indexOf('='); return [part.slice(0, i), part.slice(i + 1)]; }));
 const json = (res, status, body, headers = {}) => {
   res.writeHead(status, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store',
-    'X-Note-Radar-Mock': '1', ...headers });
+    [NOTE_RADAR_MOCK_HEADER]: '1', ...headers });
   res.end(status === 204 ? undefined : JSON.stringify(body));
 };
 const failure = (res, status, code, message) => json(res, status, { code, message });
@@ -49,6 +50,9 @@ export function createNoteRadarMockServer({ scenario = 'normal', delayMs = 1400 
         'Access-Control-Allow-Headers': 'Content-Type,X-XSRF-TOKEN,X-CSRF-TOKEN',
       });
       const url = new URL(req.url, 'http://127.0.0.1');
+      if (url.pathname === '/__mock/identity' && req.method === 'GET') {
+        return json(res, 200, NOTE_RADAR_MOCK_IDENTITY);
+      }
       const parts = [];
       let length = 0;
       for await (const part of req) {
@@ -179,7 +183,7 @@ export function createNoteRadarMockServer({ scenario = 'normal', delayMs = 1400 
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   const args = process.argv.slice(2);
-  const port = Number(args.includes('--port') ? args[args.indexOf('--port') + 1] : 8080);
+  const port = Number(args.includes('--port') ? args[args.indexOf('--port') + 1] : NOTE_RADAR_MOCK_PORT);
   const scenario = args.includes('--scenario') ? args[args.indexOf('--scenario') + 1] : 'normal';
   if (!Number.isInteger(port) || port < 1 || port > 65535) throw new Error('Invalid --port');
   createNoteRadarMockServer({ scenario }).listen(port, '127.0.0.1', () => {

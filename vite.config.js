@@ -1,9 +1,12 @@
 import { readFile } from 'node:fs/promises';
+import process from 'node:process';
 import { resolve } from 'node:path';
-import { defineConfig } from "vite";
+import { defineConfig, loadEnv } from "vite";
 import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
 import { TEAPOT_PATH } from './src/constants/teapot.js';
+import { NOTE_RADAR_MOCK_API_CONTEXT, NOTE_RADAR_MOCK_ORIGIN } from './scripts/note-radar-mock-contract.mjs';
+import { createNoteRadarMockProxyGuard } from './scripts/note-radar-mock-proxy.mjs';
 
 /**
  * Answers TEAPOT_PATH with a real `418 I'm a teapot` under `vite` and
@@ -59,24 +62,31 @@ const teapotStatus = () => {
 };
 
 // https://vite.dev/config/
-export default defineConfig({
-  plugins: [react(), tailwindcss(), teapotStatus()],
-  // Vite 8 raised the default 'baseline-widely-available' target to Chrome/Edge 111,
-  // Firefox 114 and Safari 16.4. Keep the Vite 7 baseline so the upgrade does not
-  // quietly drop browsers the app supports today.
-  build: { target: ['chrome107', 'edge107', 'firefox104', 'safari16'] },
-  worker: { format: 'es' },
-  server: {
-    allowedHosts: ['entryway-manhole-colony.ngrok-free.dev'],
-    proxy: {
-      '/api': {
-        target: 'http://localhost:8080',
-        changeOrigin: true,
-        headers: {
-          Origin: 'http://localhost:5173',
+export default defineConfig(({ command, mode, isPreview }) => {
+  const env = loadEnv(mode, process.cwd(), 'VITE_');
+  const mock = env.VITE_NOTE_RADAR_MOCK === '1';
+  if (mock && (command !== 'serve' || isPreview)) {
+    throw new Error('VITE_NOTE_RADAR_MOCK=1 is only supported by the Vite development server. Disable mock mode before build or preview.');
+  }
+  return {
+    plugins: [react(), tailwindcss(), teapotStatus(), ...(mock ? [createNoteRadarMockProxyGuard()] : [])],
+    // Vite 8 raised the default 'baseline-widely-available' target to Chrome/Edge 111,
+    // Firefox 114 and Safari 16.4. Keep the Vite 7 baseline so the upgrade does not
+    // quietly drop browsers the app supports today.
+    build: { target: ['chrome107', 'edge107', 'firefox104', 'safari16'] },
+    worker: { format: 'es' },
+    server: {
+      allowedHosts: ['entryway-manhole-colony.ngrok-free.dev'],
+      proxy: {
+        [mock ? NOTE_RADAR_MOCK_API_CONTEXT : '/api']: {
+          target: mock ? NOTE_RADAR_MOCK_ORIGIN : 'http://localhost:8080',
+          changeOrigin: true,
+          headers: {
+            Origin: 'http://localhost:5173',
+          },
+          secure: false,
         },
-        secure: false,
       },
     },
-  },
+  };
 });
