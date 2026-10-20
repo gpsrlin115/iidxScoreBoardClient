@@ -2,7 +2,10 @@ import { useCallback, useRef, useState } from 'react';
 import clsx from 'clsx';
 import { layoutAnalysisApi } from '../api/layoutAnalysis';
 import { GEOMETRY_SOURCE_LABEL } from '../features/layoutAnalysis/detector';
-import { detectGeometryMultiFrame } from '../features/layoutAnalysis/geometryPipeline';
+import { measureGeometryMultiFrame } from '../features/layoutAnalysis/geometryPipeline';
+import { judgeGeometry } from '../features/layoutAnalysis/geometryPlausibility';
+import { buildMeasurementEvidence, drawMeasurementPreview, packFrames } from '../features/layoutAnalysis/measurementEvidence';
+import { downloadDiagnostics } from '../features/layoutAnalysis/diagnosticsDownload';
 import { analysisStartSeconds } from '../features/layoutAnalysis/videoSampling';
 import { recognizeChartText } from '../features/layoutAnalysis/ocr';
 import { candidateKey, chartIdentity, SUPPORTED_DIFFICULTIES } from '../features/layoutAnalysis/candidates';
@@ -39,10 +42,15 @@ const LayoutAnalysis = () => {
   // capture. State rather than a ref: the result panel renders from it.
   const [keptNotes, setKeptNotes] = useState(null);
   const [actionNotice, setActionNotice] = useState('');
+  // What the last area measurement saw, for the diagnostics file.
+  const [measurement, setMeasurement] = useState(null);
+  // The doubtful geometry the viewer chose to analyse anyway. Held by identity:
+  // any edit, re-measurement or reset makes a new geometry and asks again.
+  const [acceptedGeometry, setAcceptedGeometry] = useState(null);
 
   const resetAnalysis = useCallback(
     () => {
-      resetAnalysisArtifacts({ setResult, setCandidates, setSelected, setKeptNotes });
+      resetAnalysisArtifacts({ setResult, setCandidates, setSelected, setKeptNotes, setMeasurement });
       setProgress(0);
       setOcr({ titles: [], difficulties: [] });
       setManualDifficulty('');
@@ -61,19 +69,43 @@ const LayoutAnalysis = () => {
   const { mode, youtube, captureReady, size, geometry, setGeometry, activeVideo,
     stopTab, fileRef, streamRef, mediaReady } = media;
   const busy = running || recognizing || detecting || media.connecting;
+  // Measured in the cropped video region when there is one, as the detector was.
+  const geometryDoubt = geometry && geometry.source !== 'browser-auto-fallback'
+    ? judgeGeometry(geometry, media.contentRect || size) : null;
+  const videoId = mode === 'youtube' ? youtube?.videoId ?? null : null;
 
   const findGeometry = async () => {
     if (!mediaReady) return;
     const current = media.sessionGuard();
     setDetecting(true);
     setActionNotice('');
+    setMeasurement(null);
     setStatus('여러 프레임에서 플레이필드와 판정선을 재는 중입니다…');
     try {
-      const measured = await detectGeometryMultiFrame(activeVideo(), { contentRect: media.contentRect,
+      const video = activeVideo();
+      const contentRect = media.contentRect;
+      const measured = await measureGeometryMultiFrame(video, { contentRect,
         onProgress: (ratio) => current() && setProgress(Math.round(ratio * 100)) });
       if (!current()) return;
-      setGeometry(measured);
-      setStatus('판정선과 노트가 보이는 구간까지 실측했습니다. 좌표를 확인하세요.');
+      if (measured.geometry) {
+        setGeometry(measured.geometry);
+        const doubt = judgeGeometry(measured.geometry, { width: measured.frames.width, height: measured.frames.height });
+        setStatus(doubt ? doubt.message : '판정선과 노트가 보이는 구간까지 실측했습니다. 좌표를 확인하세요.');
+      } else {
+        setStatus(measured.error);
+        setActionNotice(`영역 실측: ${measured.error}`);
+      }
+      // A failed measurement is kept too: its frames say why it failed.
+      try {
+        const evidence = buildMeasurementEvidence({
+          measured, packed: await packFrames(measured.frames), contentRect,
+          frameSize: { width: video.videoWidth, height: video.videoHeight },
+          preview: drawMeasurementPreview(measured, contentRect),
+        });
+        if (current()) setMeasurement(evidence);
+      } catch (error) {
+        if (current()) setActionNotice(`실측 진단 자료를 만들지 못했습니다: ${errorMessage(error)}`);
+      }
     } catch (error) {
       if (current()) { setStatus(errorMessage(error)); setActionNotice(`영역 실측: ${errorMessage(error)}`); }
     } finally {
@@ -139,6 +171,10 @@ const LayoutAnalysis = () => {
     }
     if (geometry.source === 'browser-auto-fallback') {
       setStatus('자동 검출하거나 좌표 하나를 수정해 플레이필드 영역을 확인하세요.');
+      return;
+    }
+    if (geometryDoubt && acceptedGeometry !== geometry) {
+      setStatus(`${geometryDoubt.message} 그래도 이 영역이 맞다면 오른쪽 “이 영역으로 분석”을 누르세요.`);
       return;
     }
     let source;
@@ -279,7 +315,8 @@ const LayoutAnalysis = () => {
           onRematch={rematchSuggested}
           busy={running}
           observedNotes={keptNotes}
-          videoId={mode === 'youtube' ? youtube?.videoId ?? null : null}
+          videoId={videoId}
+          measurement={measurement}
         />
       </section>
 
@@ -290,7 +327,18 @@ const LayoutAnalysis = () => {
           {GEOMETRY_SOURCE_LABEL[geometry.source] || geometry.source}
         </p>}
         <GeometryFields geometry={geometry} size={size} onChange={setGeometry} disabled={busy} />
-        <div className="mt-4 border-l-2 border-accent bg-night p-3 text-[11px] leading-relaxed text-muted">서버 요청에는 영상·Blob·이미지가 포함되지 않습니다. YouTube 공유 트랙은 완료·취소·화면 전환 시 정지됩니다.</div>
+        {geometryDoubt && <div role="alert" className="mt-4 border-l-2 border-danger bg-night p-3 text-[11px] leading-relaxed text-danger">
+          <p>{geometryDoubt.message}</p>
+          {acceptedGeometry === geometry
+            ? <p className="mt-2 text-muted">이 영역으로 분석하기로 했습니다. 좌표를 바꾸면 다시 확인합니다.</p>
+            : <div className="mt-2 flex flex-wrap gap-2">
+              <button className={buttonClass} type="button" onClick={findGeometry} disabled={!mediaReady || busy}>다시 실측</button>
+              <button className={buttonClass} type="button" onClick={() => setAcceptedGeometry(geometry)} disabled={busy}>이 영역으로 분석</button>
+            </div>}
+        </div>}
+        {measurement && <button className={clsx(buttonClass, 'mt-4 w-full')} type="button" disabled={detecting}
+          onClick={() => downloadDiagnostics({ videoId, measurement })}>실측 진단 저장 (실측 프레임 7장 포함)</button>}
+        <div className="mt-4 border-l-2 border-accent bg-night p-3 text-[11px] leading-relaxed text-muted">서버 요청에는 영상·Blob·이미지가 포함되지 않습니다. 진단 자료 파일에만 실측 프레임 7장이 들어가며 이 파일은 내 컴퓨터에 저장됩니다. YouTube 공유 트랙은 완료·취소·화면 전환 시 정지됩니다.</div>
       </aside>
     </div>
   );

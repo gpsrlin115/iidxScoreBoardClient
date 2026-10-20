@@ -196,14 +196,23 @@ export const extractionAdvice = (diagnostics) => {
   return null;
 };
 
-/** The capture and the answer, as one file to hand over when reporting this. */
-export const buildDiagnosticsFile = ({ result, observedNotes, videoId = null }) => ({
+/**
+ * The capture and the answer, as one file to hand over when reporting this.
+ *
+ * A measurement can be saved before any capture exists: the area check stops
+ * a doubtful one ahead of the analysis, and that is when its frames matter.
+ */
+export const buildDiagnosticsFile = ({ result = null, observedNotes = null, videoId = null, measurement = null }) => ({
   name: `layout-analysis-${new Date().toISOString().slice(0, 19).replace(/[-:T]/g, '')}.json`,
   json: JSON.stringify({
     savedAt: new Date().toISOString(),
     videoId,
-    // No frames and no video — the same time-and-lane events that were sent.
+    // The same time-and-lane events that were sent; never the video.
     observedNotes,
     result,
+    // The area measurement's seven frames and candidates, so a wrong field can
+    // be replayed offline (scripts/layout-analysis/replay_measurement.mjs).
+    // They stay in this local file; the server never receives them.
+    ...(measurement ? { measurement } : {}),
   }, null, 2),
 });

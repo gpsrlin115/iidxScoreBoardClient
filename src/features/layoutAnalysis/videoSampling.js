@@ -47,13 +47,19 @@ export const analysisStartSeconds = (video) => (
  * only be watched as it plays. Reading whatever frame happens to be on screen
  * is what made both the area measurement and the title reading depend on the
  * viewer scrubbing to the right moment first.
+ *
+ * Answers with how the frames were taken, for a report to say: a live capture's
+ * samples are seconds apart at most, a recording's are spread across it.
  */
 export const sampleAcross = async (video, samples, take, { spacingMs = 320 } = {}) => {
   const track = video.srcObject?.getVideoTracks?.()[0];
   if (track) {
-    return sampleLiveFrames(track, samples, take, {
+    await sampleLiveFrames(track, samples, take, {
       spacingMs, width: video.videoWidth, height: video.videoHeight,
     });
+    // Without a track processor the share is recorded first and then decoded.
+    const kind = typeof globalThis.MediaStreamTrackProcessor === 'function' ? 'live-stream' : 'live-recording';
+    return { kind, samples, spacingMs };
   }
   const times = isSeekable(video) ? searchTimesSeconds(video.duration, samples) : null;
   const resume = { time: video.currentTime, paused: video.paused };
@@ -69,4 +75,5 @@ export const sampleAcross = async (video, samples, take, { spacingMs = 320 } = {
       if (!resume.paused) video.play().catch(() => {});
     }
   }
+  return times ? { kind: 'seek', samples, timesSec: times } : { kind: 'playback', samples, spacingMs };
 };

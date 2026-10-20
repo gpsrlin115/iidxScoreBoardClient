@@ -73,6 +73,19 @@ test('the handover file carries the events and the answer, never the video', () 
   assert.equal(saved.result.status, 'AMBIGUOUS');
   assert.equal(saved.observedNotes.events.length, 1);
   assert.doesNotMatch(file.json, /frame|blob|image|video(?!Id)/i);
+  assert.equal('measurement' in saved, false);
+});
+
+test('a measurement saved on its own still makes a handover file', () => {
+  // The area check stops a doubtful measurement before any capture exists,
+  // which is exactly when its frames are wanted.
+  const measurement = { schemaVersion: 'geometry-measurement-v1', chosen: null, error: '판정선을 찾지 못했습니다.' };
+  const saved = JSON.parse(buildDiagnosticsFile({ videoId: '0NSpgvmZALw', measurement }).json);
+
+  assert.deepEqual(saved.measurement, measurement);
+  assert.equal(saved.observedNotes, null);
+  assert.equal(saved.result, null);
+  assert.equal(saved.videoId, '0NSpgvmZALw');
 });
 
 /** Frame times of a 60fps capture, keeping those `keep` lets through. */

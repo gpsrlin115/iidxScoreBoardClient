@@ -67,6 +67,8 @@ test('a re-match moves the selection to the chart the server compared', () => {
 
 test('starting a new video drops the events kept for a re-match', () => {
   // They survive a completed analysis on purpose, so nothing else clears them.
+  // The area measurement likewise outlives the analysis so its frames can be
+  // saved with the answer, and must not reach the next video's file.
   const cleared = [];
 
   resetAnalysisArtifacts({
@@ -74,9 +76,12 @@ test('starting a new video drops the events kept for a re-match', () => {
     setCandidates: (value) => cleared.push(['candidates', value]),
     setSelected: (value) => cleared.push(['selected', value]),
     setKeptNotes: (value) => cleared.push(['keptNotes', value]),
+    setMeasurement: (value) => cleared.push(['measurement', value]),
   });
 
-  assert.deepEqual(cleared, [['result', null], ['candidates', []], ['selected', null], ['keptNotes', null]]);
+  assert.deepEqual(cleared, [
+    ['result', null], ['candidates', []], ['selected', null], ['keptNotes', null], ['measurement', null],
+  ]);
 });
 
 test('the play side is read from the top level of the answer', () => {

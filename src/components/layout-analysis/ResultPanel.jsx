@@ -1,6 +1,7 @@
 import clsx from 'clsx';
 import { interpretMatch } from '../../features/layoutAnalysis/matchResult';
-import { buildDiagnosticsFile, captureLine, describeCapture, describeExtraction, extractionAdvice } from '../../features/layoutAnalysis/extractionReport';
+import { captureLine, describeCapture, describeExtraction, extractionAdvice } from '../../features/layoutAnalysis/extractionReport';
+import { downloadDiagnostics } from '../../features/layoutAnalysis/diagnosticsDownload';
 
 const TONE_CLASS = {
   success: 'text-accent',
@@ -11,18 +12,7 @@ const TONE_CLASS = {
 
 const buttonClass = 'border border-line-strong px-3 py-2 text-xs text-text2 transition hover:border-accent hover:text-ink disabled:cursor-not-allowed disabled:opacity-40';
 
-/** Hands over the capture and the answer, so a failure can be re-run offline. */
-const saveDiagnostics = ({ result, observedNotes, videoId }) => {
-  const { name, json } = buildDiagnosticsFile({ result, observedNotes, videoId });
-  const url = URL.createObjectURL(new Blob([json], { type: 'application/json' }));
-  const link = document.createElement('a');
-  link.href = url;
-  link.download = name;
-  link.click();
-  URL.revokeObjectURL(url);
-};
-
-const ResultPanel = ({ result, canRematch, onRematch, busy, observedNotes = null, videoId = null }) => {
+const ResultPanel = ({ result, canRematch, onRematch, busy, observedNotes = null, videoId = null, measurement = null }) => {
   if (!result) return null;
   const { tone, message, confirmed, verified, suggestedTextageChartKey, side } = interpretMatch(result);
   // Only when something went wrong. A finished analysis does not need its
@@ -75,8 +65,8 @@ const ResultPanel = ({ result, canRematch, onRematch, busy, observedNotes = null
           {advice && <p className="mt-3 text-xs text-info">{advice}</p>}
           {observedNotes && (
             <button className={clsx(buttonClass, 'mt-3')} type="button"
-              onClick={() => saveDiagnostics({ result, observedNotes, videoId })}>
-              진단 자료 저장 (영상 없이 이벤트·좌표만)
+              onClick={() => downloadDiagnostics({ result, observedNotes, videoId, measurement })}>
+              {measurement ? '진단 자료 저장 (이벤트·좌표·실측 프레임 7장)' : '진단 자료 저장 (영상 없이 이벤트·좌표만)'}
             </button>
           )}
         </div>

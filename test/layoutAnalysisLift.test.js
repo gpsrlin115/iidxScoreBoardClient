@@ -6,6 +6,7 @@ import { toGray } from '../src/features/layoutAnalysis/imageOps.js';
 import { detectVerticalExtent } from '../src/features/layoutAnalysis/roiVertical.js';
 import { bandStrip, candidateBandsY } from '../src/features/layoutAnalysis/analysisBands.js';
 import { createFrameAnalyzer } from '../src/features/layoutAnalysis/frameAnalysis.js';
+import { judgeGeometry } from '../src/features/layoutAnalysis/geometryPlausibility.js';
 
 const edgesOf = (widths) => widths.reduce((edges, width) => [...edges, edges.at(-1) + width], [0]);
 
@@ -96,6 +97,8 @@ for (const [width, height] of [[1280, 720], [1920, 1080]]) {
       assert.ok(Math.abs(geometry.judgementY - height * 0.23) <= 3, `line ${geometry.judgementY}`);
       assert.ok(geometry.visibleTopY >= Math.round(height * options.top) - 3);
       assert.ok(geometry.visibleBottomY < geometry.judgementY);
+      // The smallest real window the area check was set from; it must pass.
+      assert.equal(judgeGeometry(geometry, { width, height }), null);
       const sanitized = sanitizeGeometry(geometry, width, height);
       assert.equal(sanitized.judgementY, geometry.judgementY);
       const bandsY = candidateBandsY(sanitized);
@@ -119,6 +122,7 @@ test('LIFT plus SUDDEN+ confines extraction to the short uncovered window', () =
   assert.ok(geometry.visibleTopY >= 213, `cover bottom ${geometry.visibleTopY}`);
   assert.ok(Math.abs(geometry.judgementY - 338) <= 3, `line ${geometry.judgementY}`);
   assert.ok(geometry.analysisY > geometry.visibleTopY && geometry.analysisY < geometry.visibleBottomY);
+  assert.equal(judgeGeometry(geometry, { width, height }), null);
 });
 
 test('normal and low-LIFT geometry still finds the actual judgement line', () => {

@@ -5,10 +5,13 @@ import { detectLaneColumnCandidates } from './laneColumns.js';
 import { detectVerticalExtents } from './roiVertical.js';
 import { detectVisibleBounds } from './verticalBounds.js';
 import { defaultGeometry } from './detector.js';
+import { MIN_READABLE_SHARE, readableShare } from './geometryPlausibility.js';
 import { isSeekable, sampleAcross } from './videoSampling.js';
 
 // Enough samples for a percentile to mean something.
 const SAMPLES = 7;
+// How many of the validated candidates a measurement report lists.
+const REPORTED_CANDIDATES = 8;
 // The grid search runs downscaled; the red line does not. See sampleFrames.
 const SEARCH_WIDTH = 960;
 
@@ -38,7 +41,7 @@ const sampleFrames = async (video, onProgress, contentRect) => {
   const searchHeight = Math.round(height * scale);
   const full = [];
   const grays = [];
-  await sampleAcross(video, SAMPLES, (index, frame) => {
+  const sampling = await sampleAcross(video, SAMPLES, (index, frame) => {
     // Two views of the same frame. The lane grid is found on a downscaled copy
     // because the search is quadratic in candidate columns. The judgement line
     // is read at capture resolution: it is one to three pixels tall, and
@@ -48,7 +51,7 @@ const sampleFrames = async (video, onProgress, contentRect) => {
     grays.push(toGray(drawTo(frame, searchWidth, searchHeight, contentRect)));
     onProgress((index + 1) / SAMPLES);
   });
-  return { full, grays, scale, searchWidth, searchHeight, width, height };
+  return { full, grays, scale, searchWidth, searchHeight, width, height, sampling };
 };
 
 const cropStack = (grays, width, roi) => grays.map((gray) => {
@@ -133,8 +136,12 @@ const evaluateVisibleWindow = (lanes, extent, roi, judgementRow, {
  * The judgement line is where it matters: it sits near y+96% of the field on a
  * normal capture but at 382, 388 or 404 in arena modes, and the analysis band
  * is positioned from it. A fixed fraction reads the wrong rows there.
+ *
+ * Answers with the whole report and the sampled frames rather than a geometry
+ * or an error, so what the measurement saw can be kept even when it finds
+ * nothing — that is when it is needed most.
  */
-export const detectGeometryMultiFrame = async (video, { onProgress = () => {}, contentRect = null } = {}) => {
+export const measureGeometryMultiFrame = async (video, { onProgress = () => {}, contentRect = null } = {}) => {
   const width = contentRect?.width ?? video.videoWidth;
   const height = contentRect?.height ?? video.videoHeight;
   if (!width || !height) throw new Error('영상 프레임을 아직 읽을 수 없습니다.');
@@ -145,13 +152,38 @@ export const detectGeometryMultiFrame = async (video, { onProgress = () => {}, c
   }
 
   const frames = await sampleFrames(video, onProgress, contentRect);
-  return detectGeometryFromFrames(frames, {
+  const report = measureGeometryFromFrames(frames, {
     frameWidth: video.videoWidth, frameHeight: video.videoHeight, contentRect,
   });
+  return { ...report, frames };
 };
 
-/** The same measurements for files, shared frames and offline regression tests. */
-export const detectGeometryFromFrames = (frames, {
+const round = (value, digits = 4) => (Number.isFinite(value) ? Number(value.toFixed(digits)) : value);
+
+/** One validated candidate as a report lists it: where it is and why it ranked there. */
+const describeCandidate = ({ geometry, score, parts, share, plausible }) => ({
+  x: geometry.x, y: geometry.y, width: geometry.width, height: geometry.height,
+  judgementY: geometry.judgementY, visibleTopY: geometry.visibleTopY, visibleBottomY: geometry.visibleBottomY,
+  side: geometry.side, confidence: geometry.confidence,
+  score: round(score), laneScore: round(parts.lanes), lineScore: round(parts.line), spanBonus: round(parts.span),
+  readableShare: round(share, 5), plausible,
+});
+
+/**
+ * Validated candidates in the order they are trusted.
+ *
+ * One with too little lane to read wins only when nothing else validated: the
+ * R5 fragment shows a piece of the field can outscore nothing at all, and a
+ * report should still name a geometry when every candidate is doubtful.
+ */
+export const rankCandidates = (usable) => [...usable]
+  .sort((a, b) => (Number(b.plausible) - Number(a.plausible)) || (b.score - a.score));
+
+/**
+ * The same measurements for files, shared frames and offline regression tests,
+ * with every validated candidate and every reason one was turned away.
+ */
+export const measureGeometryFromFrames = (frames, {
   frameWidth = frames.width, frameHeight = frames.height, contentRect = null,
 } = {}) => {
   const { grays, searchWidth, searchHeight } = frames;
@@ -179,7 +211,15 @@ export const detectGeometryFromFrames = (frames, {
           // A narrow GREAT-text fragment can fit a grid and red edge. Prefer a
           // candidate exposing enough lane length to actually read notes.
           const readableSpan = (geometry.visibleBottomY - geometry.visibleTopY) / geometry.width;
-          usable.push({ geometry, score: lanes.score + measured.lineScore + 0.5 * Math.min(1, readableSpan) });
+          const parts = { lanes: lanes.score, line: measured.lineScore, span: 0.5 * Math.min(1, readableSpan) };
+          // The frames are the measured area, so their size is what the
+          // readable share is taken against.
+          const share = readableShare(geometry, frames.width, frames.height);
+          usable.push({
+            geometry, parts, share,
+            score: parts.lanes + parts.line + parts.span,
+            plausible: share >= MIN_READABLE_SHARE,
+          });
         }
         else failures.add(measured.reason);
       }
@@ -187,9 +227,24 @@ export const detectGeometryFromFrames = (frames, {
   }
   // A lower search window can fit the scratch/gauge as a false narrow grid.
   // Compare every validated window before deciding the field and play side.
-  usable.sort((a, b) => b.score - a.score);
-  if (usable.length) return usable[0].geometry;
-  if (failures.has('visible')) throw new Error('노트가 보이는 구간이 너무 좁습니다. 분석 영역을 확인하세요.');
-  if (failures.has('judgement')) throw new Error('판정선을 찾지 못했습니다. 분석 영역을 확인하세요.');
-  throw new Error('플레이필드의 세로 범위를 찾지 못했습니다. 분석 영역을 확인하세요.');
+  const ranked = rankCandidates(usable);
+  let error = null;
+  if (!ranked.length) {
+    if (failures.has('visible')) error = '노트가 보이는 구간이 너무 좁습니다. 분석 영역을 확인하세요.';
+    else if (failures.has('judgement')) error = '판정선을 찾지 못했습니다. 분석 영역을 확인하세요.';
+    else error = '플레이필드의 세로 범위를 찾지 못했습니다. 분석 영역을 확인하세요.';
+  }
+  return {
+    geometry: ranked[0]?.geometry ?? null,
+    candidates: ranked.slice(0, REPORTED_CANDIDATES).map(describeCandidate),
+    failures: [...failures],
+    error,
+  };
+};
+
+/** The chosen geometry alone, throwing what the report would have said. */
+export const detectGeometryFromFrames = (frames, options) => {
+  const { geometry, error } = measureGeometryFromFrames(frames, options);
+  if (!geometry) throw new Error(error);
+  return geometry;
 };
