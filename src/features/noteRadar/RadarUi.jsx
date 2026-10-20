@@ -28,7 +28,7 @@ export function SimulationResult({ result }) {
       <span className="font-mono text-xs text-muted">{categoryLabel(item.category)}</span>
       <p className="font-num mt-1 text-lg text-ink">{item.blocked || item.complete === false ? '계산 보류' : <>{decimal(item.after)} <span className="text-sm text-accent">평균 {signed(item.gain)}</span></>}</p>
       <p className="text-xs text-muted">현재 {decimal(item.before)}{item.displacedTitle && ` · 교체 ${item.displacedTitle}`}</p>
-      {(item.blocked || item.complete === false) && <p className="mt-1 text-xs text-amber-200">{item.message ?? item.reason ?? '공식 집계곡 또는 기준 데이터를 확인해야 합니다.'}</p>}
+      {(item.blocked || item.complete === false) && <p className="mt-1 text-xs text-amber-200">{item.message ?? item.reason ?? '공식 집계 규칙 또는 기준 데이터를 확인해야 합니다.'}</p>}
     </div>)}</div>
     <RadarIssues issues={result.issues} />
   </div>;

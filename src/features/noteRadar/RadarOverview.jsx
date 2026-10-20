@@ -1,5 +1,5 @@
 import { CATEGORIES, CATEGORY_DESCRIPTIONS, categoryLabel, dateLabel, decimal, signed, finiteNumber } from './model.js';
-import { RadarButton } from './RadarUi';
+import { RadarButton, RadarIssues } from './RadarUi';
 
 const point = (index, radius) => {
   const angle = (-90 + index * 60) * Math.PI / 180;
@@ -44,7 +44,7 @@ export default function RadarOverview({ summary, previews, selectedCategory, onS
       <div className="flex items-start justify-between gap-3"><div><h3 className="font-mono text-sm text-ink">{categoryLabel(item.category)}</h3><p className="mt-1 text-xs text-muted">{CATEGORY_DESCRIPTIONS[item.category]}</p></div><span className="text-xs text-accent">{item.title}</span></div>
       <p className="font-num text-3xl text-ink">{decimal(item.current)} {item.delta !== null && <span className="text-xs text-accent">{signed(item.delta)}</span>}</p>
       <p className="text-xs text-muted">{item.current == null ? '현재 수치 확인 필요' : item.nextThreshold != null ? `다음 칭호까지 ${decimal(Math.max(0, item.nextThreshold - item.current))}` : '최고 칭호 · 추가 상승에 도전하세요'}</p>
-      <div className="min-h-16 flex-1 text-xs text-muted">{!item.complete || summary.catalog?.available === false ? <p>계산 보류 · 공식 집계곡을 모두 확인한 뒤 추천합니다.</p> : previews[item.category]?.loading ? <p role="status">추천곡 계산 중…</p> : previews[item.category]?.error ? <p>추천을 가져오지 못했습니다.</p> : previews[item.category]?.data?.recommendations?.length ? <ol className="space-y-2">{previews[item.category].data.recommendations.slice(0, 3).map((song) => <li key={song.chartId} className="flex justify-between gap-2"><span className="truncate">{song.title}</span><span className="shrink-0 text-accent">{signed(song.gain)}</span></li>)}</ol> : <p>기록이 부족하면 목표 점수를 직접 입력해 탐색할 수 있습니다.</p>}</div>
+      <div className="min-h-16 flex-1 text-xs text-muted">{!item.complete || summary.catalog?.available === false ? <div className="space-y-2"><p>계산 보류 · 공식 집계 규칙 또는 기준 데이터를 확인해야 합니다.</p><RadarIssues issues={item.issues} /></div> : previews[item.category]?.loading ? <p role="status">추천곡 계산 중…</p> : previews[item.category]?.error ? <p>추천을 가져오지 못했습니다.</p> : previews[item.category]?.data?.recommendations?.length ? <ol className="space-y-2">{previews[item.category].data.recommendations.slice(0, 3).map((song) => <li key={song.chartId} className="flex justify-between gap-2"><span className="truncate">{song.title}</span><span className="shrink-0 text-accent">{signed(song.gain)}</span></li>)}</ol> : <p>기록이 부족하면 목표 점수를 직접 입력해 탐색할 수 있습니다.</p>}</div>
       {previews[item.category]?.error && <RadarButton onClick={() => onRetry?.(item.category)}>추천 다시 시도</RadarButton>}
       <div className="grid grid-cols-2 gap-2"><RadarButton onClick={() => onSelect(item.category, 'recommendations')}>추천곡 보기</RadarButton><RadarButton onClick={() => onSelect(item.category, 'top10')}>현재 집계곡 보기</RadarButton></div>
     </article>)}</div>

@@ -61,7 +61,7 @@ export default function RadarCategory({ category, tab, onTabChange, onSelect, pr
           <label className="grid gap-1 text-xs text-muted">내 기록<select value={activeFilters.record} onChange={(event) => change('record', event.target.value)} className={radarInput}><option value="">전체</option><option value="present">기록 있음</option><option value="absent">기록 없음</option></select></label>
         </div>
         <p className="text-xs leading-5 text-muted">추천 목표 달성 시 평균 상승량 내림차순입니다. 공식 반영 전 추정값이며 공식 현재값은 재가져오기 후 바뀝니다.</p>
-        {!category.complete || !catalogAvailable ? <p role="status" className="rounded border border-amber-300/30 p-4 text-sm text-amber-100">계산 보류 · {!catalogAvailable ? '검증된 기준 데이터가 준비되지 않았습니다.' : '일부 공식 집계곡의 채보를 확인해야 합니다.'} 현재 TOP10은 계속 볼 수 있습니다.</p> : <>
+        {!category.complete || !catalogAvailable ? <p role="status" className="rounded border border-amber-300/30 p-4 text-sm text-amber-100">계산 보류 · {!catalogAvailable ? '검증된 기준 데이터가 준비되지 않았습니다.' : '공식 집계 규칙 또는 기준 데이터를 확인해야 합니다.'} 현재 TOP10은 계속 볼 수 있습니다.</p> : <>
           {result.loading && <p role="status" className="p-4 text-sm text-muted">추천곡을 계산하고 있습니다…</p>}
           <RadarError error={result.error} onRetry={() => setRetry((value) => value + 1)} />
           <RadarIssues issues={result.data?.issues} />
