@@ -12,7 +12,7 @@
 
 | 파일 | 하는 일 |
 |---|---|
-| `server.mjs` | `dist/`를 서빙하고, `index.html` 머리에 `probe.js`를 끼워 넣는다. `/api/*`는 `--mode old\|new`에 따라 구 서버나 새 서버 모양으로 답한다 |
+| `server.mjs` | `dist/`를 서빙하고, `index.html` 머리에 `probe.js`를 끼워 넣는다. `/api/*`는 `--mode old\|new`에 따라 구 서버나 새 서버 모양으로 답한다. `--perf 1`이면 탐침을 넣지 않고 운영 Caddyfile과 같은 캐시 헤더와 gzip으로 내보낸다(`npm run perf`가 쓴다) |
 | `probe.js` | 앱보다 먼저 실행되는 탐침. 주소의 `?probe=<종류>:<인자>`대로 업로드·PNG 저장 같은 조작을 대신하고, 결과를 `window.__probe`에 남긴다. 앱 코드는 건드리지 않는다 |
 | `start.sh` / `stop.sh` | 가짜 서버 3개를 켠다 / `start.sh`가 기록한 PID로 끈다 |
 | `make_jobs.py` | 브라우저별 작업 목록 `jobs-chrome.json`(48건), `jobs-firefox.json`(35건)을 만든다 |

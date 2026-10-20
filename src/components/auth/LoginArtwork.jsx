@@ -5,12 +5,24 @@
  * gradient so the text block on the left stays legible. Narrow screens fall
  * back to a smaller, fainter version so the art doesn't crowd the form.
  *
- * index.html preloads this exact path for /login — keep it in sync.
+ * index.html preloads this image for /login with the same srcset/sizes —
+ * keep the two in sync, or the browser preloads one file and renders another.
+ *
+ * The art is sized by viewport height, so `sizes` is that height times the
+ * 941/1672 aspect ratio: 46vh -> 26vh, 85vh -> 48vh, 112vh -> 63vh. Phones
+ * pick the 480w file (71KB) instead of the full 941w one (186KB) that
+ * Lighthouse flagged as oversized for a ~213px-wide, 14%-opacity backdrop.
  */
+const LOGIN_ART_SRCSET =
+  '/assets/login-character-v1-480.webp 480w, /assets/login-character-v1.webp 941w';
+const LOGIN_ART_SIZES = '(min-width: 1024px) 63vh, (min-width: 640px) 48vh, 26vh';
+
 const LoginArtwork = () => (
   <div className="pointer-events-none absolute inset-0 overflow-hidden" aria-hidden="true">
     <img
       src="/assets/login-character-v1.webp"
+      srcSet={LOGIN_ART_SRCSET}
+      sizes={LOGIN_ART_SIZES}
       alt=""
       width="941"
       height="1672"

@@ -14,11 +14,11 @@ import apiClient from './client';
  *   → GET /api/scores?level=12  (전체 플레이스타일, 전체 클리어타입)
  */
 export const scoresApi = {
-  getScores: async (params = {}) => {
+  getScores: async (params = {}, { timeout } = {}) => {
     const cleanParams = Object.fromEntries(
       Object.entries(params).filter(([, v]) => v !== '' && v !== null && v !== undefined)
     );
-    const response = await apiClient.get('/scores', { params: cleanParams });
+    const response = await apiClient.get('/scores', { params: cleanParams, timeout });
     return response.data;
   },
 };

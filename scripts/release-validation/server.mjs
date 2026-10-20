@@ -1,7 +1,12 @@
 // Release-validation harness: serves a built dist/ with an injected probe script
 // and answers /api with fake responses shaped like server main (old) or dev (new).
-// Usage: node server.mjs --dist <dir> --port <n> --mode old|new --log <file>
+// Usage: node server.mjs --dist <dir> --port <n> --mode old|new --log <file> [--perf 1]
+//
+// --perf 1 is for Lighthouse runs (scripts/perf-lighthouse.mjs): no probe is
+// injected, and static files get the production Caddyfile's cache headers and
+// gzip instead of no-store, so timings are not skewed by the harness itself.
 import { createServer } from 'node:http';
+import { gzipSync } from 'node:zlib';
 import { readFileSync, existsSync, statSync, appendFileSync } from 'node:fs';
 import { join, extname, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -13,6 +18,7 @@ const DIST = args.dist;
 const PORT = Number(args.port);
 const MODE = args.mode; // 'old' | 'new'
 const LOG = args.log;
+const PERF = args.perf === '1';
 const HERE = dirname(fileURLToPath(import.meta.url));
 if (!DIST || !PORT || !['old', 'new'].includes(MODE)) throw new Error('bad args');
 
@@ -148,6 +154,14 @@ const api = (req, res, url, body) => {
   return json(res, 404, { status: 404, message: 'not faked' });
 };
 
+// Caddy's `encode zstd gzip` compresses text responses; gzip stands in for it.
+const COMPRESSIBLE = /^(text\/|application\/json|image\/svg)/;
+const sendPerf = (req, res, status, type, cache, body) => {
+  const gzip = COMPRESSIBLE.test(type) && /\bgzip\b/.test(req.headers['accept-encoding'] ?? '');
+  res.writeHead(status, { 'Content-Type': type, 'Cache-Control': cache, ...(gzip ? { 'Content-Encoding': 'gzip' } : {}) });
+  return res.end(gzip ? gzipSync(body) : body);
+};
+
 createServer((req, res) => {
   const chunks = [];
   req.on('data', (c) => chunks.push(c));
@@ -169,14 +183,22 @@ createServer((req, res) => {
       return res.end('gone after deploy');
     }
     if (url.pathname !== '/' && existsSync(file) && statSync(file).isFile()) {
-      res.writeHead(200, { 'Content-Type': MIME[extname(file)] ?? 'application/octet-stream',
+      const type = MIME[extname(file)] ?? 'application/octet-stream';
+      if (PERF) {
+        const cache = url.pathname.startsWith('/assets/') ? 'public, max-age=31536000, immutable' : 'no-cache';
+        return sendPerf(req, res, 200, type, cache, readFileSync(file));
+      }
+      res.writeHead(200, { 'Content-Type': type,
         // no-store so a chunk "removed by a deploy" (/__break) is really refetched, not served from cache.
         'Cache-Control': 'no-store' });
       return res.end(readFileSync(file));
     }
+    const index = readFileSync(join(DIST, 'index.html'), 'utf8');
+    const status = url.pathname === '/418' ? 418 : 200;
+    if (PERF) return sendPerf(req, res, status, 'text/html; charset=utf-8', 'no-cache', Buffer.from(index));
     // SPA fallback with the probe injected ahead of the app's module script.
-    const html = readFileSync(join(DIST, 'index.html'), 'utf8').replace('<head>', '<head>\n    <script src="/__probe.js"></script>');
-    res.writeHead(url.pathname === '/418' ? 418 : 200, { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-cache' });
+    const html = index.replace('<head>', '<head>\n    <script src="/__probe.js"></script>');
+    res.writeHead(status, { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-cache' });
     return res.end(html);
   });
 }).listen(PORT, '127.0.0.1', () => { log(`listening ${PORT} mode=${MODE} dist=${DIST}`); console.log(`listening ${PORT} ${MODE}`); });

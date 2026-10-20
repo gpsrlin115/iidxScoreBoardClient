@@ -4,7 +4,7 @@ import useScores from '../hooks/useScores';
 import useTierStore, { buildFetchedKey } from '../store/tierStore';
 import Tag from '../components/common/Tag';
 import ScoreCard from '../components/scores/ScoreCard';
-import ScorePagination from '../components/scores/ScorePagination';
+import ScoreLoadMore from '../components/scores/ScoreLoadMore';
 import { FullPageSpinner } from '../components/common/Spinner';
 import ErrorView from '../components/common/ErrorView';
 import { CLEAR_ORDER, CLEAR_TYPE_LABELS } from '../utils/clearTypes';
@@ -67,13 +67,12 @@ const Scores = () => {
   const sort = useScoresStore((state) => state.sort);
   const setFilter = useScoresStore((state) => state.setFilter);
   const setSort = useScoresStore((state) => state.setSort);
-  const setPage = useScoresStore((state) => state.setPage);
+  const showMore = useScoresStore((state) => state.showMore);
 
   const {
     scores,
     totalElements,
-    totalPages,
-    currentPage,
+    hasMore,
     isLoading,
     error,
     truncated,
@@ -114,7 +113,7 @@ const Scores = () => {
         <div>
           <h1 className="text-[21px] font-normal text-ink">스코어 목록</h1>
           <p className="mt-1 font-num tnum text-[13px] text-muted">
-            총 {totalElements.toLocaleString()}개 · {currentPage + 1} / {totalPages} 페이지
+            총 {totalElements.toLocaleString()}개 · {scores.length.toLocaleString()}개 표시 중
           </p>
         </div>
         <label className="flex min-w-0 flex-1 items-center gap-[6px] border-b border-line-strong pb-[5px] focus-within:border-accent sm:flex-none">
@@ -225,10 +224,11 @@ const Scores = () => {
             ))}
           </div>
 
-          <ScorePagination
-            totalPages={totalPages}
-            currentPage={currentPage}
-            onPageChange={setPage}
+          <ScoreLoadMore
+            hasMore={hasMore}
+            shownCount={scores.length}
+            totalCount={totalElements}
+            onLoadMore={showMore}
           />
         </>
       )}

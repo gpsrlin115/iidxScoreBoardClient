@@ -48,9 +48,9 @@ export const tierApi = {
    * @param {string} playStyle - 'SP' or 'DP'
    * @returns {Promise<Array|Object>} Normalized tier array (preferred) or legacy tier grouping object
    */
-  getTierData: async (level, playStyle) => {
+  getTierData: async (level, playStyle, { timeout } = {}) => {
     try {
-      const response = await apiClient.get(`/tiers/${level}/${playStyle}`);
+      const response = await apiClient.get(`/tiers/${level}/${playStyle}`, { timeout });
       const data = parseJsonIfNeeded(response.data);
 
       if (Array.isArray(data)) {

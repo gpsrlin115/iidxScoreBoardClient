@@ -55,7 +55,7 @@ const FindAccount = () => {
 
   return (
     <div className="min-h-screen bg-night flex items-center justify-center px-4">
-      <div className="w-full max-w-md">
+      <main className="w-full max-w-md">
         <div className="text-center mb-8">
           <h1 className="text-4xl font-bold text-ink mb-2">🎵 IIDX</h1>
           <p className="text-muted text-sm">ScoreBoard 계정 찾기</p>
@@ -188,7 +188,7 @@ const FindAccount = () => {
             </div>
           </div>
         </div>
-      </div>
+      </main>
     </div>
   );
 };

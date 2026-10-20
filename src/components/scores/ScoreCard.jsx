@@ -67,13 +67,13 @@ const ScoreCard = ({ score, tier }) => {
       </div>
       {/* No achievement-rate bar/baselines here — see restore-point note above. */}
 
-      <div className="mt-[11px] flex gap-[10px] font-mono text-[9px] text-faint2">
+      <div className="mt-[11px] flex gap-[10px] font-mono text-[9px] text-faint">
         <span>miss {score.bestMissCount ?? '-'}</span>
         {!playCount && <span>plays {score.playCount}</span>}
         <span className="ml-auto">{date ? format(new Date(date), 'yy/MM/dd') : ''}</span>
       </div>
       {playCount && (
-        <div className="mt-[3px] flex flex-wrap gap-x-[10px] font-mono-ko text-[9px] text-faint2">
+        <div className="mt-[3px] flex flex-wrap gap-x-[10px] font-mono-ko text-[9px] text-faint">
           <span title={playCount.lowerBoundHint ?? undefined}>{playCount.text}</span>
           {playCount.cumulative && <span>{playCount.cumulative}</span>}
         </div>

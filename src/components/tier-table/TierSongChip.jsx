@@ -25,6 +25,14 @@ const TierSongChip = ({ song, dense = false, interactive = false, ...props }) =>
           'transition-transform duration-[160ms] hover:-translate-y-px',
           'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent',
         ],
+        // LEGGENDARIA's " L" marker is CSS-generated, not a text node. It is
+        // shorthand only -- screen readers get "LEGGENDARIA" from SongTile's
+        // aria-label or the sr-only text below -- and as real text inside
+        // the button it failed Lighthouse's label-in-name audit (the visible
+        // "L" is not in the aria-label). aria-hidden does not help there: the
+        // audit compares against the visible text regardless.
+        isLeggendaria &&
+          "after:font-mono after:text-[8.5px] after:opacity-70 after:content-['_L']",
         dense
           ? 'max-w-[158px] px-[5px] py-[2px] text-[10.5px]'
           : 'max-w-[210px] px-2 py-1 text-[12px]'
@@ -40,7 +48,6 @@ const TierSongChip = ({ song, dense = false, interactive = false, ...props }) =>
       {...props}
     >
       {songTitle}
-      {isLeggendaria && <span className="font-mono text-[8.5px] opacity-70"> L</span>}
       {/*
         The interactive chip is named by SongTile's aria-label, so this text is
         the read-only chip's only accessible name. It reads the same full chart

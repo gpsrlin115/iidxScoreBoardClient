@@ -61,3 +61,6 @@ test/fixtures/worker-clips/
 audit-all.json
 audit-prod.json
 audit-report.md
+
+# Lighthouse output from `npm run perf` (large, regenerated on every run)
+reports/

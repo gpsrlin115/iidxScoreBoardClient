@@ -3,6 +3,7 @@ import { useAuthStore } from '../store/authStore';
 import { navigateTo } from '../utils/navigation';
 import { isGoogleCredentialRecheck } from '../utils/googleAuth';
 import { isSessionExpiryExempt } from '../utils/sessionExpiryExempt';
+import { LINK_PATH as LINK_POPUP_PATH } from '../features/rivalCrawler/bookmarklet';
 
 /**
  * Global 401 handler.
@@ -28,6 +29,14 @@ let redirecting = false;
  */
 export function handleSessionExpired(requestUrl, code) {
   if (isSessionExpiryExempt(requestUrl) || isGoogleCredentialRecheck(requestUrl, code) || redirecting) return;
+
+  // The bookmarklet popup shows its own sign-in notice once the user is cleared.
+  // Sending it to /login would not help: a new login cannot resume the attempt
+  // started on the original screen.
+  if (typeof window !== 'undefined' && window.location?.pathname === LINK_POPUP_PATH) {
+    useAuthStore.getState().logout();
+    return;
+  }
 
   redirecting = true;
   useAuthStore.getState().logout();

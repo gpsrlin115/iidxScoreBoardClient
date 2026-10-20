@@ -54,7 +54,7 @@ const Login = () => {
       <Starfield litRatio={0.5} />
       <LoginArtwork />
 
-      <div className="relative z-[1] w-full max-w-[1180px] mx-auto px-6 py-12 sm:px-14">
+      <main className="relative z-[1] w-full max-w-[1180px] mx-auto px-6 py-12 sm:px-14">
         <div className="max-w-[400px]">
           <div className="flex items-center gap-[11px] mb-14">
             <img src="/favicon.png" alt="" width={22} height={22} className="block rounded-[3px]" />
@@ -123,7 +123,7 @@ const Login = () => {
             </Link>
           </div>
         </div>
-      </div>
+      </main>
     </div>
   );
 };
