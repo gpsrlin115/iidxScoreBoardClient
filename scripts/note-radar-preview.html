@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="ko">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>노트레이더 모의 화면 크기 검증</title>
+<style>
+  body { margin:0; padding:16px; font:14px sans-serif; background:#171923; color:#eceaf4; }
+  nav { display:flex; flex-wrap:wrap; gap:16px; margin-bottom:16px; }
+  a { color:#e79bbb; }
+  #frame { border:1px solid #454c66; transform-origin:top left; display:block; background:#050813; }
+  p { font-size:12px; }
+</style>
+<nav><a href="?width=1440">PC 1440px</a><a href="?width=390">모바일 390px</a><a href="?width=360">모바일 360px</a></nav>
+<nav><a id="overview">현황</a><a id="category">추천 상세</a><a id="goals">목표곡</a></nav>
+<p id="size"></p>
+<p id="measurements"></p>
+<iframe id="frame" title="실제 앱 화면"></iframe>
+<script type="module">
+  const query = new URLSearchParams(location.search);
+  const width = [1440,390,360].includes(Number(query.get('width'))) ? Number(query.get('width')) : 1440;
+  const paths = { overview:'/note-radar', category:'/note-radar/categories/NOTES', goals:'/note-radar/goals' };
+  for (const [id,path] of Object.entries(paths)) document.getElementById(id).href = `?width=${width}&page=${id}`;
+  const frame = document.getElementById('frame');
+  const height = width === 1440 ? 1000 : 844;
+  const scale = Math.min(1,(innerWidth-34)/width,(innerHeight-145)/height);
+  frame.width = width; frame.height = height;
+  frame.src = paths[query.get('page')] ?? paths.overview;
+  frame.style.transform = `scale(${scale})`;
+  document.getElementById('size').textContent = `모의 서버 전용 · 레이아웃 너비 ${width}px · 표시 배율 ${scale.toFixed(2)}`;
+  frame.addEventListener('load', () => {
+    const doc = frame.contentDocument;
+    const measure = () => { document.getElementById('measurements').textContent = `CSS viewport ${frame.contentWindow.innerWidth} × ${frame.contentWindow.innerHeight} · 본문 ${doc.documentElement.clientWidth}px / 스크롤 ${doc.documentElement.scrollWidth}px`; };
+    new ResizeObserver(measure).observe(doc.body);
+    measure();
+  });
+</script>
+</html>
