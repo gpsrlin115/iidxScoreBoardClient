@@ -2,17 +2,55 @@ export const STATUS_LABELS = Object.freeze({
   QUEUED: '대기 중',
   RUNNING: '수집 중',
   DONE: '목록 수집 완료',
-  PARTIAL: '일부 기록이 저장됐을 수 있습니다',
+  PARTIAL: '일부 시리즈 저장',
   FAILED: '수집 실패',
   CANCELLED: '취소됨',
 });
 
+// Rival collection walks the series of the current work, one list page each.
+export const SERIES_TOTAL = 34;
+// The server opens the next request this long after the last job ends.
+export const COOLDOWN_MINUTES = 60;
+
 export const TERMINAL_STATUS_EXPLANATIONS = Object.freeze({
   DONE: '이번 수집은 MISS COUNT를 갱신하지 않으며 기존 기록은 유지됩니다.',
-  PARTIAL: '수집이 중단됐습니다. 일부 기록이 저장됐을 수 있으며 기존 MISS COUNT는 유지됩니다.',
+  PARTIAL: `저장한 시리즈는 유지됩니다. ${COOLDOWN_MINUTES}분 뒤 다시 요청하면 남은 시리즈만 받습니다. 기존 MISS COUNT는 유지됩니다.`,
   FAILED: '수집이 실패했습니다. 기존 기록은 유지됩니다.',
   CANCELLED: '작업이 취소됐습니다. 이미 저장한 기록은 삭제되지 않습니다.',
 });
+
+/**
+ * "N of 34 series saved" for a PARTIAL job. The server's own errorMessage is an
+ * English code sentence ("Rival collection stored N of 34 series (CODE).") and is
+ * never shown; pagesDone already counts series kept from earlier resumed runs.
+ */
+export function partialMessage(job) {
+  const total = Number.isFinite(job?.pagesTotal) && job.pagesTotal > 0 ? job.pagesTotal : SERIES_TOTAL;
+  const saved = Number.isFinite(job?.pagesDone) ? `${job.pagesDone}개` : '일부';
+  return `${total}개 시리즈 중 ${saved}를 저장했습니다. ${COOLDOWN_MINUTES}분 뒤 다시 요청하면 남은 시리즈만 받습니다.`;
+}
+
+// Server waitingReason codes with copy. Unknown codes are hidden, never shown raw.
+export const WAITING_REASON_LABELS = Object.freeze({
+  LIST_REPEAT: 'e-amusement가 일부 목록을 늦게 보내 다시 확인하는 중',
+});
+
+export const waitingReasonText = (code) => WAITING_REASON_LABELS[code] ?? null;
+
+/** Styles a collection request may carry, in the order the server runs them. */
+export const PLAY_STYLES = Object.freeze(['SP', 'DP']);
+export const DEFAULT_PLAY_STYLES = PLAY_STYLES;
+
+/**
+ * Only SP and/or DP, each once, SP first; null for anything else. The server
+ * answers other values with INVALID_VERIFICATION_INPUT, whose copy is about
+ * cookies, so a bad selection must never reach it.
+ */
+export function normalizePlayStyles(value) {
+  if (!Array.isArray(value) || value.length === 0 || value.length > PLAY_STYLES.length) return null;
+  if (new Set(value).size !== value.length || !value.every((style) => PLAY_STYLES.includes(style))) return null;
+  return PLAY_STYLES.filter((style) => value.includes(style));
+}
 
 // Where a binding came from. The server fixes this; the client never sends it.
 export const SOURCE_LABELS = Object.freeze({
@@ -30,6 +68,28 @@ export function isActiveJob(job) {
 export function isTerminalJob(job) {
   return TERMINAL_STATUSES.has(job?.status);
 }
+
+/**
+ * Jobs of the latest request, SP first. A server with SP·DP support always sends
+ * `jobs` (an empty array when there is none); only an older server leaves it out,
+ * and then `latestJob` is the whole request.
+ */
+export function requestJobs(status) {
+  if (Array.isArray(status?.jobs)) return status.jobs;
+  return status?.latestJob ? [status.latestJob] : [];
+}
+
+/** Still running while any job of the request is queued or running (SP DONE + DP RUNNING is active). */
+export const isRequestActive = (status) => requestJobs(status).some(isActiveJob);
+
+/** Finished only when every job of the request has ended. */
+export function isRequestTerminal(status) {
+  const jobs = requestJobs(status);
+  return jobs.length > 0 && jobs.every(isTerminalJob);
+}
+
+/** Identifies one request, so "finished" is announced once per request, not once per job. */
+export const requestKey = (status) => requestJobs(status).map((job) => job.id).join(',');
 
 const IIDX_ID_FORMAT = /^(?:\d{8}|\d{4}-\d{4})$/;
 
@@ -86,6 +146,24 @@ const REGISTRATION_CODE_MESSAGES = Object.freeze({
   COLLECTION_ACTIVE: '내 기록 수집이 진행 중이라 연결을 시작할 수 없습니다. 작업이 끝나거나 취소한 뒤 다시 시도해주세요.',
 });
 
+// The job endpoint reuses INVALID_VERIFICATION_INPUT for a bad playStyles body;
+// its cookie wording would mislead there.
+const ENQUEUE_CODE_MESSAGES = Object.freeze({
+  INVALID_VERIFICATION_INPUT: '수집할 플레이 스타일(SP·DP) 선택을 확인해주세요.',
+});
+
+// Before launch the edge proxy answers POST /crawler/rival/jobs/me with 503 and
+// this header; the body is not JSON.
+const MAINTENANCE_HEADER = 'x-iidx-maintenance';
+const CRAWLER_VALIDATION = 'crawler-validation';
+const NOT_YET_OPEN_MESSAGE = '서버 수집은 아직 준비 중입니다. 공개되면 이 화면에서 요청할 수 있습니다. 지금은 CSV 업로드를 이용해주세요.';
+
+function readHeader(headers, name) {
+  if (!headers) return null;
+  const value = headers[name] ?? headers.get?.(name);
+  return typeof value === 'string' ? value : null;
+}
+
 // After these the local picture is stale; re-read binding and registration before advising.
 export const REQUERY_CODES = Object.freeze(new Set([
   'IIDX_ALREADY_REGISTERED', 'COLLECTION_ACTIVE', 'REGISTRATION_SUPERSEDED', 'REGISTRATION_ALREADY_CONSUMED',
@@ -138,16 +216,25 @@ function alreadyRegisteredMessage(binding, submittedId) {
 export function classifyRivalError(error, operation = 'request', nowMs = Date.now(), context = {}) {
   const status = error?.response?.status ?? error?.status ?? null;
   const body = error?.response?.data ?? error?.data;
-  const code = typeof body?.code === 'string'
-    ? body.code
-    : typeof body?.error === 'string'
-      ? body.error
-      : null;
+  const headers = error?.response?.headers ?? error?.headers;
+  const maintenance = status === 503 && readHeader(headers, MAINTENANCE_HEADER) === CRAWLER_VALIDATION;
+  // A 429 from the job endpoint carries an English {error, message}; `error` lands
+  // in `code` here but matches no copy, so the fixed 429 text is used.
+  const code = maintenance
+    ? 'CRAWLER_VALIDATION'
+    : typeof body?.code === 'string'
+      ? body.code
+      : typeof body?.error === 'string'
+        ? body.error
+        : null;
   const registration = REGISTRATION_OPERATIONS.has(operation);
 
-  let message = (registration && REGISTRATION_CODE_MESSAGES[code]) || CODE_MESSAGES[code]
+  let message = (registration && REGISTRATION_CODE_MESSAGES[code])
+    || (operation === 'enqueue' && ENQUEUE_CODE_MESSAGES[code]) || CODE_MESSAGES[code]
     || STATUS_MESSAGES[status] || '요청을 처리하지 못했습니다. 상태를 다시 조회한 뒤 필요하면 다시 시도해주세요.';
-  if (code === 'IIDX_ALREADY_REGISTERED') {
+  if (maintenance) {
+    message = NOT_YET_OPEN_MESSAGE;
+  } else if (code === 'IIDX_ALREADY_REGISTERED') {
     message = alreadyRegisteredMessage(context.binding, context.submittedId);
   } else if (status === 404 && operation === 'cancel') {
     message = '취소할 활성 작업을 찾지 못했습니다. 현재 작업 상태를 다시 조회해주세요.';
@@ -157,7 +244,7 @@ export function classifyRivalError(error, operation = 'request', nowMs = Date.no
 
   // Registration 429 carries a UTC retryAt in the body; prefer it over the header.
   const retryAtMs = status === 429 ? parseUtcInstant(body?.retryAt) : null;
-  const headerSeconds = status === 429 ? readRetryAfter(error?.response?.headers ?? error?.headers, nowMs) : null;
+  const headerSeconds = status === 429 ? readRetryAfter(headers, nowMs) : null;
   return {
     status,
     code,

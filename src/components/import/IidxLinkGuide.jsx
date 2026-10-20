@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import MonoButton from '../common/MonoButton';
 import { bookmarkletHref, PROFILE_URL } from '../../features/rivalCrawler/bookmarklet';
-import { formatUtcTime, isActiveJob } from '../../utils/rivalCrawler';
+import { formatUtcTime, isRequestActive } from '../../utils/rivalCrawler';
 
 const REGISTRATION_NOTES = {
   EXPIRED: '연결 시도가 5분이 지나 만료됐습니다. 아래에서 다시 시작해 주세요.',
@@ -84,7 +84,8 @@ function BookmarkletInstall() {
 const IidxLinkGuide = ({ state, username, onStartRegistration, onCancelRegistration }) => {
   const registration = state.registration;
   const pending = registration?.status === 'PENDING';
-  const activeJob = isActiveJob(state.status?.latestJob);
+  // SP done + DP still running is an active request too.
+  const activeJob = isRequestActive(state.status);
   const blockedUntil = state.registrationBlockedUntil;
   const blockedAt = blockedUntil != null && Number.isFinite(blockedUntil) ? formatUtcTime(new Date(blockedUntil).toISOString()) : null;
   const startDisabled = !state.ready || state.loading || state.action != null || activeJob

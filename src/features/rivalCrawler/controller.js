@@ -1,5 +1,7 @@
-import { classifyRivalError, EMPTY_BINDING, isActiveJob, isLinkedBinding, isTerminalJob, parseUtcInstant }
-  from '../../utils/rivalCrawler.js';
+import {
+  classifyRivalError, DEFAULT_PLAY_STYLES, EMPTY_BINDING, isLinkedBinding, isRequestActive, isRequestTerminal,
+  normalizePlayStyles, parseUtcInstant, requestJobs, requestKey,
+} from '../../utils/rivalCrawler.js';
 
 // `registration` is the GET /crawler/iidx/bookmarklet/me view of this login round.
 // `registrationBlockedUntil` (epoch ms) holds the hourly start limit apart from
@@ -33,12 +35,14 @@ export function createRivalController({ api, onTerminal = () => {}, interval = 5
     readAbort?.abort();
   };
   const cancelled = (error) => error?.name === 'AbortError' || error?.code === 'ERR_CANCELED';
-  const noticeTerminal = (job) => {
-    if (!isTerminalJob(job)) return;
-    const key = `${job.id}:${job.status}`;
+  // One request may hold an SP and a DP job. Scores are refreshed once, when every
+  // job of that request has ended; SP finishing while DP still runs is not the end.
+  const noticeTerminal = (status) => {
+    if (!isRequestTerminal(status)) return;
+    const key = requestKey(status);
     if (terminals.has(key)) return;
     terminals.add(key);
-    onTerminal(job);
+    onTerminal(status);
   };
   const blockRegistrationUntil = (untilMs) => {
     if (untilMs == null || untilMs <= now()) return;
@@ -60,7 +64,7 @@ export function createRivalController({ api, onTerminal = () => {}, interval = 5
   };
   const later = () => {
     clearTimer();
-    if (live && !state.action && isActiveJob(state.status?.latestJob)) {
+    if (live && !state.action && isRequestActive(state.status)) {
       // Schedule after settlement, so a slow GET cannot overlap the next poll.
       const retryDelay = state.error?.status === 429 ? (state.error.retryAfterSeconds ?? 0) * 1000 : 0;
       timer = schedule(() => { void refresh(false); }, Math.max(interval, retryDelay));
@@ -78,12 +82,10 @@ export function createRivalController({ api, onTerminal = () => {}, interval = 5
       try {
         const status = await api.getStatus({ signal: abort.signal });
         if (!current(owner)) return;
-        const job = status.latestJob;
-        const key = `${job?.id}:${job?.status}`;
-        const terminalChanged = isTerminalJob(job) && !terminals.has(key);
+        const terminalChanged = isRequestTerminal(status) && !terminals.has(requestKey(status));
         update({ status });
         // A terminal status is enough to invalidate scores, even when the binding read fails.
-        noticeTerminal(job);
+        noticeTerminal(status);
         let binding = state.binding;
         let registration = state.registration;
         if (full || terminalChanged) {
@@ -113,12 +115,13 @@ export function createRivalController({ api, onTerminal = () => {}, interval = 5
     if (state.retryBlockedAction === action) return;
     // Unlink may supersede a pending verification. All other writes share a synchronous lock.
     if (state.action && !(action === 'unlink' && state.action === 'verify')) return;
-    const active = isActiveJob(state.status?.latestJob);
+    const active = isRequestActive(state.status);
     const linked = isLinkedBinding(state.binding);
+    const playStyles = action === 'enqueue' ? normalizePlayStyles(credential) : null;
     const attemptId = state.registration?.status === 'PENDING' ? state.registration.attemptId : null;
     // Re-verifying a linked binding first clears it server-side, and a failure leaves it unlinked.
     if (action === 'verify' && (!state.ready || active || linked)) return;
-    if (action === 'enqueue' && (!state.ready || !linked || state.status?.enabled !== true
+    if (action === 'enqueue' && (!playStyles || !state.ready || !linked || state.status?.enabled !== true
       || active || state.status?.cooldownUntil != null)) return;
     if (action === 'cancel' && !active) return;
     // Start only on an explicit user action; the server answers 409/429 for the rest, but
@@ -145,12 +148,20 @@ export function createRivalController({ api, onTerminal = () => {}, interval = 5
         if (current(owner)) update({ registration: { ...started, retryAt: null } });
       } else if (action === 'cancelRegistration') {
         await api.cancelRegistration(attemptId, { signal: abort.signal });
+      } else if (action === 'enqueue') {
+        // 202 returns only the first job (SP when chosen). Show it as a new request until
+        // the GET in `finally` brings the full `jobs` list.
+        const job = await api.enqueue(playStyles, { signal: abort.signal });
+        if (current(owner)) update({ status: { ...state.status, latestJob: job, jobs: [job] } });
       } else {
-        const job = await api[action]({ signal: abort.signal });
+        // DELETE stops every running job of the request (SP and DP) and answers with one job.
+        const job = await api.cancel({ signal: abort.signal });
         if (current(owner)) {
-          update({ status: { ...state.status, latestJob: job } });
+          const jobs = requestJobs(state.status).map((item) => (item.id === job?.id ? job : item));
+          const next = { ...state.status, latestJob: job, ...(Array.isArray(state.status?.jobs) ? { jobs } : {}) };
+          update({ status: next });
           // Invalidate immediately even if the follow-up binding GET fails.
-          noticeTerminal(job);
+          noticeTerminal(next);
         }
       }
     } catch (error) {
@@ -199,7 +210,7 @@ export function createRivalController({ api, onTerminal = () => {}, interval = 5
     },
     refresh,
     verify: (cookie) => mutate('verify', cookie),
-    enqueue: () => mutate('enqueue'),
+    enqueue: (playStyles = DEFAULT_PLAY_STYLES) => mutate('enqueue', playStyles),
     cancel: () => mutate('cancel'),
     unlink: () => mutate('unlink'),
     startRegistration: () => mutate('register'),
