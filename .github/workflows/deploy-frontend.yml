@@ -46,6 +46,8 @@ jobs:
       - name: Build OCI bundle
         env:
           VITE_ENABLE_LAYOUT_ANALYSIS: ${{ vars.VITE_ENABLE_LAYOUT_ANALYSIS || '0' }}
+          # Server rival collection stays hidden until the edge block is lifted (approval 4).
+          VITE_ENABLE_RIVAL_COLLECTION: ${{ vars.VITE_ENABLE_RIVAL_COLLECTION || '0' }}
         run: npm run build:oci
 
       - name: Validate static bundle

@@ -30,14 +30,14 @@ after(async () => {
   await vite?.close();
 });
 
-test('real API adapter reuses credentials and CSRF for verification, bodyless enqueue, and DELETEs', async () => {
+test('real API adapter reuses credentials and CSRF for verification, style-only enqueue, and DELETEs', async () => {
   client.defaults.adapter = async (config) => {
     captured.push(config);
     return { status: config.method === 'delete' && config.url.endsWith('iidx/me') ? 204 : 200,
       data: config.method === 'delete' ? undefined : { verified: true }, headers: {}, config };
   };
   await api.verify('synthetic-test-cookie');
-  await api.enqueue();
+  await api.enqueue(['SP', 'DP']);
   await api.cancel();
   assert.equal(await api.unlink(), undefined);
   assert.equal(captured.length, 4);
@@ -47,7 +47,8 @@ test('real API adapter reuses credentials and CSRF for verification, bodyless en
     assert.ok(['/crawler/iidx/me', '/crawler/rival/jobs/me'].includes(config.url));
   }
   assert.deepEqual(JSON.parse(captured[0].data), { eagateCookie: 'synthetic-test-cookie' });
-  assert.equal(captured[1].data, undefined);
+  // Exactly one key: the server may refuse keys it does not know.
+  assert.deepEqual(JSON.parse(captured[1].data), { playStyles: ['SP', 'DP'] });
   assert.equal(captured[2].data, undefined);
   assert.equal(captured[3].data, undefined);
 });
@@ -157,6 +158,34 @@ test('a failed registration request rejects without the request config, attemptI
       return true;
     });
   }
+});
+
+test('enqueue refuses duplicate or unknown styles before any request leaves, and orders SP before DP', async () => {
+  const sent = [];
+  client.defaults.adapter = async (config) => { sent.push(config); return { status: 202, data: { id: 1 }, headers: {}, config }; };
+  for (const bad of [['SP', 'SP'], ['sp'], [], ['SP', 'DP', 'XP'], undefined]) {
+    await assert.rejects(api.enqueue(bad), RangeError, JSON.stringify(bad));
+  }
+  assert.equal(sent.length, 0, 'nothing reached the server');
+  await api.enqueue(['DP', 'SP']);
+  assert.equal(sent.length, 1);
+  assert.equal(sent[0].method, 'post');
+  assert.equal(sent[0].url, '/crawler/rival/jobs/me');
+  assert.deepEqual(JSON.parse(sent[0].data), { playStyles: ['SP', 'DP'] });
+});
+
+test('a pre-launch 503 keeps its maintenance header on the safe rejection so the screen can say "not open yet"', async () => {
+  client.defaults.adapter = async (config) => {
+    const error = new Error('blocked at the edge');
+    error.config = config;
+    error.response = { status: 503, data: '<html>maintenance</html>', headers: { 'x-iidx-maintenance': 'crawler-validation' }, config };
+    throw error;
+  };
+  await assert.rejects(api.enqueue(['SP', 'DP']), (error) => {
+    assert.equal(error.config, undefined);
+    assert.equal(classifyRivalError(error, 'enqueue').code, 'CRAWLER_VALIDATION');
+    return true;
+  });
 });
 
 test('a registration request that gets no response rejects without config and reads as a lost response', async () => {
