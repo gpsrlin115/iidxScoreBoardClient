@@ -22,7 +22,7 @@ import ResetPasswordConfirm from './pages/ResetPasswordConfirm';
 import Ddr from './pages/Ddr';
 import GoogleSignup from './pages/GoogleSignup';
 import { RouteContentSpinner } from './components/common/Spinner';
-import { ENABLE_LAYOUT_ANALYSIS } from './config/features';
+import { ENABLE_LAYOUT_ANALYSIS, ENABLE_RIVAL_COLLECTION } from './config/features';
 
 const Dashboard = lazy(() => import('./pages/Dashboard'));
 const Scores = lazy(() => import('./pages/Scores'));
@@ -89,15 +89,18 @@ function AppRoutes() {
           }
         />
         {/* 북마클릿이 eagate 프로필에서 여는 IIDX 코드 연결 팝업. 로그인 확인은 페이지가 직접 하고,
-            로그인 화면으로 보내지 않는다(새 로그인에서는 앞서 시작한 연결 시도를 쓸 수 없다). */}
-        <Route
-          path="/crawler/iidx-link"
-          element={
-            <Suspense fallback={<RouteContentSpinner />}>
-              <IidxLinkPopup />
-            </Suspense>
-          }
-        />
+            로그인 화면으로 보내지 않는다(새 로그인에서는 앞서 시작한 연결 시도를 쓸 수 없다).
+            서버 수집 공개 전(ENABLE_RIVAL_COLLECTION 꺼짐)에는 등록하지 않아 404 화면이 나온다. */}
+        {ENABLE_RIVAL_COLLECTION && (
+          <Route
+            path="/crawler/iidx-link"
+            element={
+              <Suspense fallback={<RouteContentSpinner />}>
+                <IidxLinkPopup />
+              </Suspense>
+            }
+          />
+        )}
         {/* 코나미 커맨드 이스터에그 도착지. 서버가 이 경로를 실제 418 상태로 응답합니다 */}
         <Route path={TEAPOT_PATH} element={<TeapotPage />} />
 

@@ -71,7 +71,7 @@ test('34 pages and 38 requests do not change a RUNNING status or enable duplicat
   const html = render({ status: { enabled: true, latestJob: { status: 'RUNNING', pagesDone: 34, pagesTotal: 34, requestsDone: 38, requestsEstimated: 38 }, cooldownUntil: null } });
   const text = textOf(html);
   assert.ok(text.includes('수집 중'));
-  assert.ok(text.includes('34 / 34'));
+  assert.ok(text.includes('34/34'), 'series progress sits next to the job status');
   assert.ok(text.includes('38 / 38'));
   assert.match(button(html, '내 기록 수집 요청'), /disabled=/);
 });
@@ -115,18 +115,24 @@ test('an account without a binding is never asked for an e-amusement cookie', ()
   const html = render({ binding: null });
   const text = textOf(html);
   assert.ok(!html.includes('type="password"'));
-  assert.ok(!html.includes('<input'));
+  // The only inputs left are the SP/DP style radios; nothing takes free text such as a cookie.
+  const inputs = html.match(/<input\b[^>]*>/g) || [];
+  assert.ok(inputs.every((tag) => /type="radio"/.test(tag)), inputs.join('\n'));
   assert.ok(!text.includes('세션 쿠키'));
   assert.equal(button(html, '본인 코드 확인'), undefined);
 });
 
-test('FAILED, PARTIAL, and CANCELLED explain retry, possible saved rows, and retained scores', () => {
-  const failed = textOf(render({ status: { enabled: true, latestJob: { status: 'FAILED', errorMessage: 'temporary failure' }, cooldownUntil: null } }));
-  assert.ok(failed.includes('temporary failure'));
-  assert.ok(failed.includes('수동으로 다시 요청할 수 있습니다'));
+test('FAILED, PARTIAL, and CANCELLED explain retry, saved series, and retained scores without server text', () => {
+  // Rival errorMessage is an English code sentence; only fixed Korean copy is shown.
+  const failed = textOf(render({ status: { enabled: true, latestJob: { status: 'FAILED', errorMessage: 'Rival collection stored 0 of 34 series (OPERATOR_SESSION_UNAVAILABLE).' }, cooldownUntil: null } }));
+  assert.ok(!failed.includes('Rival collection'));
+  assert.ok(!failed.includes('OPERATOR_SESSION_UNAVAILABLE'));
+  assert.ok(failed.includes('다시 요청할 수 있습니다'));
 
-  const partial = textOf(render({ status: { enabled: true, latestJob: { status: 'PARTIAL' }, cooldownUntil: null } }));
-  assert.ok(partial.includes('일부 기록이 저장됐을 수 있습니다'));
+  const partial = textOf(render({ status: { enabled: true, latestJob: { status: 'PARTIAL', pagesDone: 12, pagesTotal: 34, errorMessage: 'Rival collection stored 12 of 34 series (CATALOG_GAP).' }, cooldownUntil: null } }));
+  assert.ok(partial.includes('34개 시리즈 중 12개를 저장했습니다'));
+  assert.ok(partial.includes('60분 뒤 다시 요청하면 남은 시리즈만 받습니다'));
+  assert.ok(!partial.includes('CATALOG_GAP'));
 
   const cancelled = textOf(render({ status: { enabled: true, latestJob: { status: 'CANCELLED' }, cooldownUntil: null } }));
   assert.ok(cancelled.includes('이미 저장된 기록은 삭제되지 않습니다'));
@@ -241,4 +247,50 @@ test('server rendering leaves the bookmarklet anchor without an href so no javas
   const anchor = (html.match(/<a\b[^>]*>\s*IIDX 코드 연결\s*<\/a>/) || [])[0];
   assert.ok(anchor, 'the draggable bookmarklet anchor is rendered');
   assert.doesNotMatch(anchor, /href=/);
+});
+
+// ---------------------------------------------------------------- SP·DP in one request
+
+const twoJobs = (sp, dp, extra = {}) => ({ enabled: true, cooldownUntil: null, latestJob: dp.status === 'RUNNING' ? dp : sp,
+  jobs: [{ id: 1, playStyle: 'SP', pagesTotal: 34, ...sp }, { id: 2, playStyle: 'DP', pagesTotal: 34, ...dp }], ...extra });
+
+test('the style choice offers SP, DP, or both, with both selected by default', () => {
+  const html = render();
+  const radios = html.match(/<input\b[^>]*type="radio"[^>]*>/g) || [];
+  assert.equal(radios.length, 3);
+  const checked = radios.filter((tag) => /checked=""/.test(tag));
+  assert.equal(checked.length, 1);
+  assert.match(checked[0], /value="BOTH"/);
+  assert.ok(textOf(html).includes('SP·DP 둘 다'));
+  assert.ok(textOf(html).includes('SP·DP · 작품 34까지'));
+});
+
+test('each job of the request gets its own line, and SP done + DP running keeps the request locked', () => {
+  const html = render({ status: twoJobs({ status: 'DONE', pagesDone: 34 }, { status: 'RUNNING', pagesDone: 12 }) });
+  const text = textOf(html);
+  assert.ok(text.includes('SP 목록 수집 완료'));
+  assert.ok(text.includes('DP 수집 중'));
+  assert.ok(text.includes('12/34'));
+  assert.match(button(html, '내 기록 수집 요청'), /disabled=/);
+  assert.ok(/<fieldset[^>]*disabled=""/.test(html), 'the style choice is locked while a job runs');
+  assert.ok(text.includes('진행 중인 SP·DP 수집을 모두 멈춥니다'));
+  assert.doesNotMatch(button(html, '수집 취소'), /disabled=/);
+  assert.ok(!text.includes('점수 확인'), 'no score link until every job ended');
+});
+
+test('a finished request shows the score link once and keeps the MISS COUNT note for DONE', () => {
+  const text = textOf(render({ status: twoJobs({ status: 'DONE', pagesDone: 34 }, { status: 'PARTIAL', pagesDone: 20 }) }));
+  assert.ok(text.includes('MISS COUNT를 갱신하지 않으며 기존 기록은 유지됩니다'));
+  assert.ok(text.includes('34개 시리즈 중 20개를 저장했습니다'));
+  assert.equal((text.match(/점수 확인/g) || []).length, 1);
+});
+
+test('LIST_REPEAT reads in Korean and unknown waiting or detail codes never appear raw', () => {
+  const html = render({ status: twoJobs(
+    { status: 'RUNNING', waitingReason: 'LIST_REPEAT', detailCollectionStatus: 'DISABLED', detailStopReason: 'NOT_ENABLED' },
+    { status: 'QUEUED', waitingReason: 'SOME_FUTURE_CODE' },
+  ) });
+  const text = textOf(html);
+  assert.ok(text.includes('e-amusement가 일부 목록을 늦게 보내 다시 확인하는 중'));
+  for (const raw of ['LIST_REPEAT', 'SOME_FUTURE_CODE', 'DISABLED', 'NOT_ENABLED']) assert.ok(!text.includes(raw), raw);
 });

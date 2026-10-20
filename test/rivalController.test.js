@@ -67,8 +67,10 @@ test('unverified user verifies their own ID and enqueues without credentials', a
   h.api.getStatus = async (...args) => { h.calls.getStatus.push(args); return { ...idleStatus, latestJob: activeJob() }; };
   await h.controller.enqueue();
   assert.equal(h.calls.enqueue.length, 1);
-  assert.equal(h.calls.enqueue[0].length, 1);
-  assert.ok(h.calls.enqueue[0][0].signal instanceof AbortSignal);
+  // No cookie travels with the request; only the style selection (default SP·DP) and a signal.
+  assert.equal(h.calls.enqueue[0].length, 2);
+  assert.deepEqual(h.calls.enqueue[0][0], ['SP', 'DP']);
+  assert.ok(h.calls.enqueue[0][1].signal instanceof AbortSignal);
   assert.equal(h.controller.getSnapshot().status.latestJob.status, 'QUEUED');
 });
 
