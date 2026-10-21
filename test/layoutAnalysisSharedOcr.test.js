@@ -57,6 +57,33 @@ test('real Firefox banner text recovers HARD BRAIN from noisy title edges', () =
   assert.deepEqual(shared([unrelated(), unrelated(), unrelated()]).titles, []);
 });
 
+// The R5 banner as a Firefox share read it: the title came back as "RS" in two
+// frames and not at all in the third, under a well-read artist line.
+const r5Frame = (title) => ({
+  width: 1000, height: 200,
+  text: `XTRA STAGE\n${title || ''}\ntiger YAMATO with ultrabeatbox\nANOTHER`,
+  lines: [
+    line('N XTRA STAGE', { x0: 380, x1: 620, y0: 5, y1: 23 }),
+    ...(title ? [line(title, { x0: 455, x1: 545, y0: 38, y1: 70 })] : []),
+    line('f — tiger YAMATO with ultrabeatbox 4', { x0: 330, x1: 670, y0: 74, y1: 87 }),
+  ],
+});
+
+test('a short capital title read in two frames is sent with its look-alike spelling', () => {
+  // Without "R5" the server cannot tell this song from R2 and R3 by the same
+  // artist, which sit one character away from "RS" just as R5 does.
+  assert.deepEqual(shared([r5Frame('| RS >'), r5Frame('RS'), r5Frame()]).titles, ['RS', 'R5']);
+});
+
+test('a short title read in only one frame is not trusted', () => {
+  assert.deepEqual(shared([r5Frame('RS'), r5Frame('R3'), r5Frame()]).titles, []);
+});
+
+test('short lower-case fragments in the title position are still dropped', () => {
+  assert.deepEqual(shared([r5Frame('ot'), r5Frame('ot'), r5Frame('ot')]).titles, []);
+  assert.deepEqual(shared([r5Frame('12'), r5Frame('12')]).titles, []);
+});
+
 test('a repeated large line containing title and difficulty stays readable', () => {
   const compact = () => ({
     width: 1000, height: 200, text: 'HARD BRAIN ANOTHER',

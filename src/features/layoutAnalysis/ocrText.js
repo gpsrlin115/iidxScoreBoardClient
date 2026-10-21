@@ -35,7 +35,36 @@ const CORE_WORD_LENGTH = 3;
 // in the middle of it is a misread symbol rather than part of the name.
 const LATIN_SHARE = 0.6;
 
+// Shapes the recogniser swaps in a short capital title. "R5" came back as "RS";
+// against a two-character name one wrong character is half the title, so the
+// server scored R2, R3, R5 and Iris alike and none of R5's charts made the list.
+const LOOKALIKES = { S: '5', 5: 'S', O: '0', 0: 'O', I: '1', 1: 'I', Z: '2', 2: 'Z', B: '8', 8: 'B', G: '6', 6: 'G' };
+
 const isSymbolsOnly = (word) => !/[\p{L}\p{N}]/u.test(word);
+
+const compactTitle = (text) => text.normalize('NFKC').replace(/[^\p{L}\p{N}]/gu, '');
+
+/**
+ * Whether a reading is a short title written the way IIDX writes them: one
+ * token of capitals and digits, such as R5, V2 or IX.
+ *
+ * Lower-case and split fragments ("i rr") are what the recogniser makes of a
+ * graphic, and they repeat across frames as reliably as a title does. A short
+ * title in any other form still has to be searched for by hand.
+ */
+export const isShortCapitalTitle = (text) => !/\s/.test(text.trim())
+  && /^[\p{Lu}\p{N}]{2,4}$/u.test(compactTitle(text)) && /\p{Lu}/u.test(compactTitle(text));
+
+/** The same short title with look-alike characters swapped, fewest swaps first. */
+export const lookalikeTitles = (text) => {
+  let forms = [{ text: '', swaps: 0 }];
+  for (const character of compactTitle(text)) {
+    const other = LOOKALIKES[character];
+    forms = forms.flatMap((form) => [{ text: form.text + character, swaps: form.swaps },
+      ...(other ? [{ text: form.text + other, swaps: form.swaps + 1 }] : [])]);
+  }
+  return forms.filter((form) => form.swaps > 0).sort((a, b) => a.swaps - b.swaps).map((form) => form.text);
+};
 
 const letterRatio = (text) => {
   const letters = (text.match(/[\p{L}\p{N}]/gu) || []).length;
@@ -148,6 +177,8 @@ export const titleCandidates = (lines) => {
     addTrimmed(best.slice(0, best.length - trim));
     addTrimmed(best.slice(trim));
   }
+  // Last, so a guessed spelling never takes the place of a reading.
+  for (const text of candidates.filter(isShortCapitalTitle)) lookalikeTitles(text).forEach(add);
   return candidates.slice(0, MAX_TITLES);
 };
 
@@ -228,8 +259,10 @@ const repeatedRawTitle = (frames) => {
 
 export const sharedTitleCandidates = (frames) => {
   // Tiny fragments repeat across frames too, but are not enough to identify a
-  // song. A genuinely short title can still be entered through manual search.
-  const found = frames.map(titleFromFrame).filter((item) => item && normalizedTitle(item.text).length >= 5);
+  // song. A short title passes only in the capital form IIDX prints, and like
+  // any title it still has to read the same in two frames.
+  const found = frames.map(titleFromFrame).filter((item) => item
+    && (normalizedTitle(item.text).length >= 5 || isShortCapitalTitle(item.text)));
   const groups = found.map((anchor) => found.filter((item) => agrees(anchor, item)));
   const supported = groups.filter((group) => group.length >= 2)
     .sort((a, b) => b.length - a.length)[0];
