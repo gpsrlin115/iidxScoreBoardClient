@@ -14,6 +14,26 @@ export const candidateQueryParams = (difficulty = null) => ({
   ...(SUPPORTED_DIFFICULTIES.includes(difficulty) ? { difficulty } : {}),
 });
 
+// The server rejects more entries or longer strings than this.
+const MAX_OCR_ARTISTS = 5;
+const MAX_OCR_TEXT = 255;
+
+/**
+ * What the screen OCR read, in the shape the candidate search takes.
+ *
+ * `artists` is left out when nothing was read. A server older than the field
+ * rejects the whole request for an unknown key, so leaving it out keeps every
+ * search that had no artist line working against one.
+ */
+export const candidateScreenOcr = ({ titles = [], difficulties = [], artists = [] } = {}) => {
+  const read = artists.filter(Boolean).slice(0, MAX_OCR_ARTISTS).map((artist) => artist.slice(0, MAX_OCR_TEXT));
+  return {
+    titles,
+    difficulties: difficulties.filter((value) => SUPPORTED_DIFFICULTIES.includes(value)),
+    ...(read.length ? { artists: read } : {}),
+  };
+};
+
 /**
  * A candidate is identified by its textage chart key.
  *
