@@ -31,6 +31,8 @@ const MIN_TRIMMED_LENGTH = 5;
 // reads best: a timer fragment or a score can outrank it.
 const LINES_CONSIDERED = 3;
 const CORE_WORD_LENGTH = 3;
+// The server ignores an artist shorter than this once symbols are gone.
+const MIN_ARTIST_LENGTH = 3;
 // A line this Latin is a Latin title, so a lone character from another script
 // in the middle of it is a misread symbol rather than part of the name.
 const LATIN_SHARE = 0.6;
@@ -197,12 +199,14 @@ const titleFromFrame = ({ lines, width, height }) => {
   const named = (lines || []).map((line) => sharedLine(line, width, height)).filter(Boolean);
   // The song name is printed above the smaller artist line. Requiring both
   // lines means a lone, clearly read artist cannot become a song candidate.
-  const pairs = named.filter((upper) => upper.top < height * 0.65 && named.some((lower) => (
-    lower !== upper && lower.top >= upper.bottom - height * 0.02
+  const isBelow = (upper, lower) => lower !== upper && lower.top >= upper.bottom - height * 0.02
     && lower.top - upper.bottom <= height * 0.2
     && Math.abs(lower.center - upper.center) <= width * 0.16
-    && upper.size >= lower.size * 1.15
-  )));
+    && upper.size >= lower.size * 1.15;
+  const pairs = named.filter((upper) => upper.top < height * 0.65)
+    .map((upper) => ({ ...upper, artist: named.filter((lower) => isBelow(upper, lower))
+      .sort((a, b) => a.top - b.top)[0] }))
+    .filter((upper) => upper.artist);
   // Some captures put the chart label on the same, large line as the title.
   // Its size and the adjacent difficulty label distinguish it from an artist.
   const labelled = named.filter((item) => item.top < height * 0.65
@@ -273,20 +277,64 @@ export const sharedTitleCandidates = (frames) => {
   return titleCandidates([best.line]);
 };
 
+/**
+ * The artist line as read, and the same line with stray marks off its ends.
+ *
+ * Not cleanWords: its screen words include "dj", which begins many artist
+ * names, and a low-confidence word is still most of a name the server compares
+ * by edit distance. Nor wordCore, which drops "dj" too and turns "dj TAKA" into
+ * "TAKA", a different artist. What the banner graphics add at either end is a
+ * single character — "f — tiger YAMATO with ultrabeatbox 4" — so only those go.
+ */
+const artistForms = (line) => {
+  const words = (line.words || []).map((word) => (word.text || '').trim())
+    .filter((text) => text && !isSymbolsOnly(text));
+  const isMark = (word) => word.replace(/[^\p{L}\p{N}]/gu, '').length <= 1;
+  let start = 0;
+  let end = words.length;
+  while (start < end && isMark(words[start])) start += 1;
+  while (end > start && isMark(words[end - 1])) end -= 1;
+  return { whole: words.join(' '), text: words.slice(start, end).join(' ') || words.join(' ') };
+};
+
+/**
+ * The artist printed under the title, when two frames read it alike.
+ *
+ * A two-character title is one misread away from another song by the same
+ * composer — R5 came back as "RS", as near to R2 and R3 — and a symbol title
+ * may not be read at all. The artist line beneath is usually plain text, so
+ * the server uses it to tell such songs apart. It is taken from under the
+ * title line even when the title itself was too unclear to send.
+ */
+export const sharedArtistCandidates = (frames) => {
+  const found = frames.map(titleFromFrame).filter((item) => item?.artist)
+    .map(({ artist }) => ({ line: artist.line, ...artistForms(artist.line) }))
+    .filter((item) => normalizedTitle(item.whole).length >= MIN_ARTIST_LENGTH);
+  const supported = found.map((anchor) => found.filter((item) => agrees(anchor, item)))
+    .filter((group) => group.length >= 2).sort((a, b) => b.length - a.length)[0];
+  if (!supported) return [];
+  const best = [...supported].sort((a, b) => (b.line.confidence ?? 0) - (a.line.confidence ?? 0))[0];
+  return [...new Set([best.whole, best.text])]
+    .filter((text) => normalizedTitle(text).length >= MIN_ARTIST_LENGTH)
+    .map((text) => text.slice(0, 255));
+};
+
 const readDifficulties = (texts) => [...new Set(
   texts.flatMap((text) => [...String(text).matchAll(DIFFICULTY_PATTERN)].map((match) => match[1].toUpperCase())),
 )];
 
 export const extractChartText = (lines, texts, { sharedFrames } = {}) => {
+  // A local file's lines arrive pooled across frames, without the per-frame
+  // layout that places the artist under the title, so only a share sends one.
   if (!sharedFrames) return {
-    titles: titleCandidates(lines), difficulties: readDifficulties(texts),
+    titles: titleCandidates(lines), difficulties: readDifficulties(texts), artists: [],
     levels: summarizeLevels(texts), raw: texts,
   };
   const perFrame = sharedFrames.map((frame) => readDifficulties([frame.text]));
   const difficulties = [...new Set(perFrame.flat())]
     .filter((difficulty) => perFrame.filter((frame) => frame.includes(difficulty)).length >= 2);
   return {
-    titles: sharedTitleCandidates(sharedFrames), difficulties,
+    titles: sharedTitleCandidates(sharedFrames), difficulties, artists: sharedArtistCandidates(sharedFrames),
     levels: summarizeLevels(sharedFrames.map((frame) => frame.text)), raw: texts,
   };
 };

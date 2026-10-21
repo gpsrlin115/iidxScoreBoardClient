@@ -1,7 +1,9 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { buildLayoutMatchPayload } from '../src/features/layoutAnalysis/payload.js';
-import { candidateKey, candidateQueryParams, SUPPORTED_DIFFICULTIES } from '../src/features/layoutAnalysis/candidates.js';
+import {
+  candidateKey, candidateQueryParams, candidateScreenOcr, SUPPORTED_DIFFICULTIES,
+} from '../src/features/layoutAnalysis/candidates.js';
 import { clampObservedNotes, extractionProblem } from '../src/features/layoutAnalysis/observedNotes.js';
 import { summarizeCapture } from '../src/features/layoutAnalysis/captureQuality.js';
 
@@ -207,4 +209,20 @@ test('the frames are judged before the lanes', () => {
   });
 
   assert.match(problem, /프레임이 비었습니다/);
+});
+
+test('screen OCR leaves the artist key out when no artist was read', () => {
+  // A server without the field rejects an unknown key, so a search that read
+  // no artist must not carry one.
+  assert.deepEqual(candidateScreenOcr({ titles: ['RS'], difficulties: ['ANOTHER', 'BEGINNER'] }),
+    { titles: ['RS'], difficulties: ['ANOTHER'] });
+  assert.deepEqual(candidateScreenOcr({ titles: [], difficulties: [], artists: [] }), { titles: [], difficulties: [] });
+  assert.deepEqual(candidateScreenOcr({ titles: ['RS', 'R5'], artists: ['tiger YAMATO with ultrabeatbox'] }),
+    { titles: ['RS', 'R5'], difficulties: [], artists: ['tiger YAMATO with ultrabeatbox'] });
+});
+
+test('screen OCR artists stay within the server limits', () => {
+  const { artists } = candidateScreenOcr({ artists: ['a'.repeat(300), '', 'b', 'c', 'd', 'e', 'f'] });
+  assert.equal(artists.length, 5);
+  assert.equal(artists[0].length, 255);
 });
