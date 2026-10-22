@@ -3,6 +3,9 @@
   "private": true,
   "version": "0.0.0",
   "type": "module",
+  "engines": {
+    "node": ">=22.23.4 <23"
+  },
   "scripts": {
     "dev": "vite",
     "dev:radar": "VITE_ENABLE_NOTE_RADAR=1 VITE_NOTE_RADAR_MOCK=1 VITE_API_BASE_URL=/api vite --host 127.0.0.1",
@@ -44,6 +47,6 @@
     "eslint-plugin-react-refresh": "^0.5.7",
     "globals": "^17.13.0",
     "jsdom": "^29.0.0",
-    "vite": "^8.3.2"
+    "vite": "^8.3.3"
   }
 }
