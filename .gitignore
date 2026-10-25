@@ -38,6 +38,7 @@ public/media/
 
 # Local agent/runtime configuration
 .codex/
+.claude/
 
 # Terraform local state and machine-specific inputs
 **/.terraform/
