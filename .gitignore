@@ -28,6 +28,10 @@ dist-ssr
 # that pattern silently matches nothing. Until this was fixed the directory was
 # held back only by .git/info/exclude, which is per-clone and not shared.
 docs/
+# Retrospectives written at the repository root (RETRO_*.md) are local-only
+# notes as well. CI rejects any that are tracked, in any letter case.
+/RETRO*.md
+/retro*.md
 
 # Konami easter egg sounds (gradiusCoin.mp3, KonamiLogo1.mp3, KonamiLogo2.mp3).
 # The audio is copyrighted and this repository is public, so it never goes
