@@ -11,8 +11,11 @@ import GooglePendingConfirm from '../components/auth/GooglePendingConfirm';
 import MonoButton from '../components/common/MonoButton';
 import IidxBindingSummary from '../components/profile/IidxBindingSummary';
 import { ENABLE_RIVAL_COLLECTION } from '../config/features';
+import { formatDate } from '../i18n/format.js';
+import { useLocale } from '../i18n/useLocale.js';
 
 export default function Profile() {
+  useLocale();
   const user = useAuthStore((state) => state.user);
   const google = useGoogleProvider();
   const navigate = useNavigate();
@@ -105,7 +108,7 @@ export default function Profile() {
           {methods.googleLinked ? <>
             <p className="text-sm text-accent">연결됨</p>
             <p className="mt-2 break-all text-sm text-ink">{methods.googleEmail}</p>
-            {methods.linkedAt && <p className="mt-2 text-xs text-muted">연결일 {new Date(methods.linkedAt).toLocaleDateString('ko-KR')}</p>}
+            {methods.linkedAt && <p className="mt-2 text-xs text-muted">연결일 {formatDate(methods.linkedAt)}</p>}
           </> : <>
             <p className="text-sm leading-6 text-muted">아직 연결된 Google 계정이 없습니다. 기존 비밀번호로 본인 확인 후 Google 계정을 선택해주세요. 가입 이메일과 다른 계정도 연결할 수 있습니다.</p>
             {!pending && !flow.loading && google?.enabled && google.enrollmentEnabled && methods.passwordEnabled && (

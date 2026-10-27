@@ -1,3 +1,4 @@
+import { useLocale } from '../../../i18n/useLocale.js';
 import { formatClearType, formatDateTime, formatNumber } from './scoreFormat';
 
 // `numeric` picks font-num/tnum (tabular figures) for the four measured
@@ -43,6 +44,7 @@ const RecordSection = ({ title, tone, score, missCount, pGreat, great, clearType
  *   chart's own record.
  */
 const SongScoreSection = ({ details, isFallbackScore = false }) => {
+  useLocale();
   if (!details) {
     return (
       <div className="mt-5 rounded-[4px] border border-dashed border-line-strong bg-night/50 px-5 py-10 text-center">

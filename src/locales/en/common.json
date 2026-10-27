@@ -1,0 +1,49 @@
+{
+  "meta": {
+    "description": "A personal scoreboard for managing your beatmania IIDX scores and tier table clear status"
+  },
+  "language": {
+    "label": "Language"
+  },
+  "loading": {
+    "label": "Loading",
+    "fallback": "Loading...",
+    "route": "Loading page...",
+    "overlayDefault": "Processing...",
+    "overlayWait": "Please wait"
+  },
+  "errorBoundary": {
+    "updatedTitle": "A new version has been released",
+    "updatedBody": "Please reload the page.",
+    "reload": "Reload"
+  },
+  "errorView": {
+    "retry": "Try again",
+    "home": "Home"
+  },
+  "errorPage": {
+    "forbidden": {
+      "title": "Access denied",
+      "description": "You don't have permission to view this page."
+    },
+    "notFound": {
+      "title": "Page not found",
+      "description": "The address is wrong or the page has been removed."
+    },
+    "teapot": {
+      "title": "I'm a teapot",
+      "description": "I can't brew coffee. Have a cup of tea while you wait."
+    },
+    "server": {
+      "title": "A problem occurred on the server",
+      "description": "Please try again in a moment."
+    },
+    "network": {
+      "title": "Can't connect to the server",
+      "description": "Check your network connection and try again."
+    },
+    "default": {
+      "title": "Something went wrong"
+    }
+  }
+}

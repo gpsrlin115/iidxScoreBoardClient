@@ -1,13 +1,11 @@
+import { formatDateTime } from '../../i18n/format.js';
+import { useLocale } from '../../i18n/useLocale.js';
 import TierRows from './TierRows';
 import TierLegend from './TierLegend';
 import { calculateTierProgress } from '../../utils/tierShare';
 
-const formatGeneratedAt = (date) => new Intl.DateTimeFormat('ko-KR', {
-  dateStyle: 'medium',
-  timeStyle: 'short',
-}).format(date);
-
 const TierShareCard = ({ username, level, playStyle, mode, tiers, generatedAt }) => {
+  useLocale();
   const progress = calculateTierProgress(tiers);
 
   return (
@@ -34,7 +32,7 @@ const TierShareCard = ({ username, level, playStyle, mode, tiers, generatedAt })
 
       <footer className="mt-5 flex justify-between font-mono text-[9px] uppercase tracking-[.15em] text-dim">
         <span>current clear lamps at export time</span>
-        <span>{formatGeneratedAt(generatedAt)}</span>
+        <span>{formatDateTime(generatedAt)}</span>
       </footer>
     </section>
   );

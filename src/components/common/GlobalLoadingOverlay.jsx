@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next';
 import { useLoadingStore } from '../../store/loadingStore';
 
 /**
@@ -28,6 +29,7 @@ import { useLoadingStore } from '../../store/loadingStore';
  * @see src/hooks/useLoading.js
  */
 const GlobalLoadingOverlay = () => {
+  const { t } = useTranslation();
   const { isLoading, message } = useLoadingStore();
 
   if (!isLoading) return null;
@@ -48,7 +50,7 @@ const GlobalLoadingOverlay = () => {
       }}
       role="status"
       aria-live="polite"
-      aria-label="로딩 중"
+      aria-label={t('common.loading.label')}
     >
       {/* 카드 */}
       <div
@@ -152,7 +154,7 @@ const GlobalLoadingOverlay = () => {
               letterSpacing: '0.01em',
             }}
           >
-            {message ?? '처리 중입니다...'}
+            {message ?? t('common.loading.overlayDefault')}
           </p>
           {/* 점 세 개 애니메이션 */}
           <p
@@ -163,7 +165,7 @@ const GlobalLoadingOverlay = () => {
               marginBottom: 0,
             }}
           >
-            잠시만 기다려 주세요
+            {t('common.loading.overlayWait')}
             <span style={{ animation: 'dots 1.4s steps(4, end) infinite' }}>
               ...
             </span>

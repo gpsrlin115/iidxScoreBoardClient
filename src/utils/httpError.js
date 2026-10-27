@@ -7,26 +7,33 @@
  * every call site.
  */
 
-// Default Korean copy shown to the user, keyed by HTTP status code.
-export const STATUS_MESSAGES = {
-  400: '요청 내용을 다시 확인해주세요.',
-  401: '세션이 만료되었습니다. 다시 로그인해주세요.',
-  403: '이 페이지에 접근할 권한이 없습니다.',
-  404: '요청하신 정보를 찾을 수 없습니다.',
-  409: '이미 존재하는 데이터입니다.',
-  413: '파일 크기가 너무 큽니다.',
-  415: '지원하지 않는 파일 형식입니다.',
-  422: '입력값을 확인해주세요.',
-  429: '요청이 너무 많습니다. 잠시 후 다시 시도해주세요.',
-  500: '서버에 문제가 발생했습니다.',
-  502: '서버에 일시적으로 연결할 수 없습니다. 잠시 후 다시 시도해주세요.',
-  503: '서버에 일시적으로 연결할 수 없습니다. 잠시 후 다시 시도해주세요.',
-  504: '서버에 일시적으로 연결할 수 없습니다. 잠시 후 다시 시도해주세요.',
+import i18n from '../i18n/index.js';
+
+// HTTP status -> key under `errors.status` in the locale files. The copy is
+// resolved when an error is built, so it follows the language active then.
+const STATUS_KEYS = {
+  400: 'badRequest',
+  401: 'sessionExpired',
+  403: 'forbidden',
+  404: 'notFound',
+  409: 'conflict',
+  413: 'payloadTooLarge',
+  415: 'unsupportedMediaType',
+  422: 'unprocessable',
+  429: 'tooManyRequests',
+  500: 'serverError',
+  502: 'unavailable',
+  503: 'unavailable',
+  504: 'unavailable',
 };
 
-const NETWORK_MESSAGE = '서버에 연결할 수 없습니다. 네트워크 상태를 확인해주세요.';
-const TIMEOUT_MESSAGE = '요청 시간이 초과되었습니다. 다시 시도해주세요.';
-const UNKNOWN_MESSAGE = '알 수 없는 오류가 발생했습니다.';
+const NETWORK_MESSAGE = () => i18n.t('errors.network');
+const TIMEOUT_MESSAGE = () => i18n.t('errors.timeout');
+const UNKNOWN_MESSAGE = () => i18n.t('errors.unknown');
+
+// Server error codes become part of a translation key, so only plain
+// identifiers are accepted. "a.b" or "../x" must never reach i18next.
+const SERVER_CODE_PATTERN = /^[A-Za-z0-9_-]+$/;
 
 /**
  * Best-effort extraction of a server-provided message from a response body.
@@ -45,15 +52,66 @@ function extractServerMessage(data) {
 }
 
 function statusFallbackMessage(status) {
-  return STATUS_MESSAGES[status] || UNKNOWN_MESSAGE;
+  const key = STATUS_KEYS[status];
+  return key ? i18n.t(`errors.status.${key}`) : UNKNOWN_MESSAGE();
+}
+
+/**
+ * The machine-readable `code` of a `{ error, message, code?, params? }` error
+ * body, or null. Distinct from the axios `error.code` ("ERR_NETWORK").
+ *
+ * @param {unknown} data - `error.response.data`
+ * @returns {string | null}
+ */
+function extractServerCode(data) {
+  const code = data?.code;
+  return typeof code === 'string' && SERVER_CODE_PATTERN.test(code) ? code : null;
+}
+
+/**
+ * Translates a server error code with its interpolation params, or returns
+ * null when this client has no `errors.server.<code>` entry for it (older
+ * client, newer server) so the caller can fall back to the server message.
+ *
+ * Params are server data: only strings, numbers and booleans are used, and
+ * they are passed as `replace` values so a param named like an i18next option
+ * ("lng", "ns", "defaultValue") cannot change how the lookup behaves. `count`
+ * is the one exception because it drives plural selection.
+ *
+ * @param {unknown} data - `error.response.data`
+ * @returns {string | null}
+ */
+function translateServerCode(data) {
+  const code = extractServerCode(data);
+  if (!code) return null;
+  const key = `errors.server.${code}`;
+
+  const replace = {};
+  let count;
+  if (data.params && typeof data.params === 'object') {
+    for (const [name, value] of Object.entries(data.params)) {
+      if (!['string', 'number', 'boolean'].includes(typeof value)) continue;
+      if (name === 'count' && typeof value === 'number') count = value;
+      else replace[name] = value;
+    }
+  }
+  // `replace` stands in for the interpolation data, so `count` has to be in it
+  // as well as in the options that pick the plural form.
+  const options = count === undefined ? { replace } : { replace: { ...replace, count }, count };
+  // `count` is part of the existence check because plural entries are stored
+  // as `<key>_one` / `<key>_other`, never under the bare key.
+  return i18n.exists(key, count === undefined ? undefined : { count }) ? i18n.t(key, options) : null;
 }
 
 /**
  * Normalize any request error into a single predictable shape.
  *
  * Message source policy:
- * - 4xx: prefer the server's `message` (useful validation feedback), then
- *   the caller-supplied `fallback`, then a status-keyed default.
+ * - 4xx: prefer this client's translation of the server's `code` (with its
+ *   `params`), then the server's `message` (useful validation feedback), then
+ *   the caller-supplied `fallback`, then a status-keyed default. The code is
+ *   only trusted when `errors.server.<code>` exists, so a server that is ahead
+ *   of this client degrades to the message it always sent.
  * - 5xx / network / timeout: NEVER use the server message — Spring Boot's
  *   default error body can leak internal paths or exception details. Always
  *   use fixed copy instead.
@@ -65,6 +123,7 @@ function statusFallbackMessage(status) {
  * @returns {{
  *   status: number | null,
  *   code: string | null,
+ *   serverCode: string | null,
  *   message: string,
  *   serverMessage: string | null,
  *   retryable: boolean,
@@ -75,25 +134,28 @@ export function toAppError(error, { fallback } = {}) {
   const status = error?.response?.status ?? null;
   const code = error?.code ?? null;
   const serverMessage = extractServerMessage(error?.response?.data);
+  const serverCode = extractServerCode(error?.response?.data);
 
   let message;
   if (status === null) {
     if (code === 'ECONNABORTED') {
-      message = TIMEOUT_MESSAGE;
+      message = TIMEOUT_MESSAGE();
     } else if (code === 'ERR_NETWORK') {
-      message = NETWORK_MESSAGE;
+      message = NETWORK_MESSAGE();
     } else {
-      message = fallback || UNKNOWN_MESSAGE;
+      message = fallback || UNKNOWN_MESSAGE();
     }
   } else if (status >= 500) {
     message = statusFallbackMessage(status);
   } else {
-    message = serverMessage || fallback || statusFallbackMessage(status);
+    message = translateServerCode(error.response.data)
+      || serverMessage || fallback || statusFallbackMessage(status);
   }
 
   return {
     status,
     code,
+    serverCode,
     message,
     serverMessage,
     retryable: status === null || status >= 500 || status === 429,

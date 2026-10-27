@@ -1,3 +1,4 @@
+import { useLocale } from '../../i18n/useLocale.js';
 import { CATEGORIES, CATEGORY_DESCRIPTIONS, categoryLabel, dateLabel, decimal, signed, finiteNumber } from './model.js';
 import { RadarButton, RadarIssues } from './RadarUi';
 
@@ -24,6 +25,7 @@ function RadarChart({ categories }) {
 }
 
 export default function RadarOverview({ summary, previews, selectedCategory, onSelect, onRetry }) {
+  useLocale();
   return <section aria-label="노트레이더 현황" className="space-y-5">
     <div className="grid items-center rounded border border-line bg-white/[.025] p-4 lg:grid-cols-[minmax(300px,1fr)_1fr]">
       <RadarChart categories={summary.categories} />

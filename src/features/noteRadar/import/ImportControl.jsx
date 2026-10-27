@@ -7,8 +7,11 @@ import { RADAR_URL } from './protocol.js';
 import { importsApi } from './importsApi.js';
 import { importError } from './importErrors.js';
 import { PARSER_VERIFIED } from './parserSource.js';
+import { formatTime } from '../../../i18n/format.js';
+import { useLocale } from '../../../i18n/useLocale.js';
 
 export function ImportControl({ onImported, iidxId, linked = true, expanded = true }) {
+  useLocale();
   const [attempt, setAttempt] = useState(null);
   const [busy, setBusy] = useState(false);
   const [checking, setChecking] = useState(false);
@@ -130,7 +133,7 @@ export function ImportControl({ onImported, iidxId, linked = true, expanded = tr
           {attempt && <MonoButton variant="ghost" onClick={check} disabled={checking}>{checking ? '결과 확인 중…' : '가져오기 결과 확인'}</MonoButton>}
         </div>
         {!PARSER_VERIFIED && <p className="text-muted">공식 페이지 구조를 검증하고 있습니다.</p>}
-        {attempt && !expired && <p role="status" className="text-muted">공식 페이지에서 북마클릿을 실행해 주세요. {new Date(attempt.expiresAt).toLocaleTimeString('ko-KR')}까지 확인할 수 있습니다.</p>}
+        {attempt && !expired && <p role="status" className="text-muted">공식 페이지에서 북마클릿을 실행해 주세요. {formatTime(attempt.expiresAt)}까지 확인할 수 있습니다.</p>}
         {completed && <p role="status" className="text-accent">공식 기록을 저장했습니다. 현황을 새로 불러옵니다.</p>}
         {expired && <p role="status" className="text-muted">가져오기 시도가 만료됐거나 새 시도로 바뀌었습니다. 다시 시작해 주세요.</p>}
         {error && <p role="alert" className="text-danger">{error}</p>}
