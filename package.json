@@ -3,6 +3,9 @@
   "private": true,
   "version": "0.0.0",
   "type": "module",
+  "engines": {
+    "node": "^22.23.4 || ^24.22.1 || >=26.12.1"
+  },
   "scripts": {
     "dev": "vite",
     "dev:radar": "VITE_ENABLE_NOTE_RADAR=1 VITE_NOTE_RADAR_MOCK=1 VITE_API_BASE_URL=/api vite --host 127.0.0.1",

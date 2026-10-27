@@ -13,6 +13,18 @@
 - `main`에 push되면 `back-merge-main-to-dev.yml`이 `main`을 `dev`에 되돌려 합친다.
 - Dependabot 버전 업데이트는 `dependabot.yml`의 `target-branch: dev`로 `dev`에 열린다.
 
+## Node 버전
+
+- **고정 버전**: 프로젝트 Node는 `.nvmrc`(현재 22.23.4)에 고정한다. 검증·배포·주간 감사 워크플로도 이 파일을 읽는다.
+- **허용 범위**: `package.json`의 `engines`에는 계열별 보안 패치 하한(`^22.23.4 || ^24.22.1 || >=26.12.1`)만 둔다. `.npmrc`가 `engine-strict=true`라서 범위 밖 Node에서는 `npm ci`와 `npm install`이 실패한다.
+- **갱신 방법**: Node 보안 릴리스가 나오면 `.nvmrc`와 `engines` 하한을 함께 올린다. 이 둘을 자동으로 올려 주는 도구는 없다.
+- **전환 후 재설치**: `engines`는 설치할 때만 검사한다. Node를 바꾼 뒤에는 예전 `node_modules`로 계속 실행하지 말고 `npm ci`를 다시 실행한다.
+
+```bash
+. "$HOME/.nvm/nvm.sh" && nvm install && nvm use   # .nvmrc 버전 설치·전환(Mac·WSL 공통)
+npm ci
+```
+
 ## 왜 이렇게 바꿨나
 
 2026-09-27 기준 `dev`가 `main`보다 18커밋 뒤처져 있었다. 원인은 두 가지였다.
