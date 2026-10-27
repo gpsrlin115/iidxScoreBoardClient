@@ -1,4 +1,5 @@
 import toast from 'react-hot-toast';
+import i18n from '../i18n/index.js';
 import { useAuthStore } from '../store/authStore';
 import { navigateTo } from '../utils/navigation';
 import { isGoogleCredentialRecheck } from '../utils/googleAuth';
@@ -41,7 +42,7 @@ export function handleSessionExpired(requestUrl, code) {
 
   redirecting = true;
   useAuthStore.getState().logout();
-  toast.error('세션이 만료되었습니다. 다시 로그인해주세요.');
+  toast.error(i18n.t('errors.status.sessionExpired'));
 
   // Clearing the user already makes ProtectedRoute redirect to /login, and
   // that redirect wins the race against this one — so no query string is

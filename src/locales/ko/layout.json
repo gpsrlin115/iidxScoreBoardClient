@@ -1,0 +1,12 @@
+{
+  "nav": {
+    "dashboard": "대시보드",
+    "scores": "스코어",
+    "noteRadar": "노트레이더",
+    "tierTable": "서열표",
+    "import": "가져오기",
+    "layoutAnalysis": "배치 분석"
+  },
+  "logoAlt": "IIDX ScoreBoard 로고",
+  "logoutSuccess": "로그아웃 되었습니다."
+}

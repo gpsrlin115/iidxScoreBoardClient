@@ -1,19 +1,22 @@
 import { Link, NavLink, useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
+import { useTranslation } from 'react-i18next';
 import clsx from 'clsx';
 import { useAuthStore } from '../../store/authStore';
 import { useScopeStore } from '../../store/scopeStore';
 import { authApi } from '../../api/auth';
 import Tag from '../common/Tag';
+import LanguageSelect from '../common/LanguageSelect';
 import { ENABLE_LAYOUT_ANALYSIS, ENABLE_NOTE_RADAR } from '../../config/features';
 
+// `labelKey` is a key under `layout.nav` in the locale files.
 const NAV_ITEMS = [
-  { to: '/', label: '대시보드', end: true },
-  { to: '/scores', label: '스코어' },
-  ...(ENABLE_NOTE_RADAR ? [{ to: '/note-radar', label: '노트레이더' }] : []),
-  { to: '/tier-table', label: '서열표' },
-  { to: '/import/csv', label: '가져오기' },
-  ...(ENABLE_LAYOUT_ANALYSIS ? [{ to: '/layout-analysis', label: '배치 분석' }] : []),
+  { to: '/', labelKey: 'dashboard', end: true },
+  { to: '/scores', labelKey: 'scores' },
+  ...(ENABLE_NOTE_RADAR ? [{ to: '/note-radar', labelKey: 'noteRadar' }] : []),
+  { to: '/tier-table', labelKey: 'tierTable' },
+  { to: '/import/csv', labelKey: 'import' },
+  ...(ENABLE_LAYOUT_ANALYSIS ? [{ to: '/layout-analysis', labelKey: 'layoutAnalysis' }] : []),
 ];
 
 const FOCUS_RING =
@@ -32,6 +35,7 @@ const FOOTER_LINK = 'flex min-h-6 items-center text-faint hover:text-accent';
  * reproduced here, not layered on top of it.
  */
 const Sidebar = () => {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const user = useAuthStore((state) => state.user);
   const logout = useAuthStore((state) => state.logout);
@@ -43,7 +47,7 @@ const Sidebar = () => {
     try {
       await authApi.logout();
       logout();
-      toast.success('로그아웃 되었습니다.');
+      toast.success(t('layout.logoutSuccess'));
       navigate('/login');
     } catch {
       // Server session may already be gone (network error, expired cookie);
@@ -63,7 +67,7 @@ const Sidebar = () => {
       )}
     >
       <Link to="/" className={clsx('flex items-center gap-2', FOCUS_RING)}>
-        <img src="/favicon.png" alt="IIDX ScoreBoard 로고" className="h-[19px] w-[19px]" />
+        <img src="/favicon.png" alt={t('layout.logoAlt')} className="h-[19px] w-[19px]" />
         <span className="font-mono text-[10px] uppercase tracking-[.15em] text-ink leading-tight">
           IIDX
           <br />
@@ -87,7 +91,7 @@ const Sidebar = () => {
           'max-md:order-last max-md:w-full max-md:flex-row max-md:overflow-x-auto max-md:whitespace-nowrap'
         )}
       >
-        {NAV_ITEMS.map(({ to, label, end }) => (
+        {NAV_ITEMS.map(({ to, labelKey, end }) => (
           <NavLink
             key={to}
             to={to}
@@ -107,7 +111,7 @@ const Sidebar = () => {
               )
             }
           >
-            {label}
+            {t(`layout.nav.${labelKey}`)}
           </NavLink>
         ))}
       </nav>
@@ -160,6 +164,7 @@ const Sidebar = () => {
         >
           logout
         </button>
+        <LanguageSelect className="mt-1" />
       </div>
     </aside>
   );

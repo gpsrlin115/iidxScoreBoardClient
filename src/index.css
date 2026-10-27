@@ -130,6 +130,12 @@
     -moz-osx-font-smoothing: grayscale;
   }
 
+  /* Japanese has no spaces, so the default wrap can split a word in two ("で/す。").
+     auto-phrase breaks at phrase boundaries; browsers without it keep the old wrap. */
+  html:lang(ja) body {
+    word-break: auto-phrase;
+  }
+
   ::selection {
     background: rgba(231, 155, 187, 0.28);
   }

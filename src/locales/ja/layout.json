@@ -1,0 +1,12 @@
+{
+  "nav": {
+    "dashboard": "ダッシュボード",
+    "scores": "スコア",
+    "noteRadar": "ノーツレーダー",
+    "tierTable": "地力表",
+    "import": "インポート",
+    "layoutAnalysis": "配置分析"
+  },
+  "logoAlt": "IIDX ScoreBoard ロゴ",
+  "logoutSuccess": "ログアウトしました。"
+}

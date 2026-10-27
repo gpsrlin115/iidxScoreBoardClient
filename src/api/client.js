@@ -1,5 +1,7 @@
 import axios from 'axios';
 import { toAppError } from '../utils/httpError';
+import i18n from '../i18n/index.js';
+import { BASE_LANGUAGE, normalizeLanguage } from '../i18n/languages.js';
 import { handleSessionExpired } from './sessionExpiry';
 import { guardNoteRadarMockRequest, isNoteRadarMockError, noteRadarApiBaseURL, noteRadarMockEnabled,
   noteRadarMockError, requireNoteRadarMockResponse } from './noteRadarMockGuard.js';
@@ -28,7 +30,12 @@ apiClient.interceptors.request.use(
       config.headers['Content-Type'] = 'application/json';
     }
 
-    // 2. CSRF Token - XSRF-TOKEN 쿠키 값을 X-XSRF-TOKEN 헤더에 추가
+    // 2. Accept-Language - the UI language, so server-side output meant for the
+    //    user (such as emails) can follow it. It is a CORS-safelisted header,
+    //    so it adds no preflight.
+    config.headers['Accept-Language'] = normalizeLanguage(i18n.language) ?? BASE_LANGUAGE;
+
+    // 3. CSRF Token - XSRF-TOKEN 쿠키 값을 X-XSRF-TOKEN 헤더에 추가
     const csrfToken = document.cookie
       .split('; ')
       .find((row) => row.startsWith('XSRF-TOKEN='))

@@ -1,0 +1,49 @@
+{
+  "meta": {
+    "description": "beatmania IIDX 스코어와 서열표 클리어 현황을 관리하는 개인 스코어보드"
+  },
+  "language": {
+    "label": "언어"
+  },
+  "loading": {
+    "label": "로딩 중",
+    "fallback": "Loading...",
+    "route": "페이지를 불러오는 중...",
+    "overlayDefault": "처리 중입니다...",
+    "overlayWait": "잠시만 기다려 주세요"
+  },
+  "errorBoundary": {
+    "updatedTitle": "새 버전이 배포되었습니다",
+    "updatedBody": "페이지를 새로고침해주세요.",
+    "reload": "새로고침"
+  },
+  "errorView": {
+    "retry": "다시 시도",
+    "home": "홈으로"
+  },
+  "errorPage": {
+    "forbidden": {
+      "title": "접근 권한이 없습니다",
+      "description": "이 페이지를 볼 수 있는 권한이 없습니다."
+    },
+    "notFound": {
+      "title": "페이지를 찾을 수 없습니다",
+      "description": "주소가 잘못되었거나 삭제된 페이지입니다."
+    },
+    "teapot": {
+      "title": "저는 찻주전자입니다",
+      "description": "커피는 내릴 수 없어요. 차 한 잔 하며 기다려주세요."
+    },
+    "server": {
+      "title": "서버에 문제가 발생했습니다",
+      "description": "잠시 후 다시 시도해주세요."
+    },
+    "network": {
+      "title": "서버에 연결할 수 없습니다",
+      "description": "네트워크 상태를 확인한 뒤 다시 시도해주세요."
+    },
+    "default": {
+      "title": "오류가 발생했습니다"
+    }
+  }
+}

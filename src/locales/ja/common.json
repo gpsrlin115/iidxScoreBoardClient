@@ -1,0 +1,49 @@
+{
+  "meta": {
+    "description": "beatmania IIDXのスコアと地力表のクリア状況を管理する個人用スコアボード"
+  },
+  "language": {
+    "label": "言語"
+  },
+  "loading": {
+    "label": "読み込み中",
+    "fallback": "Loading...",
+    "route": "ページを読み込み中...",
+    "overlayDefault": "処理中です...",
+    "overlayWait": "しばらくお待ちください"
+  },
+  "errorBoundary": {
+    "updatedTitle": "新しいバージョンが公開されました",
+    "updatedBody": "ページを再読み込みしてください。",
+    "reload": "再読み込み"
+  },
+  "errorView": {
+    "retry": "再試行",
+    "home": "ホームへ"
+  },
+  "errorPage": {
+    "forbidden": {
+      "title": "アクセス権限がありません",
+      "description": "このページを表示する権限がありません。"
+    },
+    "notFound": {
+      "title": "ページが見つかりません",
+      "description": "アドレスが間違っているか、削除されたページです。"
+    },
+    "teapot": {
+      "title": "私はティーポットです",
+      "description": "コーヒーは淹れられません。お茶でも飲みながらお待ちください。"
+    },
+    "server": {
+      "title": "サーバーで問題が発生しました",
+      "description": "しばらくしてからもう一度お試しください。"
+    },
+    "network": {
+      "title": "サーバーに接続できません",
+      "description": "ネットワークの状態を確認してから、もう一度お試しください。"
+    },
+    "default": {
+      "title": "エラーが発生しました"
+    }
+  }
+}

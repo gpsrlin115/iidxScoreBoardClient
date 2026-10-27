@@ -1,7 +1,36 @@
 import { Component } from 'react';
+import { useTranslation } from 'react-i18next';
 import { FiRefreshCw } from 'react-icons/fi';
 import Button from './Button';
 import ErrorView from './ErrorView';
+
+// Shown when a stale tab asks for a chunk the latest deploy replaced. A
+// function component so the copy follows the active language.
+const ChunkErrorNotice = () => {
+  const { t } = useTranslation();
+  return (
+    <div className="flex items-center justify-center min-h-[60vh] px-4">
+      <div className="flex flex-col items-center gap-3 text-center max-w-md mx-auto">
+        <div className="text-6xl">🚀</div>
+        <h2 className="text-2xl font-bold text-ink">
+          {t('common.errorBoundary.updatedTitle')}
+        </h2>
+        <p className="text-sm text-muted">
+          {t('common.errorBoundary.updatedBody')}
+        </p>
+        <Button
+          variant="primary"
+          size="sm"
+          className="mt-2"
+          onClick={() => window.location.reload()}
+        >
+          <FiRefreshCw size={14} />
+          {t('common.errorBoundary.reload')}
+        </Button>
+      </div>
+    </div>
+  );
+};
 
 /**
  * Detects a failed dynamic import (code-split chunk) rather than an
@@ -73,28 +102,7 @@ class ErrorBoundary extends Component {
     }
 
     if (isChunkLoadError(error)) {
-      return (
-        <div className="flex items-center justify-center min-h-[60vh] px-4">
-          <div className="flex flex-col items-center gap-3 text-center max-w-md mx-auto">
-            <div className="text-6xl">🚀</div>
-            <h2 className="text-2xl font-bold text-ink">
-              새 버전이 배포되었습니다
-            </h2>
-            <p className="text-sm text-muted">
-              페이지를 새로고침해주세요.
-            </p>
-            <Button
-              variant="primary"
-              size="sm"
-              className="mt-2"
-              onClick={() => window.location.reload()}
-            >
-              <FiRefreshCw size={14} />
-              새로고침
-            </Button>
-          </div>
-        </div>
-      );
+      return <ChunkErrorNotice />;
     }
 
     return <ErrorView status={500} variant="page" onRetry={this.reset} />;

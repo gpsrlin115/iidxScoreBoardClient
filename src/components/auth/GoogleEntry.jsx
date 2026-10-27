@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
 import { googleAuthApi } from '../../api/googleAuth';
 import { useAuthStore } from '../../store/authStore';
@@ -7,6 +8,7 @@ import { googleAuthError } from '../../utils/googleAuth';
 import GoogleButton from './GoogleButton';
 
 export default function GoogleEntry({ signup = false, disabled = false, onBusyChange }) {
+  const { t } = useTranslation();
   const google = useGoogleProvider();
   const user = useAuthStore((state) => state.user);
   const isLoading = useAuthStore((state) => state.isLoading);
@@ -16,8 +18,8 @@ export default function GoogleEntry({ signup = false, disabled = false, onBusyCh
 
   if (user) return (
     <div className="mt-6 border-t border-line-strong pt-6 text-sm text-muted">
-      <p>이미 로그인 중입니다. Google 계정 연결과 로그인 수단 변경은 계정 설정에서 진행해주세요.</p>
-      <Link to="/profile" className="mt-3 inline-block text-accent hover:text-ink">계정 설정으로 이동</Link>
+      <p>{t('auth.google.alreadySignedIn')}</p>
+      <Link to="/profile" className="mt-3 inline-block text-accent hover:text-ink">{t('auth.google.goToSettings')}</Link>
     </div>
   );
 
@@ -39,7 +41,7 @@ export default function GoogleEntry({ signup = false, disabled = false, onBusyCh
     <div className="mt-6 border-t border-line-strong pt-6">
       <GoogleButton onClick={start} busy={busy} disabled={disabled || (signup && !google.enrollmentEnabled)} />
       {signup && !google.enrollmentEnabled && (
-        <p className="mt-3 text-xs leading-5 text-muted">Google 신규 가입은 일시 중단되었습니다. 이미 연결한 계정은 로그인 화면을 이용해주세요.</p>
+        <p className="mt-3 text-xs leading-5 text-muted">{t('auth.google.signupPaused')}</p>
       )}
       {error && <p role="alert" className="mt-3 text-sm leading-6 text-danger">{error.message}</p>}
     </div>
