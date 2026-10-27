@@ -29,6 +29,19 @@ jobs:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
+      # Ignore rules only hold back untracked files. A forced add, or a clone
+      # whose rules predate them, can still commit local-only notes, so check
+      # what is actually tracked in the merge result.
+      - name: Reject local-only notes
+        run: |
+          set -euo pipefail
+          tracked="$(git ls-files -- docs ':(icase)retro*.md')"
+          if [ -n "$tracked" ]; then
+            echo "::error::Local-only notes (docs/, root RETRO*.md) must not be committed:"
+            printf '%s\n' "$tracked"
+            exit 1
+          fi
+
       - name: Set up Node.js
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
