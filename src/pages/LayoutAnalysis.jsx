@@ -24,7 +24,7 @@ const MIN_ANALYSIS_SECONDS = 15;
 const LayoutAnalysis = () => {
   const runRef = useRef(null);
 
-  const [ocr, setOcr] = useState({ titles: [], difficulties: [] });
+  const [ocr, setOcr] = useState({ titles: [], difficulties: [], artists: [] });
   const [search, setSearch] = useState('');
   const [manualDifficulty, setManualDifficulty] = useState('');
   const [candidates, setCandidates] = useState([]);
@@ -44,7 +44,7 @@ const LayoutAnalysis = () => {
     () => {
       resetAnalysisArtifacts({ setResult, setCandidates, setSelected, setKeptNotes });
       setProgress(0);
-      setOcr({ titles: [], difficulties: [] });
+      setOcr({ titles: [], difficulties: [], artists: [] });
       setManualDifficulty('');
       setActionNotice('');
     },
@@ -95,11 +95,13 @@ const LayoutAnalysis = () => {
       if (!current()) return;
       setOcr(value);
       if (!search.trim() && value.titles[0]) setSearch(value.titles[0]);
+      const artist = value.artists?.at(-1);
       setStatus(value.titles.length
-        ? `읽은 곡명 후보: ${value.titles.slice(0, 3).join(' / ')}${value.difficulties.length ? ` · 난이도 ${value.difficulties.join(', ')}` : ''}`
-        : value.raw?.some(Boolean) ? '글자는 읽었지만 제목을 확인하지 못했습니다. OCR 원문을 확인하거나 곡명을 직접 검색하세요.'
-          : '문자를 읽지 못했습니다. 곡명을 직접 검색하세요.');
-      if (!value.titles.length) setActionNotice('곡·난이도 OCR: 제목을 확인하지 못했습니다. 아래 OCR 원문을 확인하세요.');
+        ? `읽은 곡명 후보: ${value.titles.slice(0, 3).join(' / ')}${value.difficulties.length ? ` · 난이도 ${value.difficulties.join(', ')}` : ''}${artist ? ` · 아티스트 ${artist}` : ''}`
+        : artist ? `제목은 읽지 못했지만 아티스트 줄(${artist})을 읽었습니다. 채보 후보 찾기를 누르면 아티스트로 찾습니다.`
+          : value.raw?.some(Boolean) ? '글자는 읽었지만 제목을 확인하지 못했습니다. OCR 원문을 확인하거나 곡명을 직접 검색하세요.'
+            : '문자를 읽지 못했습니다. 곡명을 직접 검색하세요.');
+      if (!value.titles.length && !artist) setActionNotice('곡·난이도 OCR: 제목을 확인하지 못했습니다. 아래 OCR 원문을 확인하세요.');
     } catch (error) {
       if (current()) { setStatus(errorMessage(error)); setActionNotice(`곡·난이도 OCR: ${errorMessage(error)}`); }
     } finally {
@@ -113,11 +115,15 @@ const LayoutAnalysis = () => {
       setStatus('ScoreBoard 곡 목록에서 후보를 찾는 중입니다…');
       const response = await layoutAnalysisApi.findCandidates({
         videoId: mode === 'youtube' ? youtube?.videoId : null, query: search, titles: ocr.titles,
-        difficulties: ocr.difficulties, difficulty: manualDifficulty || null,
+        difficulties: ocr.difficulties, artists: ocr.artists, difficulty: manualDifficulty || null,
       });
       setCandidates(response.candidates || []);
       setSelected(null);
-      setStatus(response.candidates?.length ? '정확한 곡과 채보를 선택하세요.' : response.warnings?.[0] || '후보를 찾지 못했습니다.');
+      // A search on the artist alone can list several songs; the server says so
+      // in a warning, which would be lost behind the prompt to choose.
+      setStatus(response.candidates?.length
+        ? ['정확한 곡과 채보를 선택하세요.', ...(response.warnings || [])].join(' ')
+        : response.warnings?.[0] || '후보를 찾지 못했습니다.');
     } catch (error) {
       setStatus(errorMessage(error));
     }

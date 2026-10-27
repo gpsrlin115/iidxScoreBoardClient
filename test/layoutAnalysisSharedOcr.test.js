@@ -57,6 +57,76 @@ test('real Firefox banner text recovers HARD BRAIN from noisy title edges', () =
   assert.deepEqual(shared([unrelated(), unrelated(), unrelated()]).titles, []);
 });
 
+// The R5 banner as a Firefox share read it: the title came back as "RS" in two
+// frames and not at all in the third, under a well-read artist line.
+const R5_ARTIST_READINGS = [
+  'f — tiger YAMATO with ultrabeatbox 4',
+  'A ~~ tigerYAMATO with ultrabsatbox A',
+  '。 _ ~~ tigerYAMATO with ultrabeatbox y',
+];
+const r5Frame = (title, artist = R5_ARTIST_READINGS[0]) => ({
+  width: 1000, height: 200,
+  text: `XTRA STAGE\n${title || ''}\n${artist}\nANOTHER`,
+  lines: [
+    line('N XTRA STAGE', { x0: 380, x1: 620, y0: 5, y1: 23 }),
+    ...(title ? [line(title, { x0: 455, x1: 545, y0: 38, y1: 70 })] : []),
+    line(artist, { x0: 330, x1: 670, y0: 74, y1: 87 }),
+  ],
+});
+const r5Share = () => [
+  r5Frame('| RS >', R5_ARTIST_READINGS[0]),
+  r5Frame('RS', R5_ARTIST_READINGS[1]),
+  r5Frame(null, R5_ARTIST_READINGS[2]),
+];
+
+test('the artist under the title is sent whole and with its stray end marks removed', () => {
+  // R2 and R3 are by tiger YAMATO, one character from "RS" as R5 is; only the
+  // artist tells R5 apart. The line read differently in each frame, and the
+  // server compares by edit distance, so a close reading is enough.
+  const read = shared(r5Share());
+
+  assert.deepEqual(read.titles, ['RS', 'R5']);
+  assert.deepEqual(read.artists, ['f tiger YAMATO with ultrabeatbox 4', 'tiger YAMATO with ultrabeatbox']);
+});
+
+test('the artist is still sent when the title above it was too unclear to send', () => {
+  const read = shared([r5Frame('ot'), r5Frame('ot', R5_ARTIST_READINGS[1])]);
+
+  assert.deepEqual(read.titles, []);
+  assert.deepEqual(read.artists, ['f tiger YAMATO with ultrabeatbox 4', 'tiger YAMATO with ultrabeatbox']);
+});
+
+test('an artist read in only one frame, or with no title above it, is not sent', () => {
+  assert.deepEqual(shared([r5Frame('RS'), r5Frame('RS', 'Composer'), r5Frame(null)]).artists, []);
+  assert.deepEqual(shared([r5Frame(null), r5Frame(null), r5Frame(null)]).artists, []);
+});
+
+test('a short word that begins an artist name is kept', () => {
+  // "dj" is a screen word for titles, and wordCore drops it too. Without it
+  // the line reads "TAKA", which is another artist in the catalogue.
+  const taka = () => r5Frame('RAIN', 'dj TAKA');
+  assert.deepEqual(shared([taka(), taka()]).artists, ['dj TAKA']);
+});
+
+test('a local file sends no artist', () => {
+  assert.deepEqual(extractChartText([], ['RS']).artists, []);
+});
+
+test('a short capital title read in two frames is sent with its look-alike spelling', () => {
+  // Without "R5" the server cannot tell this song from R2 and R3 by the same
+  // artist, which sit one character away from "RS" just as R5 does.
+  assert.deepEqual(shared([r5Frame('| RS >'), r5Frame('RS'), r5Frame()]).titles, ['RS', 'R5']);
+});
+
+test('a short title read in only one frame is not trusted', () => {
+  assert.deepEqual(shared([r5Frame('RS'), r5Frame('R3'), r5Frame()]).titles, []);
+});
+
+test('short lower-case fragments in the title position are still dropped', () => {
+  assert.deepEqual(shared([r5Frame('ot'), r5Frame('ot'), r5Frame('ot')]).titles, []);
+  assert.deepEqual(shared([r5Frame('12'), r5Frame('12')]).titles, []);
+});
+
 test('a repeated large line containing title and difficulty stays readable', () => {
   const compact = () => ({
     width: 1000, height: 200, text: 'HARD BRAIN ANOTHER',

@@ -31,11 +31,42 @@ const MIN_TRIMMED_LENGTH = 5;
 // reads best: a timer fragment or a score can outrank it.
 const LINES_CONSIDERED = 3;
 const CORE_WORD_LENGTH = 3;
+// The server ignores an artist shorter than this once symbols are gone.
+const MIN_ARTIST_LENGTH = 3;
 // A line this Latin is a Latin title, so a lone character from another script
 // in the middle of it is a misread symbol rather than part of the name.
 const LATIN_SHARE = 0.6;
 
+// Shapes the recogniser swaps in a short capital title. "R5" came back as "RS";
+// against a two-character name one wrong character is half the title, so the
+// server scored R2, R3, R5 and Iris alike and none of R5's charts made the list.
+const LOOKALIKES = { S: '5', 5: 'S', O: '0', 0: 'O', I: '1', 1: 'I', Z: '2', 2: 'Z', B: '8', 8: 'B', G: '6', 6: 'G' };
+
 const isSymbolsOnly = (word) => !/[\p{L}\p{N}]/u.test(word);
+
+const compactTitle = (text) => text.normalize('NFKC').replace(/[^\p{L}\p{N}]/gu, '');
+
+/**
+ * Whether a reading is a short title written the way IIDX writes them: one
+ * token of capitals and digits, such as R5, V2 or IX.
+ *
+ * Lower-case and split fragments ("i rr") are what the recogniser makes of a
+ * graphic, and they repeat across frames as reliably as a title does. A short
+ * title in any other form still has to be searched for by hand.
+ */
+export const isShortCapitalTitle = (text) => !/\s/.test(text.trim())
+  && /^[\p{Lu}\p{N}]{2,4}$/u.test(compactTitle(text)) && /\p{Lu}/u.test(compactTitle(text));
+
+/** The same short title with look-alike characters swapped, fewest swaps first. */
+export const lookalikeTitles = (text) => {
+  let forms = [{ text: '', swaps: 0 }];
+  for (const character of compactTitle(text)) {
+    const other = LOOKALIKES[character];
+    forms = forms.flatMap((form) => [{ text: form.text + character, swaps: form.swaps },
+      ...(other ? [{ text: form.text + other, swaps: form.swaps + 1 }] : [])]);
+  }
+  return forms.filter((form) => form.swaps > 0).sort((a, b) => a.swaps - b.swaps).map((form) => form.text);
+};
 
 const letterRatio = (text) => {
   const letters = (text.match(/[\p{L}\p{N}]/gu) || []).length;
@@ -148,6 +179,8 @@ export const titleCandidates = (lines) => {
     addTrimmed(best.slice(0, best.length - trim));
     addTrimmed(best.slice(trim));
   }
+  // Last, so a guessed spelling never takes the place of a reading.
+  for (const text of candidates.filter(isShortCapitalTitle)) lookalikeTitles(text).forEach(add);
   return candidates.slice(0, MAX_TITLES);
 };
 
@@ -166,12 +199,14 @@ const titleFromFrame = ({ lines, width, height }) => {
   const named = (lines || []).map((line) => sharedLine(line, width, height)).filter(Boolean);
   // The song name is printed above the smaller artist line. Requiring both
   // lines means a lone, clearly read artist cannot become a song candidate.
-  const pairs = named.filter((upper) => upper.top < height * 0.65 && named.some((lower) => (
-    lower !== upper && lower.top >= upper.bottom - height * 0.02
+  const isBelow = (upper, lower) => lower !== upper && lower.top >= upper.bottom - height * 0.02
     && lower.top - upper.bottom <= height * 0.2
     && Math.abs(lower.center - upper.center) <= width * 0.16
-    && upper.size >= lower.size * 1.15
-  )));
+    && upper.size >= lower.size * 1.15;
+  const pairs = named.filter((upper) => upper.top < height * 0.65)
+    .map((upper) => ({ ...upper, artist: named.filter((lower) => isBelow(upper, lower))
+      .sort((a, b) => a.top - b.top)[0] }))
+    .filter((upper) => upper.artist);
   // Some captures put the chart label on the same, large line as the title.
   // Its size and the adjacent difficulty label distinguish it from an artist.
   const labelled = named.filter((item) => item.top < height * 0.65
@@ -228,8 +263,10 @@ const repeatedRawTitle = (frames) => {
 
 export const sharedTitleCandidates = (frames) => {
   // Tiny fragments repeat across frames too, but are not enough to identify a
-  // song. A genuinely short title can still be entered through manual search.
-  const found = frames.map(titleFromFrame).filter((item) => item && normalizedTitle(item.text).length >= 5);
+  // song. A short title passes only in the capital form IIDX prints, and like
+  // any title it still has to read the same in two frames.
+  const found = frames.map(titleFromFrame).filter((item) => item
+    && (normalizedTitle(item.text).length >= 5 || isShortCapitalTitle(item.text)));
   const groups = found.map((anchor) => found.filter((item) => agrees(anchor, item)));
   const supported = groups.filter((group) => group.length >= 2)
     .sort((a, b) => b.length - a.length)[0];
@@ -240,20 +277,64 @@ export const sharedTitleCandidates = (frames) => {
   return titleCandidates([best.line]);
 };
 
+/**
+ * The artist line as read, and the same line with stray marks off its ends.
+ *
+ * Not cleanWords: its screen words include "dj", which begins many artist
+ * names, and a low-confidence word is still most of a name the server compares
+ * by edit distance. Nor wordCore, which drops "dj" too and turns "dj TAKA" into
+ * "TAKA", a different artist. What the banner graphics add at either end is a
+ * single character — "f — tiger YAMATO with ultrabeatbox 4" — so only those go.
+ */
+const artistForms = (line) => {
+  const words = (line.words || []).map((word) => (word.text || '').trim())
+    .filter((text) => text && !isSymbolsOnly(text));
+  const isMark = (word) => word.replace(/[^\p{L}\p{N}]/gu, '').length <= 1;
+  let start = 0;
+  let end = words.length;
+  while (start < end && isMark(words[start])) start += 1;
+  while (end > start && isMark(words[end - 1])) end -= 1;
+  return { whole: words.join(' '), text: words.slice(start, end).join(' ') || words.join(' ') };
+};
+
+/**
+ * The artist printed under the title, when two frames read it alike.
+ *
+ * A two-character title is one misread away from another song by the same
+ * composer — R5 came back as "RS", as near to R2 and R3 — and a symbol title
+ * may not be read at all. The artist line beneath is usually plain text, so
+ * the server uses it to tell such songs apart. It is taken from under the
+ * title line even when the title itself was too unclear to send.
+ */
+export const sharedArtistCandidates = (frames) => {
+  const found = frames.map(titleFromFrame).filter((item) => item?.artist)
+    .map(({ artist }) => ({ line: artist.line, ...artistForms(artist.line) }))
+    .filter((item) => normalizedTitle(item.whole).length >= MIN_ARTIST_LENGTH);
+  const supported = found.map((anchor) => found.filter((item) => agrees(anchor, item)))
+    .filter((group) => group.length >= 2).sort((a, b) => b.length - a.length)[0];
+  if (!supported) return [];
+  const best = [...supported].sort((a, b) => (b.line.confidence ?? 0) - (a.line.confidence ?? 0))[0];
+  return [...new Set([best.whole, best.text])]
+    .filter((text) => normalizedTitle(text).length >= MIN_ARTIST_LENGTH)
+    .map((text) => text.slice(0, 255));
+};
+
 const readDifficulties = (texts) => [...new Set(
   texts.flatMap((text) => [...String(text).matchAll(DIFFICULTY_PATTERN)].map((match) => match[1].toUpperCase())),
 )];
 
 export const extractChartText = (lines, texts, { sharedFrames } = {}) => {
+  // A local file's lines arrive pooled across frames, without the per-frame
+  // layout that places the artist under the title, so only a share sends one.
   if (!sharedFrames) return {
-    titles: titleCandidates(lines), difficulties: readDifficulties(texts),
+    titles: titleCandidates(lines), difficulties: readDifficulties(texts), artists: [],
     levels: summarizeLevels(texts), raw: texts,
   };
   const perFrame = sharedFrames.map((frame) => readDifficulties([frame.text]));
   const difficulties = [...new Set(perFrame.flat())]
     .filter((difficulty) => perFrame.filter((frame) => frame.includes(difficulty)).length >= 2);
   return {
-    titles: sharedTitleCandidates(sharedFrames), difficulties,
+    titles: sharedTitleCandidates(sharedFrames), difficulties, artists: sharedArtistCandidates(sharedFrames),
     levels: summarizeLevels(sharedFrames.map((frame) => frame.text)), raw: texts,
   };
 };
