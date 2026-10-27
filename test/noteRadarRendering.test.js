@@ -172,6 +172,28 @@ test('empty saved goals provide a category navigation action', async () => {
   assert.equal(container.querySelector('a').getAttribute('href'), '/note-radar');
 });
 
+test('a goal whose chart left the catalog can only be deleted, not simulated or edited', async () => {
+  const goals = [
+    { ...chart, id: 1, category: 'NOTES', targetExScore: 1500, status: 'IN_PROGRESS' },
+    { ...chart, chartId: 6, chartType: 'HYPER', noteCount: null, id: 2, category: 'NOTES', targetExScore: 1600, status: 'UNAVAILABLE' },
+  ];
+  let edited = null;
+  await render(RadarGoals, { goals, onReload() {}, onEdit(goal) { edited = goal; } });
+  const [, unavailable] = container.querySelectorAll('li');
+  const button = (item, label) => [...item.querySelectorAll('button')].find((candidate) => candidate.textContent === label);
+  assert.equal(unavailable.querySelector('input[type=checkbox]').disabled, true);
+  assert.equal(button(unavailable, '수정').disabled, true);
+  assert.equal(button(unavailable, '삭제').disabled, false);
+  assert.match(unavailable.textContent, /보면 데이터 확인 필요/);
+  assert.equal(unavailable.querySelector('input[type=checkbox]').getAttribute('aria-describedby'), 'goal-2-unavailable');
+  assert.match(document.getElementById('goal-2-unavailable').textContent, /함께 계산과 수정을 할 수 없습니다/);
+  await act(async () => { container.querySelectorAll('input[type=checkbox]').forEach((checkbox) => checkbox.click()); });
+  await click('선택한 1곡 함께 계산');
+  assert.deepEqual(simulated, [{ chartId: 5, exScore: 1500 }]);
+  await act(async () => { button(unavailable, '수정').click(); });
+  assert.equal(edited, null);
+});
+
 test('reimported TOP10 separates entered, updated, and departed official rows', async () => {
   const entered = { chartId: 11, title: 'Entered official song', chartType: 'ANOTHER', value: 140 };
   const updated = { chartId: 12, title: 'Updated official song', chartType: 'HYPER', value: 130 };

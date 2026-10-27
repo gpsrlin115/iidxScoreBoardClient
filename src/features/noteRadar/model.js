@@ -81,9 +81,17 @@ export function parseExScore(value, noteCount) {
     && (!finiteNumber(noteCount) || score <= Number(noteCount) * 2) ? score : null;
 }
 
+// The chart left the current release catalog after the goal was saved. The server then
+// rejects simulating or saving it, and cannot mark it achieved until the chart returns.
+export function goalUnavailable(goal) {
+  return goal?.status === 'UNAVAILABLE';
+}
+
 export function goalTargets(goals) {
   const targets = new Map();
   goals.forEach((goal) => {
+    // One unavailable chart makes the server reject the whole combined simulation.
+    if (goalUnavailable(goal)) return;
     const score = parseExScore(goal.targetExScore);
     const chartId = numericId(goal.chartId);
     if (chartId !== null && score !== null) {
@@ -96,6 +104,7 @@ export function goalTargets(goals) {
 
 export function goalStatus(goal) {
   if (goal.status === 'ACHIEVED' || goal.achieved === true) return '달성';
+  if (goalUnavailable(goal)) return '보면 데이터 확인 필요';
   return '확인 필요';
 }
 

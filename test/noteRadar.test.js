@@ -61,6 +61,15 @@ test('combined goal simulation sends each chart once with its highest target', (
   assert.equal(goalStatus({ achieved: true }), '달성');
 });
 
+test('a goal whose chart left the release catalog is named and kept out of combined simulation', () => {
+  assert.equal(goalStatus({ status: 'UNAVAILABLE', achieved: false }), '보면 데이터 확인 필요');
+  assert.deepEqual(goalTargets([
+    { chartId: 1, targetExScore: 1500, status: 'IN_PROGRESS' },
+    { chartId: 2, targetExScore: 1600, status: 'UNAVAILABLE' },
+    { chartId: 3, targetExScore: 1700, status: 'UNVERIFIED' },
+  ]), [{ chartId: 1, exScore: 1500 }, { chartId: 3, exScore: 1700 }]);
+});
+
 test('IDs and EX remain safe numeric values instead of generating missing chart IDs', () => {
   assert.equal(numericId('123'), 123);
   for (const value of [null, undefined, 0, -1, true, '1e3', '1.5', Number.MAX_SAFE_INTEGER + 1]) assert.equal(numericId(value), null);

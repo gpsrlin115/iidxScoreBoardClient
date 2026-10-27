@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { noteRadarApi } from './api';
-import { categoryLabel, errorMessage, goalStatus, goalTargets } from './model.js';
+import { categoryLabel, errorMessage, goalStatus, goalTargets, goalUnavailable } from './model.js';
 import { RadarButton, RadarError, RadarLink, SimulationResult } from './RadarUi';
 
 export default function RadarGoals({ goals, onReload, onEdit }) {
@@ -56,9 +56,10 @@ export default function RadarGoals({ goals, onReload, onEdit }) {
     {notice && <p role="status" className="text-sm text-accent">{notice}</p>}
     {!goals.length && <div className="space-y-4 rounded border border-line p-6"><p className="text-sm text-muted">저장한 목표곡이 없습니다. 추천곡에서 목표 EX를 정해 보세요.</p><RadarLink to="/note-radar">카테고리 선택하기</RadarLink></div>}
     <ul className="space-y-3">{goals.map((goal) => <li key={goal.id} className="grid grid-cols-[24px_minmax(0,1fr)] gap-3 rounded border border-line bg-surface p-4">
-      <input type="checkbox" checked={selected.includes(goal.id)} disabled={!!busy && busy !== 'simulate'} onChange={() => toggle(goal.id)} aria-label={`${goal.title} 함께 계산에 포함`} className="mt-1 size-5 accent-pink-300" />
+      <input type="checkbox" checked={selected.includes(goal.id)} disabled={goalUnavailable(goal) || (!!busy && busy !== 'simulate')} onChange={() => toggle(goal.id)} aria-label={`${goal.title} 함께 계산에 포함`} aria-describedby={goalUnavailable(goal) ? `goal-${goal.id}-unavailable` : undefined} className="mt-1 size-5 accent-pink-300" />
       <div className="min-w-0"><div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto]"><div><h2 className="break-words text-base text-ink">{goal.title}</h2><p className="mt-1 text-xs text-muted">SP {goal.chartType} · ☆{goal.level} · {categoryLabel(goal.category)}</p></div><p className="font-num text-2xl text-accent"><span className="mr-2 text-xs text-muted">목표 EX</span>{goal.targetExScore}</p></div>
-        <div className="mt-3 flex flex-wrap items-center justify-between gap-3"><p className="text-xs text-text2">{goalStatus(goal)}</p><div className="flex gap-2"><RadarButton disabled={!!busy} onClick={() => onEdit(goal)}>수정</RadarButton><RadarButton disabled={!!busy} onClick={() => remove(goal.id)} aria-label={`${goal.title} 목표 삭제`}>{busy === String(goal.id) ? '삭제 중…' : '삭제'}</RadarButton></div></div>
+        <div className="mt-3 flex flex-wrap items-center justify-between gap-3"><p className="text-xs text-text2">{goalStatus(goal)}</p><div className="flex gap-2"><RadarButton disabled={!!busy || goalUnavailable(goal)} onClick={() => onEdit(goal)} aria-describedby={goalUnavailable(goal) ? `goal-${goal.id}-unavailable` : undefined}>수정</RadarButton><RadarButton disabled={!!busy} onClick={() => remove(goal.id)} aria-label={`${goal.title} 목표 삭제`}>{busy === String(goal.id) ? '삭제 중…' : '삭제'}</RadarButton></div></div>
+        {goalUnavailable(goal) && <p id={`goal-${goal.id}-unavailable`} className="mt-2 text-xs leading-6 text-muted">현재 작품의 레이더 기준 데이터에서 이 보면을 찾을 수 없어 함께 계산과 수정을 할 수 없습니다. 목표를 삭제하거나 기준 데이터가 갱신된 뒤 다시 확인해 주세요.</p>}
       </div>
     </li>)}</ul>
     <SimulationResult result={result} />
