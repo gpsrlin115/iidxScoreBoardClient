@@ -8,7 +8,7 @@ const DetailValue = ({ label, value, emphasis = false, numeric = false, classNam
   <div className={`rounded-[3px] border border-line bg-night/60 px-3 py-2 ${className}`}>
     <dt className="text-xs text-muted">{label}</dt>
     <dd
-      className={`mt-1 ${numeric ? 'font-num tnum' : 'font-mono'} ${
+      className={`mt-1 ${numeric ? 'font-num tnum' : 'font-mono-ko'} ${
         emphasis ? 'text-lg font-bold text-ink' : 'text-sm text-text2'
       }`}
     >

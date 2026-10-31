@@ -2,6 +2,8 @@ import { useLocation } from 'react-router-dom';
 import clsx from 'clsx';
 import { useScopeStore } from '../../store/scopeStore';
 import Tag from '../common/Tag';
+import { useScoresStore } from '../../store/scoresStore';
+import { SCORE_BROWSER_V2_ENABLED } from '../../constants/scoreBrowser';
 
 const LEVELS = [10, 11, 12];
 
@@ -36,10 +38,13 @@ const TopBar = () => {
   const level = useScopeStore((state) => state.level);
   const playStyle = useScopeStore((state) => state.playStyle);
   const setLevel = useScopeStore((state) => state.setLevel);
+  const scoreLevel = useScoresStore((state) => state.level);
 
   const label = routeLabel(pathname);
   const showScopeSuffix = SCOPED_LABELS.has(label);
-  const showLevelToggle = showScopeSuffix;
+  const isScoreBrowser = label === 'scores' && SCORE_BROWSER_V2_ENABLED;
+  const showLevelToggle = showScopeSuffix && !isScoreBrowser;
+  const displayedLevel = isScoreBrowser ? (scoreLevel === '' || scoreLevel == null ? '전체' : `☆${scoreLevel}`) : `☆${level}`;
 
   return (
     <div
@@ -49,9 +54,9 @@ const TopBar = () => {
         'bg-[rgba(5,8,19,.9)] backdrop-blur-[14px]'
       )}
     >
-      <span className="font-mono text-[9.5px] uppercase tracking-[.24em] text-label">
+      <span className="font-mono-ko text-[9.5px] uppercase tracking-[.24em] text-label">
         {label}
-        {showScopeSuffix && ` · ☆${level} ${playStyle}`}
+        {showScopeSuffix && ` · ${displayedLevel} ${playStyle}`}
       </span>
 
       {showLevelToggle && (

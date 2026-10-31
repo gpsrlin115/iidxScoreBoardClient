@@ -7,6 +7,8 @@ import tailwindcss from "@tailwindcss/vite";
 import { TEAPOT_PATH } from './src/constants/teapot.js';
 import { NOTE_RADAR_MOCK_API_CONTEXT, NOTE_RADAR_MOCK_ORIGIN } from './scripts/note-radar-mock-contract.mjs';
 import { createNoteRadarMockProxyGuard } from './scripts/note-radar-mock-proxy.mjs';
+import { SCORE_BROWSER_MOCK_ORIGIN, SCORE_BROWSER_MOCK_API_CONTEXT,
+  createScoreBrowserMockProxyGuard } from './scripts/score-browser-validation/proxy.mjs';
 
 /**
  * Answers TEAPOT_PATH with a real `418 I'm a teapot` under `vite` and
@@ -65,11 +67,17 @@ const teapotStatus = () => {
 export default defineConfig(({ command, mode, isPreview }) => {
   const env = loadEnv(mode, process.cwd(), 'VITE_');
   const mock = env.VITE_NOTE_RADAR_MOCK === '1';
+  const scoresMock = env.VITE_SCORE_BROWSER_MOCK === '1';
+  if (scoresMock && (command !== 'serve' || isPreview || mock
+    || env.VITE_ENABLE_SCORE_BROWSER_V2 !== '1' || env.VITE_FEEDBACK_MOCK === '1')) {
+    throw new Error('VITE_SCORE_BROWSER_MOCK requires the Vite development server, VITE_ENABLE_SCORE_BROWSER_V2=1 and no other API mocks.');
+  }
   if (mock && (command !== 'serve' || isPreview)) {
     throw new Error('VITE_NOTE_RADAR_MOCK=1 is only supported by the Vite development server. Disable mock mode before build or preview.');
   }
   return {
-    plugins: [react(), tailwindcss(), teapotStatus(), ...(mock ? [createNoteRadarMockProxyGuard()] : [])],
+    plugins: [react(), tailwindcss(), teapotStatus(), ...(mock ? [createNoteRadarMockProxyGuard()] : []),
+      ...(scoresMock ? [createScoreBrowserMockProxyGuard()] : [])],
     // Vite 8 raised the default 'baseline-widely-available' target to Chrome/Edge 111,
     // Firefox 114 and Safari 16.4. Keep the Vite 7 baseline so the upgrade does not
     // quietly drop browsers the app supports today.
@@ -78,8 +86,8 @@ export default defineConfig(({ command, mode, isPreview }) => {
     server: {
       allowedHosts: ['entryway-manhole-colony.ngrok-free.dev'],
       proxy: {
-        [mock ? NOTE_RADAR_MOCK_API_CONTEXT : '/api']: {
-          target: mock ? NOTE_RADAR_MOCK_ORIGIN : 'http://localhost:8080',
+        [scoresMock ? SCORE_BROWSER_MOCK_API_CONTEXT : mock ? NOTE_RADAR_MOCK_API_CONTEXT : '/api']: {
+          target: scoresMock ? SCORE_BROWSER_MOCK_ORIGIN : mock ? NOTE_RADAR_MOCK_ORIGIN : 'http://localhost:8080',
           changeOrigin: true,
           headers: {
             Origin: 'http://localhost:5173',

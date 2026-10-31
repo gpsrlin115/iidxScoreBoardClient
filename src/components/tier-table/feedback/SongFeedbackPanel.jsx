@@ -67,6 +67,8 @@ const SongFeedbackPanel = ({ chartId, hasDifficulty = false }) => {
               message={vote.error.message}
               onRetry={vote.refetch}
             />
+          ) : !vote.isLoading && vote.currentTier == null ? (
+            <p className={INLINE_NOTICE_CLASS}>티어 미배정 채보는 투표할 수 없습니다.</p>
           ) : (
             <TierVoteBar
               counts={vote.counts}

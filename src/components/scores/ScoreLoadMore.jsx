@@ -24,12 +24,12 @@ const PRELOAD_MARGIN = '400px 0px';
  * @param {number} totalCount - cards after filtering
  * @param {() => void} onLoadMore
  */
-const ScoreLoadMore = ({ hasMore, shownCount, totalCount, onLoadMore }) => {
+const ScoreLoadMore = ({ hasMore, shownCount, totalCount, onLoadMore, isLoading = false }) => {
   const sentinelRef = useRef(null);
 
   useEffect(() => {
     const node = sentinelRef.current;
-    if (!hasMore || !node || typeof IntersectionObserver === 'undefined') return undefined;
+    if (!hasMore || isLoading || !node || typeof IntersectionObserver === 'undefined') return undefined;
 
     const observer = new IntersectionObserver(
       (entries) => {
@@ -39,7 +39,7 @@ const ScoreLoadMore = ({ hasMore, shownCount, totalCount, onLoadMore }) => {
     );
     observer.observe(node);
     return () => observer.disconnect();
-  }, [hasMore, shownCount, onLoadMore]);
+  }, [hasMore, shownCount, onLoadMore, isLoading]);
 
   if (!hasMore) return null;
 
@@ -47,10 +47,12 @@ const ScoreLoadMore = ({ hasMore, shownCount, totalCount, onLoadMore }) => {
     <div ref={sentinelRef} className="flex justify-center pt-[26px]">
       <button
         type="button"
+        disabled={isLoading}
+        aria-busy={isLoading}
         onClick={onLoadMore}
-        className="border border-[rgba(236,234,244,.1)] px-3 py-1 font-num text-[12.5px] text-muted"
+        className="border border-[rgba(236,234,244,.1)] px-3 py-1 font-mono-ko text-[12.5px] text-muted"
       >
-        더 보기 ({shownCount.toLocaleString()} / {totalCount.toLocaleString()})
+        {isLoading ? '불러오는 중' : '더 보기'} ({shownCount.toLocaleString()} / {totalCount.toLocaleString()})
       </button>
     </div>
   );

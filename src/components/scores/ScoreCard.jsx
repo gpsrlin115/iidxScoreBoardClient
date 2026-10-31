@@ -28,33 +28,42 @@ const META_TAG_CLASS =
  * @param {string} [tier] - tier label from tierStore's enrichedTierData;
  *   omitted (no tag rendered) when the song has no tier-table entry
  */
-const ScoreCard = ({ score, tier }) => {
+const ScoreCard = ({ score, tier, onClick, ...dialogProps }) => {
   const { song, chart } = score;
   const date = score.lastPlayedAt ?? score.bestPlayedAt;
   const playCount = describePlayCount(score);
+  const Card = onClick ? 'button' : 'div';
 
   return (
-    <div className="rounded-[4px] border border-line bg-surface p-4 pt-[15px] transition-colors hover:border-[rgba(231,155,187,.4)]">
-      <div className="flex items-start justify-between gap-[10px]">
-        <div className="min-w-0">
-          <p className="overflow-hidden text-ellipsis whitespace-nowrap text-[14.5px] text-ink">
+    <Card
+      {...dialogProps}
+      type={onClick ? 'button' : undefined}
+      onClick={onClick}
+      className="block w-full min-w-0 rounded-[4px] border border-line bg-surface p-4 pt-[15px] text-left transition-colors hover:border-[rgba(231,155,187,.4)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+    >
+      <span className="flex items-start justify-between gap-[10px]">
+        <span className="min-w-0">
+          <span className="block overflow-hidden text-ellipsis whitespace-nowrap text-[14.5px] text-ink">
             {song.title}
-          </p>
-          <p className="mt-[2px] overflow-hidden text-ellipsis whitespace-nowrap text-[11.5px] text-muted">
+          </span>
+          <span className="mt-[2px] block overflow-hidden text-ellipsis whitespace-nowrap text-[11.5px] text-muted">
             {song.artist}
-          </p>
-        </div>
+          </span>
+        </span>
         <ClearBadge clearType={score.bestClearType} minWidth={54} />
-      </div>
+      </span>
 
-      <div className="mt-[10px] flex flex-wrap gap-[5px]">
+      <span className="mt-[10px] flex flex-wrap gap-[5px]">
         <span className={META_TAG_CLASS}>{chart.playStyle}</span>
         <span className={META_TAG_CLASS}>{'☆'}{chart.level}</span>
         <span className={META_TAG_CLASS}>{chart.chartType}</span>
         {tier && <span className={META_TAG_CLASS}>TIER {tier}</span>}
-      </div>
+      </span>
+      <span className="mt-[5px] block break-words text-[10px] text-muted">
+        {String(song.version ?? '').trim() || '시리즈 정보 없음'}
+      </span>
 
-      <div className="mt-[14px] flex items-baseline gap-2">
+      <span className="mt-[14px] flex items-baseline gap-2">
         <span className="font-num tnum text-[30px] font-medium tracking-[-.025em] text-ink">
           {score.bestScore?.toLocaleString() ?? '-'}
         </span>
@@ -64,21 +73,21 @@ const ScoreCard = ({ score, tier }) => {
         >
           {score.bestDjLevel ?? '-'}
         </span>
-      </div>
+      </span>
       {/* No achievement-rate bar/baselines here — see restore-point note above. */}
 
-      <div className="mt-[11px] flex gap-[10px] font-mono text-[9px] text-faint">
+      <span className="mt-[11px] flex gap-[10px] font-mono text-[9px] text-faint">
         <span>miss {score.bestMissCount ?? '-'}</span>
         {!playCount && <span>plays {score.playCount}</span>}
         <span className="ml-auto">{date ? format(new Date(date), 'yy/MM/dd') : ''}</span>
-      </div>
+      </span>
       {playCount && (
-        <div className="mt-[3px] flex flex-wrap gap-x-[10px] font-mono-ko text-[9px] text-faint">
+        <span className="mt-[3px] flex flex-wrap gap-x-[10px] font-mono-ko text-[9px] text-faint">
           <span title={playCount.lowerBoundHint ?? undefined}>{playCount.text}</span>
           {playCount.cumulative && <span>{playCount.cumulative}</span>}
-        </div>
+        </span>
       )}
-    </div>
+    </Card>
   );
 };
 

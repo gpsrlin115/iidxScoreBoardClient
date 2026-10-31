@@ -1,5 +1,5 @@
 import { useId, useState } from 'react';
-import { getDifficultyDisplay } from '../../utils/difficulty';
+import { getDialogDifficultyLabel, getDifficultyDisplay } from '../../utils/difficulty';
 import SongScoreDialog from './SongScoreDialog';
 import TierSongChip from './TierSongChip';
 
@@ -19,9 +19,7 @@ const SongTile = ({ song, dense = false }) => {
 
   // Viewer dialog titles only abbreviate HYPER, ANOTHER and LEGGENDARIA.
   // Missing difficulty is omitted instead of exposing the admin placeholder.
-  const difficultyLabel = difficulty.isMissing
-    ? undefined
-    : ['BEGINNER', 'NORMAL'].includes(difficulty.key) ? difficulty.fullLabel : difficulty.label;
+  const difficultyLabel = getDialogDifficultyLabel(song.difficulty);
 
   // Focus returns to this button on its own: useFocusTrap inside the dialog
   // restores whatever was focused when it mounted. Restoring here too would

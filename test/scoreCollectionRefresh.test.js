@@ -36,6 +36,7 @@ beforeEach(async () => {
   scoresStore.getState().resetFilters();
   calls = 0;
   scoresApi.getScores = async () => { calls += 1; return result(1); };
+  scoresApi.getSeries = async () => [];
   container = document.createElement('div');
   document.body.replaceChildren(container);
   root = createRoot(container);

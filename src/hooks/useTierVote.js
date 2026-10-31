@@ -115,7 +115,7 @@ const useTierVote = (chartId) => {
     // buttons -- see the INVARIANT above. Voting before the bootstrap
     // settles would also read `myVote` as null and turn a cancel-my-vote
     // re-click into a brand new save.
-    if (chartId == null || unavailable || isLoading || isPending) return;
+    if (chartId == null || unavailable || error || isLoading || isPending || state.currentTier == null) return;
 
     const snapshot = state;
     const { isTogglingOff, ...optimistic } = computeOptimisticVote(state, value);
@@ -146,7 +146,7 @@ const useTierVote = (chartId) => {
     } finally {
       if (requestId === requestIdRef.current) setIsPending(false);
     }
-  }, [chartId, unavailable, isLoading, isPending, state]);
+  }, [chartId, unavailable, error, isLoading, isPending, state]);
 
   return {
     ...state,

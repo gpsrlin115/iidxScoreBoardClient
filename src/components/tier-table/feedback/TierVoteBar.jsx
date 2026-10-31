@@ -76,7 +76,7 @@ const TierVoteBar = ({
         // server out of order, leaving the stored vote and the screen
         // disagreeing; `isLoading` blocks voting before the bootstrap
         // aggregate reveals whether the user already has a vote.
-        const isDisabled = isPending || isLoading;
+        const isDisabled = isPending || isLoading || currentTier == null;
         // A stale vote is excluded from the aggregate and `submitVote`
         // treats it as "no active vote" (re-clicking it saves rather than
         // cancels). Showing it as selected would contradict both the

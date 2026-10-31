@@ -32,3 +32,10 @@ export const getDifficultyDisplay = (difficulty) => {
 
   return { key: null, label: value, fullLabel: value, isMissing: false };
 };
+
+// Viewer dialogs spell out BEGINNER and NORMAL and abbreviate other known charts.
+export const getDialogDifficultyLabel = (difficulty) => {
+  const display = getDifficultyDisplay(difficulty);
+  if (display.isMissing) return undefined;
+  return ['BEGINNER', 'NORMAL'].includes(display.key) ? display.fullLabel : display.label;
+};

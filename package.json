@@ -5,6 +5,8 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "dev:score-browser": "VITE_ENABLE_SCORE_BROWSER_V2=1 VITE_SCORE_BROWSER_MOCK=1 VITE_API_BASE_URL=/api vite --host 127.0.0.1 --port 18087 --strictPort",
+    "mock:score-browser": "node scripts/score-browser-validation/server.mjs",
     "dev:radar": "VITE_ENABLE_NOTE_RADAR=1 VITE_NOTE_RADAR_MOCK=1 VITE_API_BASE_URL=/api vite --host 127.0.0.1",
     "mock:radar": "node scripts/note-radar-mock.mjs",
     "build": "vite build",
