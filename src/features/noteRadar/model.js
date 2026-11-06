@@ -1,3 +1,5 @@
+import { TITLE_LADDER } from './titles.js';
+
 export const CATEGORIES = ['NOTES', 'CHORD', 'PEAK', 'CHARGE', 'SCRATCH', 'SOFLAN'];
 export const categoryLabel = (value) => value === 'SOFLAN' ? 'SOF-LAN' : value;
 export const CATEGORY_DESCRIPTIONS = {
@@ -5,11 +7,7 @@ export const CATEGORY_DESCRIPTIONS = {
   CHARGE: '차지 계열', SCRATCH: '스크래치', SOFLAN: '변속',
 };
 
-const TITLES = [
-  [180, 'RESIDENT'], [165, 'MASTER'], [150, 'PLATINUM'], [120, 'DIAMOND'],
-  [100, 'EMERALD'], [80, 'GOLD'], [50, 'SILVER'], [30, 'BRONZE'],
-  [20, 'NORMAL'], [10, 'ROOKIE'], [0, '없음'],
-];
+const TITLES = [...TITLE_LADDER].reverse().map(({ name, bound }) => [bound, name]).concat([[0, '없음']]);
 
 export const finiteNumber = (value) => (typeof value === 'number' || typeof value === 'string' && value.trim() !== '') && Number.isFinite(Number(value));
 export const number = (value) => finiteNumber(value) ? Number(value) : null;
@@ -55,13 +53,33 @@ export function normalizeSummary(raw = {}) {
   };
 }
 
-export function normalizeRecommendations(raw = {}) {
+const list = (value) => Array.isArray(value) ? value : [];
+const withNumbers = (object, keys) => {
+  const result = { ...object };
+  keys.forEach((key) => { if (Object.hasOwn(result, key)) result[key] = number(result[key]); });
+  return result;
+};
+
+function normalizePlan(plan) {
   return {
-    ...raw,
-    recommendations: Array.isArray(raw.recommendations) ? raw.recommendations : [],
-    exploration: Array.isArray(raw.exploration) ? raw.exploration : [],
-    issues: Array.isArray(raw.issues) ? raw.issues : [],
+    ...withNumbers(plan, ['after', 'remainingGap']),
+    steps: list(plan.steps).map((step) => step !== null && typeof step === 'object'
+      ? withNumbers(step, ['targetExScore', 'after', 'remainingGap', 'noteCount', 'level']) : step),
+    targets: list(plan.targets),
   };
+}
+
+export function normalizeRecommendations(raw = {}) {
+  const result = {
+    ...raw,
+    recommendations: list(raw.recommendations),
+    exploration: list(raw.exploration),
+    issues: list(raw.issues),
+    refreshRequired: list(raw.refreshRequired),
+  };
+  if (raw.goal !== null && typeof raw.goal === 'object') result.goal = withNumbers(raw.goal, ['targetValue', 'currentValue', 'remainingGap']);
+  if (raw.plan !== null && typeof raw.plan === 'object') result.plan = normalizePlan(raw.plan);
+  return result;
 }
 
 export function requestFilters(filters = {}) {
@@ -70,7 +88,9 @@ export function requestFilters(filters = {}) {
   if (finiteNumber(filters.level) && Number.isInteger(Number(filters.level)) && Number(filters.level) >= 1 && Number(filters.level) <= 12) result.level = Number(filters.level);
   if (['BEGINNER', 'NORMAL', 'HYPER', 'ANOTHER', 'LEGGENDARIA'].includes(filters.chartType)) result.chartType = filters.chartType;
   if (['present', 'absent'].includes(filters.record)) result.record = filters.record;
-  if (finiteNumber(filters.goal) && Number(filters.goal) >= 0) result.goal = Number(filters.goal);
+  const goalTitle = typeof filters.goalTitle === 'string' ? filters.goalTitle.trim().toUpperCase() : '';
+  if (TITLE_LADDER.some((title) => title.name === goalTitle)) result.goalTitle = goalTitle;
+  else if (finiteNumber(filters.goal) && Number(filters.goal) >= 0) result.goal = Number(filters.goal);
   return result;
 }
 
