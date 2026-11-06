@@ -9,6 +9,15 @@ import { RadarButton, RadarError } from '../features/noteRadar/RadarUi';
 function RadarShell() {
   const { summary, loading, error, reload } = useNoteRadar();
   const [showImport, setShowImport] = useState(false);
+  const importPanel = useRef(null);
+  const pendingFocus = useRef(false);
+  const openImport = () => {
+    if (showImport) importPanel.current?.focus();
+    else { pendingFocus.current = true; setShowImport(true); }
+  };
+  useEffect(() => {
+    if (showImport && pendingFocus.current) { pendingFocus.current = false; importPanel.current?.focus(); }
+  }, [showImport]);
   const location = useLocation();
   const isOverview = location.pathname === '/note-radar';
   const navigationType = useNavigationType();
@@ -30,10 +39,10 @@ function RadarShell() {
       </div> : <p className="font-mono text-xs tracking-[.15em] text-accent">SP NOTE RADAR · {summary?.release ?? '현재 작품'}</p>}
       <nav aria-label="노트레이더 화면" className="flex flex-wrap gap-x-5 gap-y-3 text-sm">{[['/note-radar', '내 현황'], ['/note-radar/goals', '저장한 목표곡 보기']].map(([to, label]) => <NavLink key={to} to={to} end className={({ isActive }) => `min-h-8 border-b pb-1 ${isActive ? 'border-accent text-accent' : 'border-transparent text-muted hover:text-ink'}`}>{label}</NavLink>)}</nav>
     </header>
-    {showImport && <ImportControl iidxId={summary?.iidxId} linked={!!summary?.iidxId} onImported={imported} />}
+    {showImport && <div ref={importPanel} tabIndex={-1} className="focus-visible:outline-accent"><ImportControl iidxId={summary?.iidxId} linked={!!summary?.iidxId} onImported={imported} /></div>}
     <RadarError error={error} onRetry={reload} />
     {loading && !summary && <p role="status" className="rounded border border-line p-6 text-sm text-muted">공식 레이더 현황을 불러오고 있습니다…</p>}
-    <Outlet />
+    <Outlet context={{ openImport }} />
   </div>;
 }
 

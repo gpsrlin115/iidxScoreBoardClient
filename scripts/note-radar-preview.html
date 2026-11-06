@@ -11,14 +11,17 @@
   p { font-size:12px; }
 </style>
 <nav><a href="?width=1440">PC 1440px</a><a href="?width=390">모바일 390px</a><a href="?width=360">모바일 360px</a></nav>
-<nav><a id="overview">현황</a><a id="category">추천 상세</a><a id="goals">목표곡</a></nav>
+<nav><a id="overview">현황</a><a id="category">추천 상세</a><a id="title-notes">NOTES 칭호 120</a><a id="title-chord">CHORD 칭호 120</a><a id="title-peak">PEAK 100</a><a id="title-charge">CHARGE 100</a><a id="value-notes">NOTES 수치 145</a><a id="goals">목표곡</a></nav>
 <p id="size"></p>
 <p id="measurements"></p>
 <iframe id="frame" title="실제 앱 화면"></iframe>
 <script type="module">
   const query = new URLSearchParams(location.search);
   const width = [1440,390,360].includes(Number(query.get('width'))) ? Number(query.get('width')) : 1440;
-  const paths = { overview:'/note-radar', category:'/note-radar/categories/NOTES', goals:'/note-radar/goals' };
+  const paths = { overview:'/note-radar', category:'/note-radar/categories/NOTES', goals:'/note-radar/goals',
+    'title-notes':'/note-radar/categories/NOTES?goal=120', 'title-chord':'/note-radar/categories/CHORD?goal=120',
+    'title-peak':'/note-radar/categories/PEAK?goal=100', 'title-charge':'/note-radar/categories/CHARGE?goal=100',
+    'value-notes':'/note-radar/categories/NOTES?goal=145' };
   for (const [id,path] of Object.entries(paths)) document.getElementById(id).href = `?width=${width}&page=${id}`;
   const frame = document.getElementById('frame');
   const height = width === 1440 ? 1000 : 844;
