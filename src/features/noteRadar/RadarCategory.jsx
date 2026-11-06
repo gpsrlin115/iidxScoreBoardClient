@@ -23,7 +23,7 @@ function Top10({ category }) {
 }
 
 export default function RadarCategory({ category, tab, onTabChange, onSelect, preview, goal,
-  filters = { level: '', chartType: '', record: '' }, onFilterChange, onRecommendations, catalogAvailable = true, onGoalChange, onRequestImport, importedAt }) {
+  filters = { level: '', chartType: '', record: '' }, onFilterChange, onRecommendations, catalogAvailable = true, onGoalChange, onRequestImport, importedAt, onGoalsSaved }) {
   const [localFilters, setLocalFilters] = useState(filters);
   const activeFilters = onFilterChange ? filters : localFilters;
   const [filtered, setFiltered] = useState({ key: '', loading: false, data: null, error: '' });
@@ -77,7 +77,7 @@ export default function RadarCategory({ category, tab, onTabChange, onSelect, pr
           <RadarError error={result.error} onRetry={() => setRetry((value) => value + 1)} />
           <RadarIssues issues={data?.issues} />
           {oldServer && <p role="status" className="rounded border border-line p-3 text-sm text-text2">서버가 아직 칭호 추천을 지원하지 않아 상승량 중심 결과를 보여 줍니다.</p>}
-          {plan && !oldServer && !result.loading && !result.error ? <RadarTitleSections data={data} filtersActive={filtersActive} onClearFilters={clearFilters} onSelect={onSelect} /> : <>
+          {plan && !oldServer && !result.loading && !result.error ? <RadarTitleSections key={requestKey} data={data} categoryId={category.category} onGoalsSaved={onGoalsSaved} filtersActive={filtersActive} onClearFilters={clearFilters} onSelect={onSelect} /> : <>
             {!result.loading && !result.error && data && !songs.length && !['MISSING_OFFICIAL', 'ALREADY_ACHIEVED'].includes(data.goal?.status) && <p className="rounded border border-line p-4 text-sm text-muted">이 조건의 추천곡이 없습니다. 필터를 바꾸거나 직접 목표를 입력할 곡을 탐색해 보세요.</p>}
             <div className="space-y-3">{songs.map((song) => <RadarSong key={song.chartId} song={song} category={category.category} onSelect={onSelect} hasGoal={hasGoal} />)}</div>
             {!!data?.exploration?.length && <section className="space-y-3 border-t border-line pt-5"><h3 className="text-base text-ink">직접 목표를 입력할 곡 탐색</h3><p className="text-xs text-muted">추정 자료가 부족한 곡입니다. 목표 EX를 직접 입력해 계산할 수 있습니다.</p>{data.exploration.map((song) => <RadarSong key={song.chartId} song={song} category={category.category} exploration onSelect={onSelect} hasGoal={hasGoal} />)}</section>}

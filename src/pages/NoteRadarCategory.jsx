@@ -37,7 +37,7 @@ export default function NoteRadarCategory() {
     <p id="radar-goal-help" className="text-xs text-muted">{invalidGoal ? '카테고리 목표는 0~200의 숫자로 입력해 주세요.' : '칭호 하한을 입력하면 칭호 추천(다곡 계획 포함)을, 다른 수치는 기존 상승량 추천을 보여 줍니다. 비우면 상승량 중심입니다.'}</p></div>
     <RadarCategory key={`${categoryId}:${revision}`} category={category} preview={previews[categoryId]} goal={invalidGoal ? '' : goal} tab={tab} onTabChange={(value) => update('tab', value)}
       filters={filters} onFilterChange={update} onRecommendations={rememberRecommendations} catalogAvailable={summary.catalog?.available !== false} onSelect={(song) => open(song, categoryId)}
-      onGoalChange={(value) => update('goal', String(value))} onRequestImport={openImport} importedAt={summary.importedAt} />
+      onGoalChange={(value) => update('goal', String(value))} onRequestImport={openImport} importedAt={summary.importedAt} onGoalsSaved={reloadGoals} />
     {editing && <RadarScoreEditor key={editing.token} song={editing.song} category={editing.category} categoryTarget={goal} goalLabel={goalLabel} onSaved={reloadGoals} onClose={close} />}
   </div>;
 }
