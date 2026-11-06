@@ -23,8 +23,15 @@ export function card(chart, ctx, o = {}) {
   const merged = { ...base, ...o };
   merged.currentScoreAt = o.currentScoreAt !== undefined ? o.currentScoreAt : merged.currentExScore === null ? null : IMPORTED_AT;
   if (o.targetRate === undefined && merged.targetExScore !== null) merged.targetRate = rateOf(merged.targetExScore, chart.noteCount);
-  if (o.additionalExScore === undefined && merged.targetExScore !== null) {
-    merged.additionalExScore = Math.max(0, merged.targetExScore - (merged.currentExScore ?? 0));
+  // Title mode: currentExScore is a comparable current-release observation, so it implies releaseExScore.
+  if (o.releaseExScore === undefined && merged.currentExScore !== null) merged.releaseExScore = merged.currentExScore;
+  if (o.releaseScoreObservedAt === undefined && merged.releaseExScore !== null) merged.releaseScoreObservedAt = IMPORTED_AT;
+  if (o.releaseObservationStatus === undefined && merged.releaseExScore !== null) merged.releaseObservationStatus = 'OBSERVED_BY_OFFICIAL_IMPORT';
+  // Server: additional EX is measured against a valid historical best, otherwise null.
+  if (o.additionalExScore === undefined) {
+    merged.additionalExScore = merged.targetExScore !== null && merged.historicalBestExScore !== null
+      && merged.historicalComparability !== 'SCORE_EXCEEDS_CURRENT_MAX'
+      ? Math.max(0, merged.targetExScore - merged.historicalBestExScore) : null;
   }
   return merged;
 }

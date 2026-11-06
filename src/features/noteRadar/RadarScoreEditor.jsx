@@ -4,8 +4,9 @@ import useFocusTrap from '../../hooks/useFocusTrap';
 import { noteRadarApi } from './api';
 import { categoryLabel, decimal, errorMessage, finiteNumber, parseExScore, scoreRate } from './model.js';
 import { RadarButton, RadarError, SimulationResult } from './RadarUi';
+import RadarTargetOptions from './RadarTargetOptions';
 
-export default function RadarScoreEditor({ song, category, categoryTarget, onSaved, onClose }) {
+export default function RadarScoreEditor({ song, category, categoryTarget, goalLabel, onSaved, onClose }) {
   const [score, setScore] = useState(String(song.targetExScore ?? song.minExScore ?? ''));
   const [busy, setBusy] = useState('');
   const [result, setResult] = useState(null);
@@ -70,6 +71,8 @@ export default function RadarScoreEditor({ song, category, categoryTarget, onSav
       <div className="min-h-0 flex-1 space-y-5 overflow-y-auto overscroll-contain p-5">
         {import.meta.env.VITE_NOTE_RADAR_MOCK === '1' && <p role="status" className="border border-amber-300/50 p-3 text-xs text-amber-100">모의 데이터 · 실제 공식 기록과 연결되지 않은 개발 화면입니다.</p>}
         <dl className="grid grid-cols-2 gap-4 rounded border border-line p-4 text-xs text-muted"><div><dt>TOP10 최소 기여 EX</dt><dd className="mt-2 font-num text-lg text-ink">{song.minExScore ?? '확인 필요'}</dd></div><div><dt>추천 목표 EX</dt><dd className="mt-2 font-num text-lg text-ink">{recommended ?? '확인 필요'}</dd></div></dl>
+        {Object.hasOwn(song, 'historicalBestExScore') && <dl className="grid grid-cols-2 gap-4 rounded border border-line p-4 text-xs text-muted"><div><dt>누적 최고 EX</dt><dd className="mt-2 font-num text-lg text-ink">{finiteNumber(song.historicalBestExScore) ? song.historicalBestExScore : '기록 없음'}</dd></div><div><dt>현 작품 관측 EX</dt><dd className="mt-2 font-num text-lg text-ink">{!['NO_OBSERVATION', 'SCORE_EXCEEDS_CURRENT_MAX'].includes(song.releaseObservationStatus) && finiteNumber(song.releaseExScore ?? song.currentExScore) ? song.releaseExScore ?? song.currentExScore : '관측 없음'}</dd></div></dl>}
+        <RadarTargetOptions targets={song.targets} onPick={(exScore) => changeScore(String(exScore))} />
         <label className="grid gap-2 text-sm text-text2">직접 입력한 목표 EX<input autoComplete="off" aria-describedby="radar-score-help" aria-invalid={exScore === null} inputMode="numeric" type="text" disabled={busy === 'save'} value={score} onChange={(event) => changeScore(event.target.value)} className="min-h-12 w-full rounded border border-line-strong bg-night px-4 py-3 font-num text-2xl text-ink focus-visible:outline-accent" /></label>
         <p id="radar-score-help" className="text-xs leading-5 text-muted">{exScore === null ? `0${max != null ? `~${max}` : ' 이상의'} 정수를 입력해 주세요.` : max != null ? `스코어율 ${decimal(scoreRate(exScore, song.noteCount))}% · EX 점수로 계산합니다.` : '노트 수 확인 필요 · 점수 범위는 서버에서 확인합니다.'}</p>
         {!validChart && <p role="alert" className="text-sm text-amber-200">채보 ID 확인 필요 · 계산과 저장을 보류합니다.</p>}
@@ -77,7 +80,7 @@ export default function RadarScoreEditor({ song, category, categoryTarget, onSav
         <RadarError error={error} />
         {busy === 'simulate' && <p role="status" className="text-sm text-muted">입력한 EX의 상승량을 계산하고 있습니다…</p>}
         {chartValue != null && <p className="text-sm">이 곡의 {categoryLabel(category)} 곡 획득값 <strong className="font-num text-accent">{decimal(chartValue)}</strong></p>}
-        {categoryResult && !categoryResult.blocked && categoryResult.complete !== false && finiteNumber(categoryTarget) && <p className="text-sm text-text2">카테고리 목표 {decimal(categoryTarget)}까지 {decimal(Math.max(0, categoryTarget - categoryResult.after))} 남음</p>}
+        {categoryResult && !categoryResult.blocked && categoryResult.complete !== false && finiteNumber(categoryTarget) && <p className="text-sm text-text2">{goalLabel ? `${goalLabel} ${decimal(categoryTarget)}까지 ${decimal(Math.max(0, categoryTarget - categoryResult.after))} 남음(추정)` : `카테고리 목표 ${decimal(categoryTarget)}까지 ${decimal(Math.max(0, categoryTarget - categoryResult.after))} 남음`}</p>}
         <SimulationResult result={result} />
         {!result && busy !== 'simulate' && <p className="rounded border border-line p-4 text-xs leading-6 text-muted">목표 EX를 입력한 뒤 상승량을 계산하세요. 여섯 카테고리의 평균 변경 전·후와 교체 대상을 함께 확인할 수 있습니다.</p>}
       </div>
