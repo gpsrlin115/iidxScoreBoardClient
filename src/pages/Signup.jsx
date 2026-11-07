@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import { authApi } from '../api/auth';
-import { toAppError } from '../utils/httpError';
+import { signupErrorMessage } from '../utils/signupError';
 import Starfield from '../components/background/Starfield';
 import FieldLabel from '../components/auth/FieldLabel';
 import LoginArtwork from '../components/auth/LoginArtwork';
@@ -156,8 +156,7 @@ const Signup = () => {
       toast.success('회원가입 완료! 로그인 해주세요.');
       navigate('/login');
     } catch (err) {
-      const message = toAppError(err, { fallback: '회원가입 중 오류가 발생했습니다.' }).message;
-      toast.error(message);
+      toast.error(signupErrorMessage(err));
     } finally {
       setIsSubmitting(false);
     }
