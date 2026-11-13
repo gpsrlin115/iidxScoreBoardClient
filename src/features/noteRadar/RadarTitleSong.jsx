@@ -17,9 +17,10 @@ function observed(song) {
   return finiteNumber(value) ? value : null;
 }
 
-function SingleChart({ song }) {
-  if (song.singleChartGoalStatus === 'REACHABLE') return <p className="text-xs text-text2">이 곡만으로 목표 하한에 닿는 EX {song.goalExScore ?? '확인 필요'}</p>;
-  if (song.singleChartGoalStatus === 'SINGLE_CHART_UNREACHABLE') return <p className="text-xs text-text2">이 곡 하나만으로는 칭호 하한에 닿지 않습니다. 다른 곡과 함께하면 도움이 될 수 있습니다.</p>;
+// A numeric goal is not a title bound, so its cards name the goal value instead.
+function SingleChart({ song, numericGoal }) {
+  if (song.singleChartGoalStatus === 'REACHABLE') return <p className="text-xs text-text2">{`이 곡만으로 ${numericGoal ? '목표 수치' : '목표 하한'}에 닿는 EX ${song.goalExScore ?? '확인 필요'}`}</p>;
+  if (song.singleChartGoalStatus === 'SINGLE_CHART_UNREACHABLE') return <p className="text-xs text-text2">{`이 곡 하나만으로는 ${numericGoal ? '목표 수치' : '칭호 하한'}에 닿지 않습니다. 다른 곡과 함께하면 도움이 될 수 있습니다.`}</p>;
   return null;
 }
 
@@ -34,7 +35,7 @@ function BundleButton({ song, bundle, dispatch, locked }) {
   </>;
 }
 
-export default function RadarTitleSong({ song, variant = 'play', onSelect, bundle = null, dispatch, locked = false }) {
+export default function RadarTitleSong({ song, variant = 'play', onSelect, bundle = null, dispatch, locked = false, numericGoal = false }) {
   const seen = observed(song);
   const hasTitleData = finiteNumber(song.after);
   // Counts describe the prediction only for prediction bases; other bases carry no sample meaning.
@@ -60,7 +61,7 @@ export default function RadarTitleSong({ song, variant = 'play', onSelect, bundl
       {finiteNumber(song.minExScore) && <Item label="TOP10 진입 최소 EX">{song.minExScore}</Item>}
     </dl>
     <div className="mt-3 space-y-1">
-      <SingleChart song={song} />
+      <SingleChart song={song} numericGoal={numericGoal} />
       {song.alreadyContributing && <p className="text-xs text-text2">현재 TOP10 기여 중 · 같은 곡 기여 {decimal(song.existingContribution)}</p>}
       {song.displacedTitle && <p className="break-words text-xs text-muted">밀려나는 곡: {song.displacedTitle}</p>}
     </div>
