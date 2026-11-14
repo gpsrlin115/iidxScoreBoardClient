@@ -1,3 +1,5 @@
+import { MAX_OCR_ARTISTS, MAX_OCR_TEXT } from './ocrLimits.js';
+
 export const TEXTAGE_CHART_KEY = /^[A-Za-z0-9_]{1,32}:SP:(NORMAL|HYPER|ANOTHER|LEGGENDARIA)$/;
 
 // BEGINNER stays in the catalogue but is excluded from analysis, and the server
@@ -13,10 +15,6 @@ export const candidateQueryParams = (difficulty = null) => ({
   catalog: 'TEXTAGE',
   ...(SUPPORTED_DIFFICULTIES.includes(difficulty) ? { difficulty } : {}),
 });
-
-// The server rejects more entries or longer strings than this.
-const MAX_OCR_ARTISTS = 5;
-const MAX_OCR_TEXT = 255;
 
 /**
  * What the screen OCR read, in the shape the candidate search takes.

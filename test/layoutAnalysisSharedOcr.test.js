@@ -109,7 +109,10 @@ test('a short word that begins an artist name is kept', () => {
 });
 
 test('a local file sends no artist', () => {
-  assert.deepEqual(extractChartText([], ['RS']).artists, []);
+  const read = extractChartText(frame().lines, [frame().text]);
+  assert.ok(read.titles.includes('HARD BRAIN'));
+  assert.deepEqual(read.difficulties, ['ANOTHER']);
+  assert.deepEqual(read.artists, []);
 });
 
 test('a short capital title read in two frames is sent with its look-alike spelling', () => {
@@ -161,4 +164,83 @@ test('shared OCR crops within the raw capture content rectangle', () => {
   });
   assert.deepEqual(ocrRegion(1280, 720), ocrCrop(1280, 720));
   assert.throws(() => ocrRegion(1440, 900, { ...rect, x: 300 }), /영상 영역/);
+});
+
+
+test('short shared titles remove only single lower-case edge marks', () => {
+  assert.deepEqual(shared([r5Frame('RS y'), r5Frame('f RS')]).titles, ['RS', 'R5']);
+  for (const text of ['RS yy', 'ab RS', 'i rr']) {
+    assert.deepEqual(shared([r5Frame(text), r5Frame(text)]).titles, [], text);
+  }
+});
+
+test('multiple words are retained intact rather than cut into a short title', () => {
+  assert.deepEqual(shared([r5Frame('RS y R5'), r5Frame('RS y R5')]).titles, ['RS y R5']);
+});
+
+test('look-alike readings support one short title without replacing real readings', () => {
+  assert.deepEqual(shared([r5Frame('RS'), r5Frame('R5')]).titles, ['RS', 'R5']);
+  assert.deepEqual(shared([r5Frame('RS'), r5Frame('R3')]).titles, []);
+  const read = shared([r5Frame('BOSS'), r5Frame('8055')]);
+  // A numeric-only reading must not provide the second vote.
+  assert.deepEqual(read.titles, []);
+});
+
+test('short screen labels never become shared song titles', () => {
+  for (const text of ['EX', 'FC', 'AAA']) {
+    const read = shared([r5Frame(text), r5Frame(text)]);
+    assert.deepEqual(read.titles, [], text);
+    assert.ok(read.artists.includes('tiger YAMATO with ultrabeatbox'), text);
+  }
+});
+
+test('a symbol-only title can locate an artist without becoming a title', () => {
+  const read = shared([r5Frame('||| >'), r5Frame('||| >')]);
+  assert.deepEqual(read.titles, []);
+  assert.ok(read.artists.includes('tiger YAMATO with ultrabeatbox'));
+});
+
+test('an unreadable title retains its coordinates as artist evidence', () => {
+  const unclear = () => {
+    const value = r5Frame('RS');
+    value.lines[1].words.forEach((word) => { word.confidence = 10; });
+    return value;
+  };
+  const read = shared([unclear(), unclear()]);
+  assert.deepEqual(read.titles, []);
+  assert.ok(read.artists.includes('tiger YAMATO with ultrabeatbox'));
+});
+
+test('missing title plus chart labels cannot promote the artist to title', () => {
+  for (const text of ['ANOTHER 12', 'Lv.12', 'LEVEL 12']) {
+    const missing = () => {
+      const value = r5Frame(null);
+      value.lines.push(line(text, { x0: 400, x1: 600, y0: 90, y1: 99 }));
+      return value;
+    };
+    const read = shared([missing(), missing()]);
+    assert.deepEqual(read.titles, [], text);
+    assert.deepEqual(read.artists, [], text);
+  }
+});
+
+test('invalid title coordinates cannot provide artist evidence', () => {
+  const invalid = () => {
+    const value = r5Frame('|||');
+    value.lines[1].bbox.x0 = -1;
+    return value;
+  };
+  assert.deepEqual(shared([invalid(), invalid()]).artists, []);
+});
+
+test('short title candidates remain bounded and put readings before guesses', () => {
+  const read = shared([r5Frame('BOSS'), r5Frame('B0SS')]);
+  assert.deepEqual(read.titles.slice(0, 2), ['BOSS', 'B0SS']);
+  assert.equal(read.titles.length, 5);
+});
+
+
+test('artist names containing difficulty words are not chart labels', () => {
+  const read = shared([r5Frame('RS', 'Another Infinity'), r5Frame('RS', 'Another Infinity')]);
+  assert.deepEqual(read.artists, ['Another Infinity']);
 });

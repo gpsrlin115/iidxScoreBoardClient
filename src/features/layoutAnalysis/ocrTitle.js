@@ -1,0 +1,198 @@
+import { MAX_OCR_TEXT } from './ocrLimits.js';
+
+export const DIFFICULTY_PATTERN = /\b(BEGINNER|NORMAL|HYPER|ANOTHER|LEGGENDARIA)\b/gi;
+// The same words without the global flag. A global regex carries lastIndex
+// between calls, so reusing one for a single-word test skips every other match.
+const DIFFICULTY_WORD = /^(BEGINNER|NORMAL|HYPER|ANOTHER|LEGGENDARIA)$/i;
+
+/**
+ * Words the play screen shows next to the title.
+ *
+ * They are not song titles, and sending a line made of them let the server
+ * match a one-character song name against a whole banner of text.
+ */
+export const SCREEN_WORDS = new Set([
+  'extra', 'final', 'stage', 'time', 'limit', 'judge', 'fast', 'slow', 'late',
+  'score', 'target', 'best', 'my', 'credit', 'coin', 'bpm', 'level', 'lv',
+  'random', 'mirror', 'normal', 'assist', 'gauge', 'auto', 'adjust', 'scratch',
+  'premium', 'free', 'dj', 'player', 'rival', 'graph', 'effect', 'compressor',
+  'pacemaker', 'max', 'combo', 'clear', 'fullcombo', 'played',
+]);
+
+// Below this a word is usually a graphic the recogniser tried to read as text.
+const MIN_WORD_CONFIDENCE = 50;
+export const MIN_TITLE_LENGTH = 2;
+export const MAX_TITLE_LENGTH = 120;
+// The server takes five, and fewer but cleaner candidates match better.
+const MAX_TITLES = 5;
+// A trimmed form has to still be a plausible title on its own.
+const MIN_TRIMMED_LENGTH = 5;
+// How many lines contribute a candidate. The title is not always the line that
+// reads best: a timer fragment or a score can outrank it.
+const LINES_CONSIDERED = 3;
+const CORE_WORD_LENGTH = 3;
+// A line this Latin is a Latin title, so a lone character from another script
+// in the middle of it is a misread symbol rather than part of the name.
+const LATIN_SHARE = 0.6;
+
+// Shapes the recogniser swaps in a short capital title. "R5" came back as "RS";
+// against a two-character name one wrong character is half the title, so the
+// server scored R2, R3, R5 and Iris alike and none of R5's charts made the list.
+const LOOKALIKES = { S: '5', 5: 'S', O: '0', 0: 'O', I: '1', 1: 'I', Z: '2', 2: 'Z', B: '8', 8: 'B', G: '6', 6: 'G' };
+
+export const isSymbolsOnly = (word) => !/[\p{L}\p{N}]/u.test(word);
+
+const compactTitle = (text) => text.normalize('NFKC').replace(/[^\p{L}\p{N}]/gu, '');
+
+/**
+ * Whether a reading is a short title written the way IIDX writes them: one
+ * token of capitals and digits, such as R5, V2 or IX.
+ *
+ * Lower-case and split fragments ("i rr") are what the recogniser makes of a
+ * graphic, and they repeat across frames as reliably as a title does. A short
+ * title in any other form still has to be searched for by hand.
+ */
+const SHORT_SCREEN_WORDS = new Set(['EX', 'FC', 'AAA']);
+
+// Only single lower-case marks at the edges may be discarded. Never cut a
+// multi-word reading or a character in the middle into a short title.
+export const shortTitleReading = (text) => {
+  const words = text.trim().split(/\s+/);
+  while (words.length > 1 && /^[a-z]$/.test(words[0])) words.shift();
+  while (words.length > 1 && /^[a-z]$/.test(words.at(-1))) words.pop();
+  if (words.length !== 1) return null;
+  const compact = compactTitle(words[0]);
+  return /^[\p{Lu}\p{N}]{2,4}$/u.test(compact) && /\p{Lu}/u.test(compact)
+    && !SHORT_SCREEN_WORDS.has(compact) ? compact : null;
+};
+
+export const isShortCapitalTitle = (text) => !/\s/.test(text.trim())
+  && shortTitleReading(text) !== null;
+
+/** The same short title with look-alike characters swapped, fewest swaps first. */
+export const lookalikeTitles = (text) => {
+  let forms = [{ text: '', swaps: 0 }];
+  for (const character of compactTitle(text)) {
+    const other = LOOKALIKES[character];
+    forms = forms.flatMap((form) => [{ text: form.text + character, swaps: form.swaps },
+      ...(other ? [{ text: form.text + other, swaps: form.swaps + 1 }] : [])]);
+  }
+  return forms.filter((form) => form.swaps > 0).sort((a, b) => a.swaps - b.swaps).map((form) => form.text);
+};
+
+const letterRatio = (text) => {
+  const letters = (text.match(/[\p{L}\p{N}]/gu) || []).length;
+  return letters / Math.max(1, text.length);
+};
+
+const digitRatio = (text) => (text.match(/\d/g) || []).length / Math.max(1, text.length);
+
+/**
+ * The longest stretch of words that could be part of a name.
+ *
+ * A title is rarely alone on its line: a score, a timer fragment or a stray
+ * letter from a graphic sits beside it. Words carrying digits and single
+ * letters break the stretch, so what survives is the readable part —
+ * "You o229 Sweet Clap" gives up "Sweet Clap".
+ */
+const isLatin = (word) => /^[\p{Script=Latin}\p{N}\p{P}\p{S}]+$/u.test(word);
+
+/**
+ * The same words with a stray character from another script dropped.
+ *
+ * IIDX writes symbols into titles — "feat.a☆ru" — and the recogniser returns
+ * them as whatever character they resemble; a star came back as 文. The server
+ * normalises symbols away, so the reading matches exactly once the impostor is
+ * gone: "Close the World feat.a 文 ru" scores 0.789 against the wrong song and
+ * 1.0 against the right one without it. Only tried on a line that is otherwise
+ * Latin, so a Japanese title the recogniser split into single characters is
+ * left alone.
+ */
+export const withoutStrayScript = (words) => {
+  const latin = words.filter(isLatin).length;
+  if (latin / Math.max(1, words.length) < LATIN_SHARE) return null;
+  const kept = words.filter((word) => isLatin(word) || [...word].length > 1);
+  return kept.length === words.length ? null : kept;
+};
+
+export const wordCore = (words) => {
+  let best = [];
+  let run = [];
+  for (const word of [...words, '']) {
+    const plain = word.replace(/[^\p{L}\p{N}]/gu, '');
+    if (plain.length >= CORE_WORD_LENGTH && !/\d/.test(plain)) run.push(word);
+    else {
+      if (run.join(' ').length > best.join(' ').length) best = run;
+      run = [];
+    }
+  }
+  return best;
+};
+
+export const cleanWords = (line) => (line.words || [])
+  .filter((word) => (word.confidence ?? 0) >= MIN_WORD_CONFIDENCE)
+  .map((word) => (word.text || '').trim())
+  .filter((text) => text && !isSymbolsOnly(text))
+  .filter((text) => !SCREEN_WORDS.has(text.toLowerCase().replace(/[^\p{L}\p{N}]/gu, '')))
+  .filter((text) => !DIFFICULTY_WORD.test(text.replace(/[^\p{L}]/gu, '')));
+
+/**
+ * Title candidates, best first, from the lines the recogniser returned.
+ *
+ * One reading is not enough to send on its own. Both ends of the line are where
+ * it goes wrong: a stylised "feat.a☆ru" came back as "feat.arru", and a graphic
+ * beside the title came back as a leading "A". Either is enough for the server
+ * to match some other song entirely, so forms with words trimmed off each end
+ * are sent alongside the whole reading.
+ */
+export const titleCandidates = (lines) => {
+  const scored = lines
+    .map((line) => {
+      const words = cleanWords(line);
+      const text = words.join(' ').replace(/\s+/g, ' ').trim();
+      if (text.length < MIN_TITLE_LENGTH || text.length > MAX_TITLE_LENGTH) return null;
+      const confidence = words.length
+        ? (line.words || []).reduce((sum, word) => sum + (word.confidence ?? 0), 0) / (line.words || []).length
+        : 0;
+      // Digits are a score or a timer, not a name; a lone short word is a
+      // fragment. Both used to outrank the line the title was on.
+      const penalty = digitRatio(text) * 120 + (words.length === 1 && text.length < 6 ? 60 : 0);
+      return {
+        text,
+        words,
+        score: letterRatio(text) * 100 + confidence / 2 + Math.min(text.length, 30) - penalty,
+      };
+    })
+    .filter(Boolean)
+    .sort((left, right) => right.score - left.score);
+  if (!scored.length) return [];
+
+  const candidates = [];
+  const add = (text) => {
+    if (text && text.length >= MIN_TITLE_LENGTH && !candidates.includes(text)) candidates.push(text.slice(0, MAX_OCR_TEXT));
+  };
+  const addTrimmed = (words) => {
+    const text = words.join(' ').trim();
+    if (text.length >= MIN_TRIMMED_LENGTH) add(text);
+  };
+  // Each of the leading lines contributes its whole reading and its readable
+  // core, because the title may be on any of them.
+  const considered = scored.slice(0, LINES_CONSIDERED);
+  for (const line of considered) {
+    add(line.text);
+    const cleaned = withoutStrayScript(line.words);
+    if (cleaned) addTrimmed(cleaned);
+    addTrimmed(wordCore(line.words));
+  }
+  // Then the best line is also offered with words trimmed off either end, for
+  // when the recogniser got the first or last one wrong rather than dropping it.
+  const best = scored[0].words;
+  for (let trim = 1; trim < best.length && candidates.length < MAX_TITLES; trim += 1) {
+    addTrimmed(best.slice(0, best.length - trim));
+    addTrimmed(best.slice(trim));
+  }
+  // Last, so a guessed spelling never takes the place of a reading.
+  for (const text of candidates.filter(isShortCapitalTitle)) lookalikeTitles(text).forEach(add);
+  return candidates.slice(0, MAX_TITLES);
+};
+
