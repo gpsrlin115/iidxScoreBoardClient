@@ -24,8 +24,8 @@ async function mock(t, scenario = 'normal') {
   return { request, rec };
 }
 
-const TOP = ['category', 'recommendations', 'exploration', 'issues', 'goal', 'release', 'playStyle', 'importedAt',
-  'estimated', 'refreshRequired', 'plan'].sort();
+const TOP = ['category', 'recommendations', 'exploration', 'issues', 'issueCodes', 'calculation', 'goal', 'release',
+  'playStyle', 'importedAt', 'estimated', 'refreshRequired', 'plan'].sort();
 const CARD = ['chartId', 'songId', 'title', 'chartType', 'level', 'noteCount', 'currentExScore', 'currentScoreAt',
   'targetExScore', 'targetRate', 'minExScore', 'radarValue', 'gain', 'after', 'displacedTitle', 'basis', 'peerCount',
   'rangeLowExScore', 'rangeHighExScore', 'reasons', 'goalExScore', 'sampleCount', 'currentScoreComparable',
@@ -143,7 +143,7 @@ test('already achieved title returns the early shape', async (t) => {
   assert.equal(none.body.goal.status, 'ALREADY_ACHIEVED');
 });
 
-test('title-blocked blocks SCRATCH in title mode only', async (t) => {
+test('title-blocked blocks SCRATCH for title and numeric goals alike', async (t) => {
   assert.ok(SCENARIOS.includes('title-blocked'));
   const { rec, request } = await mock(t, 'title-blocked');
   const summary = await (await request('/api/note-radar/me')).json();
@@ -152,20 +152,22 @@ test('title-blocked blocks SCRATCH in title mode only', async (t) => {
   assert.equal(scratch.complete, true);
   const { body } = await rec('category=SCRATCH&goalTitle=PLATINUM');
   assert.equal(body.goal.status, 'BLOCKED');
-  assert.deepEqual(body.issues, ['공식 기여곡 10곡이 확인되지 않아 칭호 도달 계산을 보류했습니다.']);
+  assert.deepEqual(body.issues, ['공식 기여곡이 10곡 미만이고 현재 곡 합계로 공식 값이 확인되지 않아 목표 도달 계산을 보류했습니다.']);
+  assert.deepEqual(body.issueCodes, ['OFFICIAL_ENTRIES_NOT_10']);
   assert.deepEqual([body.recommendations, body.exploration, body.refreshRequired], [[], [], []]);
   assert.equal(body.plan.status, 'BLOCKED');
   assert.deepEqual(body.plan.steps, []);
-  const numeric = await rec('category=SCRATCH&goal=150');
-  assert.equal(numeric.body.goal.status, 'NEEDS_PLAY');
+  const numeric = await rec('category=SCRATCH&goal=145');
+  assert.equal(numeric.body.goal.status, 'BLOCKED');
   assert.equal(numeric.body.goal.requestedTitle, null);
-  assert.equal(numeric.body.plan, null);
-  assert.ok(numeric.body.recommendations.length > 0);
+  assert.equal(numeric.body.plan.status, 'BLOCKED');
+  assert.deepEqual(numeric.body.recommendations, []);
+  assert.deepEqual(numeric.body.issueCodes, ['OFFICIAL_ENTRIES_NOT_10']);
   const notes = await rec('category=NOTES&goalTitle=PLATINUM');
   assert.equal(notes.body.goal.status, 'NEEDS_PLAY');
 });
 
-test('no-import returns MISSING_OFFICIAL with 11 keys', async (t) => {
+test('no-import returns MISSING_OFFICIAL with the full key set', async (t) => {
   const { rec } = await mock(t, 'no-import');
   const title = await rec('category=NOTES&goalTitle=GOLD');
   assert.deepEqual(keys(title.body), TOP);
@@ -174,36 +176,44 @@ test('no-import returns MISSING_OFFICIAL with 11 keys', async (t) => {
   assert.equal(title.body.plan, null);
   assert.equal(title.body.importedAt, null);
   assert.deepEqual(title.body.issues, ['공식 레이더를 먼저 가져와 주세요.']);
+  assert.deepEqual(title.body.issueCodes, ['MISSING_OFFICIAL']);
+  assert.equal(title.body.calculation, 'TITLE_PLAN');
   const numeric = await rec('category=NOTES&goal=90');
   assert.equal(numeric.body.goal.requestedTitle, null);
   assert.equal(numeric.body.goal.status, 'MISSING_OFFICIAL');
+  assert.equal(numeric.body.calculation, 'TITLE_PLAN');
   const none = await rec('category=NOTES');
   assert.equal(none.body.goal, null);
+  assert.equal(none.body.calculation, 'LEGACY');
   assert.deepEqual(keys(none.body), TOP);
 });
 
-test('numeric and plain responses keep legacy rows and gain the new keys', async (t) => {
+test('plain responses keep legacy rows and numeric goals switch to the title plan', async (t) => {
   const { rec } = await mock(t);
   const plain = await rec('category=NOTES');
   assert.deepEqual(keys(plain.body), TOP);
   assert.equal(plain.body.goal, null);
   assert.equal(plain.body.plan, null);
+  assert.equal(plain.body.calculation, 'LEGACY');
+  assert.deepEqual(plain.body.issueCodes, []);
   assert.equal(plain.body.recommendations.length, 4);
   assert.equal(plain.body.exploration.length, 1);
   assert.equal(plain.body.exploration[0].currentExScore, null);
   assert.equal(plain.body.exploration[0].status, 'EXPLORATION');
   const filtered = await rec('category=NOTES&level=10&chartType=HYPER');
   assert.equal(filtered.body.recommendations.length, 1);
-  const goal = await rec('category=NOTES&goal=150');
-  assert.equal(goal.body.goal.requestedTitle, null);
-  assert.equal(goal.body.goal.targetValue, 150);
-  assert.equal(goal.body.plan, null);
-  assert.deepEqual(goal.body.refreshRequired, []);
-  for (const row of [...plain.body.recommendations, ...goal.body.recommendations, ...plain.body.exploration]) {
+  for (const row of [...plain.body.recommendations, ...plain.body.exploration]) {
     assert.deepEqual(keys(row), CARD);
     assert.deepEqual(row.targets, []);
   }
-  assert.ok(goal.body.recommendations.every((row) => row.status === 'PLAY_TARGET'));
+  const goal = await rec('category=NOTES&goal=150');
+  assert.deepEqual(keys(goal.body), TOP);
+  assert.equal(goal.body.goal.requestedTitle, null);
+  assert.equal(goal.body.goal.targetValue, 150);
+  assert.equal(goal.body.calculation, 'TITLE_PLAN');
+  assert.ok(goal.body.plan.steps.length > 0);
+  goal.body.plan.steps.forEach((step) => assert.deepEqual(keys(step), STEP));
+  cards(goal.body).forEach((row) => assert.deepEqual(keys(row), CARD));
 });
 
 test('empty and exploration scenarios plan NO_CANDIDATES in title mode', async (t) => {

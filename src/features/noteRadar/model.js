@@ -1,4 +1,4 @@
-import { TITLE_LADDER } from './titles.js';
+import { TITLE_LADDER, withinTwoDecimals } from './titles.js';
 
 export const CATEGORIES = ['NOTES', 'CHORD', 'PEAK', 'CHARGE', 'SCRATCH', 'SOFLAN'];
 export const categoryLabel = (value) => value === 'SOFLAN' ? 'SOF-LAN' : value;
@@ -90,7 +90,7 @@ export function requestFilters(filters = {}) {
   if (['present', 'absent'].includes(filters.record)) result.record = filters.record;
   const goalTitle = typeof filters.goalTitle === 'string' ? filters.goalTitle.trim().toUpperCase() : '';
   if (TITLE_LADDER.some((title) => title.name === goalTitle)) result.goalTitle = goalTitle;
-  else if (finiteNumber(filters.goal) && Number(filters.goal) >= 0) result.goal = Number(filters.goal);
+  else if (finiteNumber(filters.goal) && Number(filters.goal) >= 0 && withinTwoDecimals(filters.goal)) result.goal = Number(filters.goal);
   return result;
 }
 

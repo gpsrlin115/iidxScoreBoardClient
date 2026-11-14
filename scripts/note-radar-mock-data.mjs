@@ -1,11 +1,11 @@
 // Every identifier and score in this module is synthetic local fixture data.
-import { envelope, goalProgress, nextBound, summaryTitle } from './note-radar-mock-ladder.mjs';
+import { envelope, goalProgress, issue, nextBound, summaryTitle } from './note-radar-mock-ladder.mjs';
 
 export const CATEGORIES = ['NOTES', 'CHORD', 'PEAK', 'CHARGE', 'SCRATCH', 'SOFLAN'];
 export const SCENARIOS = ['normal', 'no-import', 'unlinked', 'blocked', 'partial', 'empty', 'exploration',
   'disabled', 'mismatch', 'expired', 'pending', 'recommendations-failed', 'partial-failure',
   'slow-recommendations', 'slow-simulation', 'save-failed', 'goals-failed', 'reimport', 'highest', 'signed-out',
-  'title-blocked'];
+  'title-blocked', 'title-short-confirmed', 'title-over-10'];
 export const IIDX_ID = '1234-5678';
 export const IMPORTED_AT = '2026-10-18T01:00:00Z';
 export const USER = { id: 900001, username: 'radar-mock', nickname: '레이더 모의 사용자',
@@ -37,8 +37,15 @@ export function categoryData(category, scenario, importedAgain = false) {
   const complete = !['blocked', 'partial'].includes(scenario) || index !== 0;
   if (!complete) top10[9] = { ...top10[9], chartId: null, songId: null };
   const changes = { entered: changed ? [top10[9]] : [], left: changed ? [left] : [], updated: changed ? [top10[0]] : [] };
-  // title-blocked: SCRATCH has only 9 identified contributors although the import is complete.
+  // title-blocked: SCRATCH has 9 identified contributors whose sum does not explain the official value.
   if (scenario === 'title-blocked' && category === 'SCRATCH') top10.length = 9;
+  // title-short-confirmed: 9 contributors whose sum / 10 equals the official value, so the server calculates.
+  if (scenario === 'title-short-confirmed' && category === 'SCRATCH') {
+    const dropped = top10.pop().value;
+    top10.forEach((song, rank) => { song.value += rank < 8 ? 8 : dropped - 64; });
+  }
+  // title-over-10: SCRATCH lists 11 official contributors.
+  if (scenario === 'title-over-10' && category === 'SCRATCH') top10.push(entry(index, 10, current - 13));
   return { category, current, previous: changed ? current - 2.5 : null, delta: changed ? 2.5 : null,
     title: summaryTitle(current), nextThreshold: nextBound(current),
     top10, complete, issues: complete ? [] : ['모의 상태: 일부 집계곡을 식별하지 못해 계산을 보류했습니다.'],
@@ -96,7 +103,7 @@ export function recommendationData(category, scenario, filters = {}, summary = n
   return envelope(category, summary, {
     recommendations: blocked || ['empty', 'exploration'].includes(scenario) ? [] : rows.filter(matches),
     exploration: blocked || scenario === 'empty' ? [] : exploration.filter(matches),
-    issues: blocked ? ['모의 상태: 집계곡을 식별하지 못해 추천 계산을 보류했습니다.'] : [],
+    issues: blocked ? [issue('UNIDENTIFIED_ENTRY', '모의 상태: 집계곡을 식별하지 못해 추천 계산을 보류했습니다.')] : [],
     goal: goalValue === null ? null : goalProgress({ target: goalValue, current, status }) });
 }
 
