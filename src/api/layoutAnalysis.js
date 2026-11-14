@@ -1,6 +1,6 @@
 import apiClient from './client';
 import { buildLayoutMatchPayload } from '../features/layoutAnalysis/payload.js';
-import { candidateQueryParams, SUPPORTED_DIFFICULTIES } from '../features/layoutAnalysis/candidates.js';
+import { candidateQueryParams, candidateScreenOcr } from '../features/layoutAnalysis/candidates.js';
 
 export const layoutAnalysisApi = {
   async getYouTubeMetadata(youtubeUrl) {
@@ -8,14 +8,14 @@ export const layoutAnalysisApi = {
     return response.data;
   },
 
-  async findCandidates({ videoId = null, query = '', titles = [], difficulties = [], difficulty = null }) {
+  async findCandidates({ videoId = null, query = '', titles = [], difficulties = [], artists = [], difficulty = null }) {
     // The catalogue and the hand-picked difficulty are query parameters. A
     // difficulty folded into screenOcr would only be a ranking hint, and the
     // server filters the index exactly when it arrives as a parameter.
     const response = await apiClient.post('/layout-analyses/candidates', {
       videoId,
       query,
-      screenOcr: { titles, difficulties: difficulties.filter((value) => SUPPORTED_DIFFICULTIES.includes(value)) },
+      screenOcr: candidateScreenOcr({ titles, difficulties, artists }),
     }, { params: candidateQueryParams(difficulty) });
     return response.data;
   },

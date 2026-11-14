@@ -1,3 +1,5 @@
+import { MAX_OCR_ARTISTS, MAX_OCR_TEXT } from './ocrLimits.js';
+
 export const TEXTAGE_CHART_KEY = /^[A-Za-z0-9_]{1,32}:SP:(NORMAL|HYPER|ANOTHER|LEGGENDARIA)$/;
 
 // BEGINNER stays in the catalogue but is excluded from analysis, and the server
@@ -13,6 +15,22 @@ export const candidateQueryParams = (difficulty = null) => ({
   catalog: 'TEXTAGE',
   ...(SUPPORTED_DIFFICULTIES.includes(difficulty) ? { difficulty } : {}),
 });
+
+/**
+ * What the screen OCR read, in the shape the candidate search takes.
+ *
+ * `artists` is left out when nothing was read. A server older than the field
+ * rejects the whole request for an unknown key, so leaving it out keeps every
+ * search that had no artist line working against one.
+ */
+export const candidateScreenOcr = ({ titles = [], difficulties = [], artists = [] } = {}) => {
+  const read = artists.filter(Boolean).slice(0, MAX_OCR_ARTISTS).map((artist) => artist.slice(0, MAX_OCR_TEXT));
+  return {
+    titles,
+    difficulties: difficulties.filter((value) => SUPPORTED_DIFFICULTIES.includes(value)),
+    ...(read.length ? { artists: read } : {}),
+  };
+};
 
 /**
  * A candidate is identified by its textage chart key.
