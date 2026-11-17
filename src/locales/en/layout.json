@@ -1,0 +1,12 @@
+{
+  "nav": {
+    "dashboard": "Dashboard",
+    "scores": "Scores",
+    "noteRadar": "Note Radar",
+    "tierTable": "Tier Table",
+    "import": "Import",
+    "layoutAnalysis": "Layout Analysis"
+  },
+  "logoAlt": "IIDX ScoreBoard logo",
+  "logoutSuccess": "You have been logged out."
+}

@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
+import { useTranslation } from 'react-i18next';
 import { authApi } from '../api/auth';
 import { toAppError } from '../utils/httpError';
 import Starfield from '../components/background/Starfield';
@@ -8,6 +9,7 @@ import FieldLabel from '../components/auth/FieldLabel';
 import LoginArtwork from '../components/auth/LoginArtwork';
 import MonoButton from '../components/common/MonoButton';
 import GoogleEntry from '../components/auth/GoogleEntry';
+import LanguageSelect from '../components/common/LanguageSelect';
 
 // Shares the login screen's visual language: same underline fields, same
 // left-aligned block over the artwork, so the two auth screens read as one flow.
@@ -23,36 +25,35 @@ const inputClass = (hasError, isPassword) =>
     .filter(Boolean)
     .join(' ');
 
+// Copy is resolved at render time from `auth.signup.fields.<name>`; only the
+// language-neutral attributes live here.
 const FIELDS = [
   {
     name: 'username',
     caption: 'username',
-    label: '아이디',
     type: 'text',
-    placeholder: '3자 이상',
+    hasPlaceholder: true,
     autoComplete: 'username',
     autoFocus: true,
   },
   {
     name: 'email',
     caption: 'email',
-    label: '이메일',
     type: 'email',
+    // An example address, identical in every language.
     placeholder: 'you@example.com',
     autoComplete: 'email',
   },
   {
     name: 'password',
     caption: 'password',
-    label: '비밀번호',
     type: 'password',
-    placeholder: '8자 이상',
+    hasPlaceholder: true,
     autoComplete: 'new-password',
   },
   {
     name: 'passwordConfirm',
     caption: 'confirm',
-    label: '비밀번호 확인',
     type: 'password',
     placeholder: '',
     autoComplete: 'new-password',
@@ -81,6 +82,7 @@ const FIELDS = [
  * → 폼 필드 아래에 해당 에러 메시지를 표시합니다.
  */
 const Signup = () => {
+  const { t } = useTranslation();
   const navigate = useNavigate();
 
   const [form, setForm] = useState({
@@ -115,22 +117,23 @@ const Signup = () => {
     }
   };
 
-  // 클라이언트 유효성 검사
+  // 클라이언트 유효성 검사. Values are translation keys, resolved at render so
+  // a message already on screen follows a language switch.
   const validate = () => {
     const newErrors = {};
     if (!form.username.trim()) {
-      newErrors.username = '아이디를 입력해주세요.';
+      newErrors.username = 'auth.signup.errors.usernameRequired';
     } else if (form.username.length < 3) {
-      newErrors.username = '아이디는 3자 이상이어야 합니다.';
+      newErrors.username = 'auth.signup.errors.usernameTooShort';
     }
     if (!form.email.includes('@')) {
-      newErrors.email = '올바른 이메일 형식이 아닙니다.';
+      newErrors.email = 'auth.signup.errors.emailInvalid';
     }
     if (form.password.length < 8) {
-      newErrors.password = '비밀번호는 8자 이상이어야 합니다.';
+      newErrors.password = 'auth.signup.errors.passwordTooShort';
     }
     if (form.password !== form.passwordConfirm) {
-      newErrors.passwordConfirm = '비밀번호가 일치하지 않습니다.';
+      newErrors.passwordConfirm = 'auth.signup.errors.passwordMismatch';
     }
     return newErrors;
   };
@@ -153,10 +156,10 @@ const Signup = () => {
         email: form.email,
         password: form.password,
       });
-      toast.success('회원가입 완료! 로그인 해주세요.');
+      toast.success(t('auth.signup.success'));
       navigate('/login');
     } catch (err) {
-      const message = toAppError(err, { fallback: '회원가입 중 오류가 발생했습니다.' }).message;
+      const message = toAppError(err, { fallback: t('auth.signup.failure') }).message;
       toast.error(message);
     } finally {
       setIsSubmitting(false);
@@ -167,6 +170,7 @@ const Signup = () => {
     <div className="relative flex min-h-screen items-center overflow-hidden bg-night">
       <Starfield litRatio={0.5} />
       <LoginArtwork />
+      <LanguageSelect className="absolute right-4 top-4 z-[2] sm:right-8 sm:top-6" />
 
       <main className="relative mx-auto w-full max-w-[1180px] px-6 py-12 sm:px-14">
         <div className="max-w-[400px]">
@@ -182,10 +186,10 @@ const Signup = () => {
           </p>
 
           <form onSubmit={handleSubmit} className="flex flex-col gap-6" noValidate>
-            {FIELDS.map(({ name, caption, label, type, placeholder, autoComplete, autoFocus }) => (
+            {FIELDS.map(({ name, caption, type, placeholder, hasPlaceholder, autoComplete, autoFocus }) => (
               <div key={name}>
                 <FieldLabel htmlFor={name} caption={caption}>
-                  {label}
+                  {t(`auth.signup.fields.${name}.label`)}
                 </FieldLabel>
                 <input
                   id={name}
@@ -194,7 +198,7 @@ const Signup = () => {
                   value={form[name]}
                   onChange={handleChange}
                   className={inputClass(Boolean(errors[name]), type === 'password')}
-                  placeholder={placeholder}
+                  placeholder={hasPlaceholder ? t(`auth.signup.fields.${name}.placeholder`) : placeholder}
                   autoComplete={autoComplete}
                   autoFocus={autoFocus}
                   aria-invalid={errors[name] ? true : undefined}
@@ -202,7 +206,7 @@ const Signup = () => {
                 />
                 {errors[name] && (
                   <p id={`${name}-error`} className="mt-[6px] text-[12px] text-danger">
-                    {errors[name]}
+                    {t(errors[name])}
                   </p>
                 )}
               </div>
@@ -216,15 +220,15 @@ const Signup = () => {
               trailing={<span>&#8594;</span>}
               className="mt-2"
             >
-              {isSubmitting ? '가입 중...' : '회원가입'}
+              {isSubmitting ? t('auth.signup.submitting') : t('auth.signup.submit')}
             </MonoButton>
           </form>
           <GoogleEntry signup disabled={isSubmitting} onBusyChange={setGoogleBusy} />
 
           <div className="mt-6 flex items-center gap-4 text-[12.5px]">
-            <span className="text-faint">이미 계정이 있으신가요?</span>
+            <span className="text-faint">{t('auth.signup.haveAccount')}</span>
             <Link to="/login" className="text-accent transition-colors hover:text-ink">
-              로그인
+              {t('auth.signup.login')}
             </Link>
           </div>
         </div>

@@ -1,3 +1,5 @@
+import { formatDateTime } from '../../i18n/format.js';
+
 export const CATEGORIES = ['NOTES', 'CHORD', 'PEAK', 'CHARGE', 'SCRATCH', 'SOFLAN'];
 export const categoryLabel = (value) => value === 'SOFLAN' ? 'SOF-LAN' : value;
 export const CATEGORY_DESCRIPTIONS = {
@@ -19,10 +21,7 @@ export function scoreRate(exScore, noteCount) {
   if (!finiteNumber(exScore) || !finiteNumber(noteCount) || Number(noteCount) <= 0) return null;
   return Math.floor(Number(exScore) * 10000 / (Number(noteCount) * 2)) / 100;
 }
-export const dateLabel = (value) => {
-  if (!value || Number.isNaN(new Date(value).getTime())) return '기록 없음';
-  return new Intl.DateTimeFormat('ko-KR', { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(value));
-};
+export const dateLabel = (value) => (value && formatDateTime(value)) || '기록 없음';
 export const rankTitle = (value) => finiteNumber(value) ? TITLES.find(([threshold]) => Number(value) >= threshold)?.[1] ?? '없음' : '확인 필요';
 export const nextThreshold = (value) => finiteNumber(value) ? [...TITLES].reverse().find(([threshold]) => threshold > Number(value))?.[0] ?? null : null;
 export const normalizeCategory = (value) => String(value ?? '').replaceAll('-', '').toUpperCase();
