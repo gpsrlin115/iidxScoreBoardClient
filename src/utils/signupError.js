@@ -1,7 +1,5 @@
+import i18n from '../i18n/index.js';
 import { toAppError } from './httpError.js'; // explicit extension: node --test resolves ESM without Vite
-
-export const SIGNUP_FAILURE_MESSAGE = '회원가입 중 오류가 발생했습니다.';
-export const SIGNUP_DUPLICATE_MESSAGE = '이미 사용 중인 아이디 또는 이메일입니다.';
 
 /**
  * Picks the toast copy for a failed signup request.
@@ -14,12 +12,16 @@ export const SIGNUP_DUPLICATE_MESSAGE = '이미 사용 중인 아이디 또는 �
  *
  * Everything else keeps `toAppError`'s copy (network, timeout, 5xx, ...).
  *
+ * The copy (`auth.signup.failure`, `auth.signup.duplicate`) is looked up on
+ * every call rather than held in module-level constants, so it follows the
+ * language active when the error is shown.
+ *
  * @param {unknown} err - the caught request error
  * @returns {string}
  */
 export const signupErrorMessage = (err) => {
-  const { status, message } = toAppError(err, { fallback: SIGNUP_FAILURE_MESSAGE });
-  return status === 409 ? SIGNUP_DUPLICATE_MESSAGE : message;
+  const { status, message } = toAppError(err, { fallback: i18n.t('auth.signup.failure') });
+  return status === 409 ? i18n.t('auth.signup.duplicate') : message;
 };
 
 export default signupErrorMessage;
