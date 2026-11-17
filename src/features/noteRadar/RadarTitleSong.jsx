@@ -1,3 +1,4 @@
+import { useLocale } from '../../i18n/useLocale.js';
 import { dateLabel, decimal, finiteNumber, signed } from './model.js';
 import { labelFor } from './titleLabels.js';
 import { RadarButton } from './RadarUi';
@@ -36,6 +37,7 @@ function BundleButton({ song, bundle, dispatch, locked }) {
 }
 
 export default function RadarTitleSong({ song, variant = 'play', onSelect, bundle = null, dispatch, locked = false, numericGoal = false }) {
+  useLocale();
   const seen = observed(song);
   const hasTitleData = finiteNumber(song.after);
   // Counts describe the prediction only for prediction bases; other bases carry no sample meaning.
