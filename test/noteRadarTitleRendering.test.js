@@ -112,7 +112,7 @@ test('refresh required cards are separate and have no edit button', async () => 
 test('plan uses step values and cumulative labels, PARTIAL states the gap without claiming impossibility', async () => {
   await show(response({ recommendations: [card({ targetExScore: 1700 })], plan: { ...response().plan, remainingGap: 7.5, steps: [step({ targetExScore: 1550, after: 111.2 })] } }));
   const plan = document.querySelector('section[aria-label="칭호 계획"]');
-  assert.match(plan.textContent, /목표 EX 1550/);
+  assert.equal(plan.querySelector('input').value, '1550');
   assert.match(plan.textContent, /누적 예상 111.20/);
   assert.match(plan.textContent, /누적 교체곡: Replaced One/);
   assert.match(plan.textContent, /하한까지 7.50 남습니다\(추정\)/);

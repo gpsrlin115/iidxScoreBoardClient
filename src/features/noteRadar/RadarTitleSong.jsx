@@ -1,6 +1,7 @@
 import { dateLabel, decimal, finiteNumber, signed } from './model.js';
 import { labelFor } from './titleLabels.js';
 import { RadarButton } from './RadarUi';
+import { MAX_BUNDLE } from './planBundle.js';
 import RadarTargetOptions from './RadarTargetOptions';
 
 const BUTTONS = { play: '목표 EX 조정 · 저장', exploration: '목표 점수 입력' };
@@ -22,7 +23,18 @@ function SingleChart({ song }) {
   return null;
 }
 
-export default function RadarTitleSong({ song, variant = 'play', onSelect }) {
+function BundleButton({ song, bundle, dispatch, locked }) {
+  const present = bundle.items.find((item) => item.chartId === song.chartId);
+  const inBundle = !!present && present.input === String(song.targetExScore);
+  const full = !present && bundle.items.length >= MAX_BUNDLE;
+  return <>
+    <RadarButton disabled={inBundle || full || locked} aria-describedby={full ? `bundle-full-${song.chartId}` : undefined}
+      onClick={() => dispatch({ type: 'add', card: song })}>{inBundle ? '묶음에 있음' : present ? `묶음 값을 ${song.targetExScore}으로` : '묶음에 추가'}</RadarButton>
+    {full && <span id={`bundle-full-${song.chartId}`} className="basis-full text-right text-xs text-muted">묶음은 최대 {MAX_BUNDLE}개까지 담을 수 있습니다.</span>}
+  </>;
+}
+
+export default function RadarTitleSong({ song, variant = 'play', onSelect, bundle = null, dispatch, locked = false }) {
   const seen = observed(song);
   const hasTitleData = finiteNumber(song.after);
   // Counts describe the prediction only for prediction bases; other bases carry no sample meaning.
@@ -59,6 +71,7 @@ export default function RadarTitleSong({ song, variant = 'play', onSelect }) {
         {finiteNumber(song.rangeLowExScore) && <p>참고 범위 EX {song.rangeLowExScore}~{song.rangeHighExScore} · 참고 범위이며 성공 확률이 아닙니다.</p>}
         <ul className="space-y-1">{(song.reasons ?? []).map((reason, index) => <li key={index} className="break-words">{typeof reason === 'string' ? reason : reason.message}</li>)}</ul>
       </div></details>
-    {BUTTONS[variant] && onSelect && <div className="mt-3 flex justify-end"><RadarButton primary onClick={() => onSelect(song)}>{BUTTONS[variant]}</RadarButton></div>}
+    {BUTTONS[variant] && onSelect && <div className="mt-3 flex flex-wrap justify-end gap-2">
+      {bundle && dispatch && finiteNumber(song.targetExScore) && <BundleButton song={song} bundle={bundle} dispatch={dispatch} locked={locked} />}<RadarButton primary onClick={() => onSelect(song)}>{BUTTONS[variant]}</RadarButton></div>}
   </article>;
 }

@@ -15,7 +15,7 @@ export default function NoteRadarGoals() {
   };
   return <div className="space-y-4">
     <header className="flex items-center justify-between gap-3"><h1 className="text-xl text-ink">저장한 목표곡</h1><RadarButton disabled={goalsLoading} onClick={reloadGoals}>목표곡 새로고침</RadarButton></header>
-    <p className="text-xs leading-6 text-muted">플레이 후 공식 기록을 다시 가져와 카테고리 변화와 목표 달성 상태를 확인하세요. 증거가 부족하면 확인 필요로 표시합니다.</p>
+    <p className="text-xs leading-6 text-muted">플레이 후 공식 기록을 다시 가져와 카테고리 변화와 목표 달성 상태를 확인하세요. 증거가 부족하면 확인 필요로 표시합니다. 달성은 이 채보 EX 목표의 관측 달성이며 칭호 획득과 다릅니다.</p>
     <RadarError error={goalsError} onRetry={reloadGoals} />
     {goalsLoading && <p role="status" className="text-sm text-muted">목표곡을 확인하고 있습니다…</p>}
     <RadarGoals key={`${revision}:${goals.map((goal) => `${goal.id}:${goal.targetExScore}:${goal.status}`).join(',')}`} goals={goals} onReload={reloadGoals} onEdit={editGoal} />
