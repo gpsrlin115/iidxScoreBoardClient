@@ -42,8 +42,9 @@ WSL에서 돌린다. WSL에는 리눅스용 브라우저가 없어서 Windows의
 Windows에서 WSL의 `localhost`는 닿지만, WSL에서 Windows 브라우저의 디버깅 포트로는 NAT 때문에 닿지 않는다. 그래서 브라우저 조종은 Windows 안에서 도는 `drive.ps1`이 맡는다.
 
 ```bash
-# 0) nvm의 node를 앞에 둔다 (세션에 따라 npm이 Windows 쪽으로 잡힌다)
-export PATH=/home/administrator/.nvm/versions/node/v22.23.2/bin:$PATH
+# 0) nvm의 node를 앞에 둔다 (세션에 따라 npm이 Windows 쪽으로 잡힌다).
+#    버전은 저장소 루트의 .nvmrc를 따른다. engine-strict라서 다른 버전이면 npm ci가 멈춘다.
+. "$HOME/.nvm/nvm.sh" && nvm install && nvm use
 V=scripts/release-validation
 
 # 1) 검증할 빌드(저장소 루트에서)와 main 기준선 빌드
