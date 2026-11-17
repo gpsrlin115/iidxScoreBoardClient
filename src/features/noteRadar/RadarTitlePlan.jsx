@@ -9,9 +9,10 @@ import RadarBundleSave from './RadarBundleSave';
 
 const note = 'rounded border border-line p-3 text-sm leading-6 text-text2';
 
-function Banner({ plan, filtersActive, onClearFilters }) {
-  if (plan.status === 'ESTIMATED_REACHED') return <p role="status" className={note}>모든 단계 목표를 내면 하한에 도달할 것으로 예상됩니다(추정). 실제 칭호는 공식 기록을 다시 가져와 확인하세요.</p>;
-  if (plan.status === 'PARTIAL') return <p role="status" className={note}>{`계획대로 내도 하한까지 ${decimal(plan.remainingGap)} 남습니다(추정). 칭호가 불가능하다는 뜻은 아닙니다.`}</p>;
+function Banner({ plan, numericGoal, filtersActive, onClearFilters }) {
+  const word = numericGoal ? '목표 수치' : '하한';
+  if (plan.status === 'ESTIMATED_REACHED') return <p role="status" className={note}>{`모든 단계 목표를 내면 ${word}에 도달할 것으로 예상됩니다(추정). 실제 칭호는 공식 기록을 다시 가져와 확인하세요.`}</p>;
+  if (plan.status === 'PARTIAL') return <p role="status" className={note}>{`계획대로 내도 ${word}까지 ${decimal(plan.remainingGap)} 남습니다(추정). ${numericGoal ? '목표가' : '칭호가'} 불가능하다는 뜻은 아닙니다.`}</p>;
   if (plan.status === 'NO_CANDIDATES') return <div role="status" className={note}><p>현재 조건에서 계획을 만들 후보가 없습니다.</p>
     {filtersActive && onClearFilters && <RadarButton className="mt-2" onClick={onClearFilters}>필터 해제</RadarButton>}</div>;
   return <p role="status" className={note}>{labelFor('planStatus', plan.status)}</p>;
@@ -51,9 +52,10 @@ export default function RadarTitlePlan({ data, bundle, dispatch, locked = false,
   const edited = bundle.edited;
   const serverSteps = plan.status === 'NO_CANDIDATES' ? [] : plan.steps ?? [];
   const numericGoal = !data.goal?.requestedTitle;
-  return <section aria-label="칭호 계획" className="space-y-3">
-    <h3 className="text-base text-ink">칭호 계획</h3>
-    {!edited && <Banner plan={plan} filtersActive={filtersActive} onClearFilters={onClearFilters} />}
+  const heading = numericGoal ? '목표 계획' : '칭호 계획';
+  return <section aria-label={heading} className="space-y-3">
+    <h3 className="text-base text-ink">{heading}</h3>
+    {!edited && <Banner plan={plan} numericGoal={numericGoal} filtersActive={filtersActive} onClearFilters={onClearFilters} />}
     {edited && !sim.result && <p role="status" className={note}>수정됨 · 다시 계산해 확인하세요</p>}
     {!!bundle.items.length && <ol className="space-y-3">{bundle.items.map((item, index) => <Step key={item.chartId} item={item} index={index}
       serverStep={serverSteps.find((step) => step.chartId === item.chartId)} edited={edited} dispatch={dispatch} onSelect={onSelect} locked={locked} />)}</ol>}

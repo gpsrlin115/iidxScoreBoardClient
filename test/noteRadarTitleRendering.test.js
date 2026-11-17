@@ -42,7 +42,7 @@ async function show(data, props = {}) {
   await act(async () => root.render(null));
   await act(async () => root.render(createElement(MemoryRouter, null, createElement(RadarCategory, {
     category, tab: 'recommendations', onTabChange() {}, onSelect() {}, goal: '120', onRequestImport() {},
-    onGoalChange() {}, importedAt: '2026-10-18T09:00:00Z', ...props,
+    importedAt: '2026-10-18T09:00:00Z', ...props,
   }))));
   await wait();
 }
@@ -57,7 +57,7 @@ test('each goal status renders its banner and unknown statuses are surfaced', as
   await show(goal('ALREADY_ACHIEVED'));
   assert.match(text(), /추가 플레이가 필요하지 않습니다/);
   await show(goal('BLOCKED'));
-  assert.match(text(), /계산 보류 · 사유를 확인해 주세요/);
+  assert.match(text(), /계산 보류 · 아래 사유를 확인해 주세요/);
   await show(goal('REFRESH_REQUIRED'));
   assert.equal(buttons('공식 레이더 다시 가져오기').length, 1);
   await show(goal('NEEDS_PLAY'));
@@ -152,16 +152,25 @@ test('old server notice for a title request without goal key', async () => {
   assert.match(text(), /Old Server Song/);
 });
 
-test('numeric goal shows the value notice and nearest bound button except above the ladder', async () => {
-  const picked = [];
-  await show(numericResponse(), { goal: '145', onGoalChange: (value) => picked.push(value) });
+test('a numeric goal draws its plan in goal-value wording without the old stopgap', async () => {
+  const goal = { ...response().goal, requestedTitle: null, targetValue: 145, remainingGap: 35 };
+  await show(response({ goal, plan: { ...response().plan, remainingGap: 32.5 }, recommendations: [
+    card({ singleChartGoalStatus: 'SINGLE_CHART_UNREACHABLE' }),
+    card({ chartId: 2, songId: 2, title: 'Second', singleChartGoalStatus: 'REACHABLE', goalExScore: 1900 }),
+  ] }), { goal: '145' });
   assert.match(text(), /수치 추천 · 145/);
-  assert.match(text(), /이 수치에는 다곡 계획이 없습니다/);
-  await act(async () => buttons('가까운 칭호 하한 150으로 계획 보기')[0].click());
-  assert.deepEqual(picked, [150]);
-  await show(numericResponse(), { goal: '185' });
-  assert.match(text(), /수치 추천 · 185/);
+  assert.match(text(), /목표 계획/);
+  assert.doesNotMatch(text(), /칭호 계획/);
+  assert.match(text(), /목표 수치에 가까워지는 순서/);
+  assert.match(text(), /계획대로 내도 목표 수치까지 32\.50 남습니다/);
+  assert.match(text(), /이 곡 하나만으로는 목표 수치에 닿지 않습니다/);
+  assert.match(text(), /이 곡만으로 목표 수치에 닿는 EX 1900/);
+  assert.doesNotMatch(text(), /다곡 계획이 없습니다|하한/);
   assert.equal([...document.querySelectorAll('button')].filter((item) => item.textContent.startsWith('가까운 칭호')).length, 0);
+  // An old server still answers a number without a plan; the removed notice must not come back.
+  await show(numericResponse(), { goal: '145' });
+  assert.match(text(), /Numeric Song/);
+  assert.doesNotMatch(text(), /다곡 계획이 없습니다/);
 });
 
 test('TOP10 tab falls back to an estimated gap from the category value', async () => {

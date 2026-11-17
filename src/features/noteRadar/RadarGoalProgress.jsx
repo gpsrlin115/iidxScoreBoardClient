@@ -1,5 +1,5 @@
 import { dateLabel, decimal, finiteNumber } from './model.js';
-import { isTitleCapable, nearestBound, responseSemantics, titleName } from './titles.js';
+import { isTitleCapable, titleName } from './titles.js';
 import { labelFor } from './titleLabels.js';
 import { RadarButton } from './RadarUi';
 
@@ -22,7 +22,7 @@ function Banner({ goal, kind, onRequestImport }) {
   if (status === 'MISSING_OFFICIAL') return <div role="status" className={hold}><p>공식 레이더를 먼저 가져와야 계산할 수 있습니다.</p>
     {onRequestImport && <RadarButton className="mt-2" onClick={onRequestImport}>공식 레이더 가져오기</RadarButton>}</div>;
   if (status === 'ALREADY_ACHIEVED') return <p role="status" className={neutral}>{`공식 현재값이 ${goalWord} 이상입니다. 추가 플레이가 필요하지 않습니다. 실제 칭호는 공식 기록으로 확인하세요.`}</p>;
-  if (status === 'BLOCKED') return <p role="status" className={hold}>계산 보류 · 사유를 확인해 주세요. 계획과 도달 여부는 표시하지 않습니다.</p>;
+  if (status === 'BLOCKED') return <p role="status" className={hold}>계산 보류 · 아래 사유를 확인해 주세요. 계획과 도달 여부는 표시하지 않습니다.</p>;
   if (status === 'REFRESH_REQUIRED') return <div role="status" className={neutral}>
     <p>일부 곡에서 목표 EX 이상이 이미 관측됐지만 공식 레이더에는 아직 반영되지 않았습니다. 공식 레이더를 다시 가져와 확인하세요. 칭호 도달을 뜻하지는 않습니다.</p>
     {onRequestImport && <RadarButton className="mt-2" onClick={onRequestImport}>공식 레이더 다시 가져오기</RadarButton>}</div>;
@@ -34,11 +34,9 @@ function Row({ label, children }) {
   return <div className="min-w-0"><dt className="text-xs text-muted">{label}</dt><dd className="mt-1 break-words text-ink">{children}</dd></div>;
 }
 
-export default function RadarGoalProgress({ request, category, data = null, importedAt, catalogAvailable = true, onRequestImport, onGoalChange }) {
+export default function RadarGoalProgress({ request, category, data = null, importedAt, catalogAvailable = true, onRequestImport }) {
   const goal = data?.goal ?? null;
-  const semantics = data ? responseSemantics(data) : null;
   const target = request.kind === 'TITLE' ? request.value : request.kind === 'VALUE' ? request.goal : null;
-  const bound = request.kind === 'VALUE' ? nearestBound(request.goal) : null;
   const timestamp = dateLabel(data?.importedAt ?? importedAt);
   const missing = goal?.status === 'MISSING_OFFICIAL';
   let rows = null;
@@ -68,9 +66,6 @@ export default function RadarGoalProgress({ request, category, data = null, impo
   }
   return <section aria-label="목표 진행" className="space-y-3 rounded border border-line bg-surface p-4">
     <p className="font-mono text-sm text-accent">{modeLine(request, data)}</p>
-    {request.kind === 'VALUE' && semantics === 'LEGACY' && <p className="text-xs leading-5 text-muted">이 수치에는 다곡 계획이 없습니다. 칭호 하한은 공식 기여 10곡 기준으로 계산하고 계획을 포함합니다.</p>}
-    {request.kind === 'VALUE' && semantics === 'LEGACY' && bound !== null && onGoalChange
-      && <RadarButton onClick={() => onGoalChange(bound)}>가까운 칭호 하한 {bound}으로 계획 보기</RadarButton>}
     {rows && <dl className="grid gap-3 sm:grid-cols-3 lg:grid-cols-5 text-sm">{rows}</dl>}
     {goal && request.kind !== 'GAIN' && <Banner goal={goal} kind={request.kind} onRequestImport={onRequestImport} />}
   </section>;

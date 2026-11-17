@@ -25,6 +25,7 @@ test('title mode reports the unidentified-entry issue for blocked and partial sc
     assert.equal(status, 200, scenario);
     assert.equal(body.goal.status, 'BLOCKED', scenario);
     assert.deepEqual(body.issues, [UNIDENTIFIED_ISSUE], scenario);
+    assert.deepEqual(body.issueCodes, ['UNIDENTIFIED_ENTRY'], scenario);
     assert.deepEqual([body.recommendations, body.exploration, body.refreshRequired], [[], [], []], scenario);
     assert.equal(body.plan.status, 'BLOCKED', scenario);
     assert.deepEqual(body.plan.steps, [], scenario);

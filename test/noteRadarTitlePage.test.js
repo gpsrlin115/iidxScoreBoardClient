@@ -57,13 +57,23 @@ const text = () => container.textContent;
 test('default URL requests the next title only', async () => {
   await mount('/note-radar/categories/NOTES');
   assert.deepEqual(queries, [{ goalTitle: 'DIAMOND' }]);
-  assert.match(text(), /칭호 하한을 입력하면 칭호 추천/);
+  assert.match(text(), /칭호 하한이든 다른 수치든 그 값까지의 다곡 계획을 계산합니다/);
+  assert.doesNotMatch(text(), /기존 상승량 추천/);
 });
 
-test('a non-title number keeps the legacy numeric request', async () => {
+test('a non-title number sends a numeric goal request', async () => {
   nextReply = legacy();
   await mount('/note-radar/categories/NOTES?goal=145');
   assert.deepEqual(queries, [{ goal: 145 }]);
+});
+
+test('a goal with three decimal places is rejected before any request', async () => {
+  await mount('/note-radar/categories/NOTES?goal=4.555');
+  assert.match(text(), /소수 둘째 자리까지 입력해 주세요/);
+  assert.equal(document.querySelector('input').getAttribute('aria-invalid'), 'true');
+  assert.ok(queries.every((query) => !Object.hasOwn(query, 'goal')));
+  await mount('/note-radar/categories/NOTES?goal=4.50');
+  assert.deepEqual(queries.at(-1), { goal: 4.5 });
 });
 
 test('150 and 150.0 both resolve to PLATINUM', async () => {

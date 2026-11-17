@@ -23,7 +23,7 @@ function Top10({ category }) {
 }
 
 export default function RadarCategory({ category, tab, onTabChange, onSelect, preview, goal,
-  filters = { level: '', chartType: '', record: '' }, onFilterChange, onRecommendations, catalogAvailable = true, onGoalChange, onRequestImport, importedAt, onGoalsSaved }) {
+  filters = { level: '', chartType: '', record: '' }, onFilterChange, onRecommendations, catalogAvailable = true, onRequestImport, importedAt, onGoalsSaved }) {
   const [localFilters, setLocalFilters] = useState(filters);
   const activeFilters = onFilterChange ? filters : localFilters;
   const [filtered, setFiltered] = useState({ key: '', loading: false, data: null, error: '' });
@@ -61,7 +61,7 @@ export default function RadarCategory({ category, tab, onTabChange, onSelect, pr
   const filtersActive = Object.values(activeFilters).some(Boolean);
   const clearFilters = () => ['level', 'chartType', 'record'].forEach((key) => change(key, ''));
   return <section aria-label={`${categoryLabel(category.category)} 상세`} className="space-y-4">
-    <RadarGoalProgress request={request} category={category} data={current} importedAt={importedAt} catalogAvailable={catalogAvailable} onRequestImport={onRequestImport} onGoalChange={onGoalChange} />
+    <RadarGoalProgress request={request} category={category} data={current} importedAt={importedAt} catalogAvailable={catalogAvailable} onRequestImport={onRequestImport} />
     <div className="flex gap-2 border-b border-line pb-3" role="tablist" aria-label="카테고리 상세">{[['recommendations', '추천곡'], ['top10', '현재 TOP10']].map(([key, label]) => <RadarButton key={key} id={`radar-${key}-tab`} role="tab" aria-selected={tab === key} aria-controls="radar-category-panel" primary={tab === key} onClick={() => onTabChange(key)}>{label}</RadarButton>)}</div>
     <RadarIssues issues={category.issues} />
     <div id="radar-category-panel" role="tabpanel" aria-labelledby={`radar-${tab}-tab`}>
@@ -71,7 +71,7 @@ export default function RadarCategory({ category, tab, onTabChange, onSelect, pr
           <label className="grid gap-1 text-xs text-muted">난이도<select value={activeFilters.chartType} onChange={(event) => change('chartType', event.target.value)} className={radarInput}><option value="">전체 난이도</option>{['BEGINNER', 'NORMAL', 'HYPER', 'ANOTHER', 'LEGGENDARIA'].map((type) => <option key={type}>{type}</option>)}</select></label>
           <label className="grid gap-1 text-xs text-muted">내 기록<select value={activeFilters.record} onChange={(event) => change('record', event.target.value)} className={radarInput}><option value="">전체</option><option value="present">기록 있음</option><option value="absent">기록 없음</option></select></label>
         </div>
-        <p className="text-xs leading-5 text-muted">{plan ? '칭호 하한에 가까워지는 순서(서버 기준)입니다. 공식 반영 전 추정값이며 공식 현재값은 다시 가져온 뒤 바뀝니다.' : '추천 목표 달성 시 평균 상승량 내림차순입니다. 공식 반영 전 추정값이며 공식 현재값은 재가져오기 후 바뀝니다.'}</p>
+        <p className="text-xs leading-5 text-muted">{plan ? `${data.goal?.requestedTitle ? '칭호 하한' : '목표 수치'}에 가까워지는 순서(서버 기준)입니다. 공식 반영 전 추정값이며 공식 현재값은 다시 가져온 뒤 바뀝니다.` : '추천 목표 달성 시 평균 상승량 내림차순입니다. 공식 반영 전 추정값이며 공식 현재값은 재가져오기 후 바뀝니다.'}</p>
         {!category.complete || !catalogAvailable ? <p role="status" className="rounded border border-amber-300/30 p-4 text-sm text-amber-100">계산 보류 · {!catalogAvailable ? '검증된 기준 데이터가 준비되지 않았습니다.' : '공식 집계 규칙 또는 기준 데이터를 확인해야 합니다.'} 현재 TOP10은 계속 볼 수 있습니다.</p> : <>
           {result.loading && <p role="status" className="p-4 text-sm text-muted">추천곡을 계산하고 있습니다…</p>}
           <RadarError error={result.error} onRetry={() => setRetry((value) => value + 1)} />

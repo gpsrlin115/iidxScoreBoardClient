@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { TITLE_LADDER, isTitleCapable, nearestBound, resolveGoal, responseSemantics, titleForBound, titleName }
+import { TITLE_LADDER, isTitleCapable, resolveGoal, responseSemantics, titleForBound, titleName, withinTwoDecimals }
   from '../src/features/noteRadar/titles.js';
 import { nextThreshold, normalizeRecommendations, rankTitle, requestFilters } from '../src/features/noteRadar/model.js';
 
@@ -21,6 +21,16 @@ test('resolveGoal classifies empty, title, plain value and invalid input', () =>
   for (const bad of [201, 'abc', -1, NaN, Infinity]) assert.deepEqual(resolveGoal(bad), { kind: 'INVALID' });
 });
 
+test('goal accepts at most two decimal places after dropping trailing zeros', () => {
+  for (const ok of ['4.5', '4.50', '4.500', '145', 145.25, '145.', '1e1', ' 0.01 ']) assert.equal(withinTwoDecimals(ok), true, ok);
+  for (const bad of ['4.555', '145.001', 0.125, '1e-3', 'abc', '']) assert.equal(withinTwoDecimals(bad), false, bad);
+  assert.deepEqual(resolveGoal('4.500'), { kind: 'VALUE', goal: 4.5 });
+  assert.deepEqual(resolveGoal('4.555'), { kind: 'INVALID' });
+  assert.deepEqual(resolveGoal('150.000'), { kind: 'TITLE', goalTitle: 'PLATINUM', value: 150 });
+  assert.deepEqual(requestFilters({ goal: '4.50' }), { goal: 4.5 });
+  assert.deepEqual(requestFilters({ goal: '4.555' }), {});
+});
+
 test('ladder helpers', () => {
   assert.equal(TITLE_LADDER.length, 10);
   assert.ok(Object.isFrozen(TITLE_LADDER));
@@ -28,11 +38,6 @@ test('ladder helpers', () => {
   assert.equal(titleForBound('10'), 'ROOKIE');
   assert.equal(titleForBound(0), null);
   assert.equal(titleForBound(151), null);
-  assert.equal(nearestBound(145), 150);
-  assert.equal(nearestBound(150), 150);
-  assert.equal(nearestBound(181), null);
-  assert.equal(nearestBound(9), 10);
-  assert.equal(nearestBound('x'), null);
   assert.equal(titleName('NONE'), '없음');
   assert.equal(titleName('없음'), '없음');
   assert.equal(titleName(null), null);

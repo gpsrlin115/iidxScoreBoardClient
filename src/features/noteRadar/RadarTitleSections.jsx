@@ -5,13 +5,13 @@ import RadarTitleSong from './RadarTitleSong';
 
 const LIMIT = '최대 100개까지 표시합니다.';
 
-function Section({ title, items, variant, onSelect, bundle, dispatch, locked, children, className = '' }) {
+function Section({ title, items, variant, onSelect, bundle, dispatch, locked, numericGoal, children, className = '' }) {
   if (!items.length) return null;
   return <section aria-label={title} className={`space-y-3 ${className}`}>
     <h3 className="text-base text-ink">{title}</h3>
     {children}
     {items.length === 100 && <p className="text-xs text-muted">{LIMIT}</p>}
-    {items.map((song, index) => <RadarTitleSong key={`${song.chartId}-${index}`} song={song} variant={variant} onSelect={onSelect} bundle={bundle} dispatch={dispatch} locked={locked} />)}
+    {items.map((song, index) => <RadarTitleSong key={`${song.chartId}-${index}`} song={song} variant={variant} onSelect={onSelect} bundle={bundle} dispatch={dispatch} locked={locked} numericGoal={numericGoal} />)}
   </section>;
 }
 
@@ -29,11 +29,12 @@ export default function RadarTitleSections({ data, categoryId, onGoalsSaved, fil
   const hidePlan = status === 'REFRESH_REQUIRED' && !(data.plan?.steps ?? []).length;
   const plan = data.plan;
   const planShown = !hidePlan && !!plan && !['BLOCKED', 'ALREADY_ACHIEVED'].includes(plan.status);
-  const shared = { bundle: planShown ? bundle : null, dispatch, locked: saving };
+  const numericGoal = !data.goal?.requestedTitle;
+  const shared = { bundle: planShown ? bundle : null, dispatch, locked: saving, numericGoal };
   return <div className="space-y-6">
     {!hidePlan && <RadarTitlePlan data={data} bundle={bundle} dispatch={dispatch} locked={saving} onSavingChange={setSaving} categoryId={categoryId} onGoalsSaved={onGoalsSaved} filtersActive={filtersActive} onClearFilters={onClearFilters} onSelect={onSelect} />}
     <Section title="재플레이 후보" items={recommendations} variant="play" onSelect={onSelect} {...shared} />
-    <Section title="공식 갱신 확인" items={refresh} variant="refresh" className="rounded border border-amber-300/30 bg-amber-300/5 p-4">
+    <Section title="공식 갱신 확인" items={refresh} variant="refresh" numericGoal={numericGoal} className="rounded border border-amber-300/30 bg-amber-300/5 p-4">
       <p className="text-xs text-amber-100/90">공식 레이더를 다시 가져와 반영 여부를 확인하세요.</p>
     </Section>
     <Section title="탐색" items={exploration} variant="exploration" onSelect={onSelect} {...shared} className="border-t border-line pt-5" />
