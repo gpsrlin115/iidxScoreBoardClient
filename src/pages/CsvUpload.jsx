@@ -33,12 +33,7 @@ const CsvUpload = () => {
   const fileInputRef = useRef(null);
 
   const [uploadState, setUploadState] = useState('idle'); // 'idle' | 'uploading' | 'success' | 'error'
-  // Deliberately local and deliberately null. Binding this to the global
-  // scope pre-selected whatever the tier table was last showing, so a user
-  // who never touched the control could send a DP export as SP and corrupt
-  // their scores. It also meant picking a style here silently moved the
-  // dashboard and tier table to a different scope. Neither is worth the
-  // convenience: this one choice has to be made on purpose.
+  // Keep the import selection separate from the dashboard and tier table.
   const [playStyle, setPlayStyle] = useState(null);
   const [file, setFile] = useState(null);
   const [progress, setProgress] = useState(0);
@@ -56,6 +51,7 @@ const CsvUpload = () => {
 
   const resetToIdle = () => {
     setFile(null);
+    setPlayStyle(null);
     setUploadState('idle');
     setProgress(0);
     setUploadComplete(false);
@@ -65,6 +61,9 @@ const CsvUpload = () => {
 
   const handleFileSelect = (selectedFile) => {
     if (!selectedFile) return;
+
+    // A new file must never inherit the previous file's selection.
+    setPlayStyle(null);
 
     if (!selectedFile.name.toLowerCase().endsWith('.csv')) {
       const ext = selectedFile.name.includes('.')
@@ -91,6 +90,11 @@ const CsvUpload = () => {
       setUploadState('error');
       return;
     }
+
+    const filename = selectedFile.name.toLowerCase();
+    const hasSp = filename.includes('sp');
+    const hasDp = filename.includes('dp');
+    if (hasSp !== hasDp) setPlayStyle(hasSp ? 'SP' : 'DP');
 
     setFile(selectedFile);
     setResult(null);
@@ -138,23 +142,24 @@ const CsvUpload = () => {
   const isRetryableError = uploadState === 'error' && Boolean(errorInfo?.retryable);
 
   const handleUploadButtonClick = () => {
-    if (!file || !playStyle) return;
+    if (!file) return;
     if (uploadState === 'error' && !isRetryableError) {
       openFilePicker();
       return;
     }
+    if (!playStyle) return;
     handleUpload();
   };
 
   const uploadButtonLabel = !file
     ? '파일을 선택하세요'
-    : !playStyle
-      ? 'SP · DP를 선택하세요'
-      : uploadState === 'error'
-        ? isRetryableError
+    : uploadState === 'error' && !isRetryableError
+      ? '다른 파일 선택'
+      : !playStyle
+        ? 'SP · DP를 선택하세요'
+        : isRetryableError
           ? '다시 시도'
-          : '다른 파일 선택'
-        : '업로드';
+          : '업로드';
 
   const dropZoneStatus = !file
     ? 'empty'
@@ -274,7 +279,7 @@ const CsvUpload = () => {
           {uploadState !== 'uploading' && uploadState !== 'success' && (
             <MonoButton
               fullWidth
-              disabled={!file || !playStyle}
+              disabled={!file || (!playStyle && !(uploadState === 'error' && !isRetryableError))}
               onClick={handleUploadButtonClick}
               className="mt-[14px]"
             >

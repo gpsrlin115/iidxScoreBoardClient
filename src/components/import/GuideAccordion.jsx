@@ -1,7 +1,7 @@
 const STEPS = [
   { num: '01', text: 'e-amusement gate에 로그인합니다.' },
   { num: '02', text: 'IIDX → 플레이 데이터 → 성적 다운로드에서 CSV를 받습니다.' },
-  { num: '03', text: '위에서 SP / DP를 고르고 받은 파일을 올립니다.' },
+  { num: '03', text: '파일을 고른 뒤 SP / DP 선택을 확인하고 업로드합니다.' },
 ];
 
 /**
