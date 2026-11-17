@@ -4,6 +4,8 @@ import { pathToFileURL } from 'node:url';
 import { randomUUID } from 'node:crypto';
 import { CHARTS, CATEGORIES, SCENARIOS, IIDX_ID, IMPORTED_AT, USER, initialGoals,
   summaryData, recommendationData, officialPayload, simulateData } from './note-radar-mock-data.mjs';
+import { BOUNDS, missingOfficial } from './note-radar-mock-ladder.mjs';
+import { parseGoalTitle, titleRecommendationData } from './note-radar-mock-title.mjs';
 import { NOTE_RADAR_MOCK_HEADER, NOTE_RADAR_MOCK_IDENTITY, NOTE_RADAR_MOCK_PORT } from './note-radar-mock-contract.mjs';
 
 const TOKEN = 'synthetic-note-radar-xsrf';
@@ -110,14 +112,26 @@ export function createNoteRadarMockServer({ scenario = 'normal', delayMs = 1400 
         const filters = Object.fromEntries(url.searchParams);
         if (!CATEGORIES.includes(filters.category) || filters.level && (!/^\d+$/.test(filters.level) || +filters.level < 1 || +filters.level > 12)
           || filters.record && !['present', 'absent'].includes(filters.record)
-          || filters.goal && (!Number.isFinite(+filters.goal) || +filters.goal < 0 || +filters.goal > 200)) return invalid(res);
+          || filters.goal && (filters.goal.trim() === '' || !Number.isFinite(+filters.goal) || +filters.goal < 0 || +filters.goal > 200)) return invalid(res);
+        const titleMode = url.searchParams.has('goalTitle');
+        const goalTitle = parseGoalTitle(filters.goalTitle);
+        if (titleMode && !goalTitle) return invalid(res);
+        if (titleMode && filters.goal !== undefined && filters.goal !== '' && Number(filters.goal) !== BOUNDS[goalTitle]) {
+          return invalid(res, '목표 칭호와 숫자 목표가 일치하지 않습니다.');
+        }
         if (activeState.scenario === 'slow-recommendations') await wait(delayMs);
         if (activeState.scenario === 'recommendations-failed' || activeState.scenario === 'partial-failure' && filters.category === 'CHORD') {
           return failure(res, 502, 'MOCK_RECOMMENDATIONS_UNAVAILABLE', '모의 상태: 추천 조회에 실패했습니다. 현황은 계속 사용할 수 있습니다.');
         }
-        if (!summaryData(activeState).importedAt) return json(res, 200, { category: filters.category,
-          recommendations: [], exploration: [], issues: ['공식 레이더를 먼저 가져와 주세요.'] });
-        return json(res, 200, recommendationData(filters.category, activeState.scenario, filters));
+        const summary = summaryData(activeState);
+        const numericGoal = filters.goal !== undefined && filters.goal !== '' ? Number(filters.goal) : null;
+        if (!summary.importedAt) {
+          const goal = titleMode ? { requestedTitle: goalTitle, target: BOUNDS[goalTitle] }
+            : numericGoal === null ? null : { target: numericGoal };
+          return json(res, 200, missingOfficial(filters.category, summary, goal));
+        }
+        if (titleMode) return json(res, 200, titleRecommendationData(filters.category, activeState.scenario, { ...filters, goalTitle }, summary));
+        return json(res, 200, recommendationData(filters.category, activeState.scenario, filters, summary));
       }
       if (path === '/note-radar/imports/current' && req.method === 'GET') {
         const attempt = activeState.attempt;

@@ -1,8 +1,11 @@
 // Every identifier and score in this module is synthetic local fixture data.
+import { envelope, goalProgress, nextBound, summaryTitle } from './note-radar-mock-ladder.mjs';
+
 export const CATEGORIES = ['NOTES', 'CHORD', 'PEAK', 'CHARGE', 'SCRATCH', 'SOFLAN'];
 export const SCENARIOS = ['normal', 'no-import', 'unlinked', 'blocked', 'partial', 'empty', 'exploration',
   'disabled', 'mismatch', 'expired', 'pending', 'recommendations-failed', 'partial-failure',
-  'slow-recommendations', 'slow-simulation', 'save-failed', 'goals-failed', 'reimport', 'highest', 'signed-out'];
+  'slow-recommendations', 'slow-simulation', 'save-failed', 'goals-failed', 'reimport', 'highest', 'signed-out',
+  'title-blocked'];
 export const IIDX_ID = '1234-5678';
 export const IMPORTED_AT = '2026-10-18T01:00:00Z';
 export const USER = { id: 900001, username: 'radar-mock', nickname: '레이더 모의 사용자',
@@ -33,11 +36,13 @@ export function categoryData(category, scenario, importedAgain = false) {
   if (changed) top10[9] = { ...CHARTS[0], value: top10[9].value };
   const complete = !['blocked', 'partial'].includes(scenario) || index !== 0;
   if (!complete) top10[9] = { ...top10[9], chartId: null, songId: null };
+  const changes = { entered: changed ? [top10[9]] : [], left: changed ? [left] : [], updated: changed ? [top10[0]] : [] };
+  // title-blocked: SCRATCH has only 9 identified contributors although the import is complete.
+  if (scenario === 'title-blocked' && category === 'SCRATCH') top10.length = 9;
   return { category, current, previous: changed ? current - 2.5 : null, delta: changed ? 2.5 : null,
-    title: current >= 180 ? 'RESIDENT' : current >= 100 ? 'EMERALD' : current >= 80 ? 'GOLD' : 'SILVER',
-    nextThreshold: current >= 180 ? null : current >= 100 ? 120 : current >= 80 ? 100 : 80,
+    title: summaryTitle(current), nextThreshold: nextBound(current),
     top10, complete, issues: complete ? [] : ['모의 상태: 일부 집계곡을 식별하지 못해 계산을 보류했습니다.'],
-    changes: { entered: changed ? [top10[9]] : [], left: changed ? [left] : [], updated: changed ? [top10[0]] : [] } };
+    changes };
 }
 
 export function summaryData(state) {
@@ -51,12 +56,24 @@ export function summaryData(state) {
     goals: state.goals, estimated: true };
 }
 
-export function recommendationData(category, scenario, filters = {}) {
+// Fields added by the title-aware contract, filled with legacy-plausible values.
+const legacyFields = (row, kind, goal, current) => {
+  const reachable = row.goalExScore !== null && row.goalExScore !== undefined;
+  return { ...row, historicalBestExScore: null, historicalRecordUpdatedAt: null, historicalPlayedAt: null,
+    historicalComparability: 'NO_RECORD', releaseExScore: null, releaseScoreObservedAt: null,
+    alreadyContributing: false, existingContribution: null, additionalExScore: null, status: kind, targets: [],
+    singleChartGoalStatus: goal === null || kind === 'EXPLORATION' ? 'NOT_EVALUATED' : reachable ? 'REACHABLE' : 'SINGLE_CHART_UNREACHABLE',
+    releaseObservationStatus: 'NO_OBSERVATION',
+    remainingGap: goal === null || row.after === null ? null : Math.max(0, Number((goal - row.after).toFixed(2))) };
+};
+
+export function recommendationData(category, scenario, filters = {}, summary = null) {
   const current = categoryData(category, scenario).current;
+  const goalValue = filters.goal !== undefined && filters.goal !== '' ? Number(filters.goal) : null;
   const rows = CHARTS.slice(0, 4).map((chart, index) => {
     const targetExScore = [3250, 2350, 2680, 3500][index];
     const currentExScore = [3100, 2300, 0, null][index];
-    return { ...chart, currentExScore, currentScoreAt: currentExScore === null ? null : IMPORTED_AT,
+    return legacyFields({ ...chart, currentExScore, currentScoreAt: currentExScore === null ? null : IMPORTED_AT,
       targetExScore, targetRate: Math.floor(targetExScore / (chart.noteCount * 2) * 10000) / 100,
       minExScore: [2950, 2220, 2500, 3300][index], radarValue: current + 40 - index * 5,
       gain: 4 - index * 0.65, after: current + 4 - index * 0.65, displacedTitle: `모의 집계곡 ${category} 10`,
@@ -64,20 +81,23 @@ export function recommendationData(category, scenario, filters = {}) {
       rangeLowExScore: targetExScore - 120, rangeHighExScore: targetExScore + 50,
       reasons: [index === 0 ? '개인 기록을 참고한 모의 추천' : '참고 사용자 기록을 참고한 모의 추천'],
       goalExScore: Number(filters.goal) > current + 10 ? null : targetExScore + 50,
-      sampleCount: index === 0 ? 18 : 12 + index, currentScoreComparable: index !== 1 };
+      sampleCount: index === 0 ? 18 : 12 + index, currentScoreComparable: index !== 1 }, 'PLAY_TARGET', goalValue);
   });
-  const exploration = [{ ...rows[3], ...CHARTS[4], currentExScore: null, currentScoreAt: null,
+  const exploration = [legacyFields({ ...rows[3], ...CHARTS[4], currentExScore: null, currentScoreAt: null,
     targetExScore: null, targetRate: null, minExScore: 1600, radarValue: null, gain: null, after: null,
     basis: null, peerCount: 0, sampleCount: 0, rangeLowExScore: null, rangeHighExScore: null,
-    goalExScore: null, reasons: ['모의 상태: 추정 자료가 부족합니다. 직접 목표를 입력해 주세요.'] }];
+    goalExScore: null, reasons: ['모의 상태: 추정 자료가 부족합니다. 직접 목표를 입력해 주세요.'] }, 'EXPLORATION', goalValue)];
   const matches = (row) => (!filters.level || row.level === Number(filters.level))
     && (!filters.chartType || row.chartType === filters.chartType)
     && (filters.record !== 'present' || row.currentExScore !== null)
     && (filters.record !== 'absent' || row.currentExScore === null);
   const blocked = ['blocked', 'partial'].includes(scenario) && category === 'NOTES';
-  return { category, recommendations: blocked || ['empty', 'exploration'].includes(scenario) ? [] : rows.filter(matches),
+  const status = goalValue !== null && current >= goalValue ? 'ALREADY_ACHIEVED' : blocked ? 'BLOCKED' : 'NEEDS_PLAY';
+  return envelope(category, summary, {
+    recommendations: blocked || ['empty', 'exploration'].includes(scenario) ? [] : rows.filter(matches),
     exploration: blocked || scenario === 'empty' ? [] : exploration.filter(matches),
-    issues: blocked ? ['모의 상태: 집계곡을 식별하지 못해 추천 계산을 보류했습니다.'] : [] };
+    issues: blocked ? ['모의 상태: 집계곡을 식별하지 못해 추천 계산을 보류했습니다.'] : [],
+    goal: goalValue === null ? null : goalProgress({ target: goalValue, current, status }) });
 }
 
 export function officialPayload() {
@@ -99,7 +119,7 @@ export function simulateData(targets, state) {
     const data = categoryData(category, state.scenario, state.importedAgain);
     const gain = Number((strongest * (4 - index * 0.45)).toFixed(2));
     return { category, before: data.current, after: data.complete ? Number((data.current + gain).toFixed(2)) : null,
-      gain: data.complete ? gain : null, displacedTitle: data.top10[9].title,
+      gain: data.complete ? gain : null, displacedTitle: data.top10[9]?.title ?? null,
       top10: data.top10, blocked: !data.complete };
   }), targets: submitted, estimated: true,
   targetValues: submitted.map(({ chartId, exScore }) => ({ chartId, exScore,
