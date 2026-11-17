@@ -1,4 +1,5 @@
 import clsx from 'clsx';
+import { useTranslation } from 'react-i18next';
 
 /**
  * 🎓 학습 포인트: Spinner (로딩 인디케이터)
@@ -17,6 +18,7 @@ import clsx from 'clsx';
  * @param {string} className - 추가 클래스
  */
 const Spinner = ({ size = 'md', className = '' }) => {
+  const { t } = useTranslation();
   const sizeClasses = {
     sm: 'h-4 w-4',
     md: 'h-8 w-8',
@@ -30,7 +32,7 @@ const Spinner = ({ size = 'md', className = '' }) => {
       fill="none"
       viewBox="0 0 24 24"
       role="status"
-      aria-label="로딩 중"
+      aria-label={t('common.loading.label')}
     >
       {/* 배경 원 (연하게) */}
       <circle
@@ -55,25 +57,31 @@ const Spinner = ({ size = 'md', className = '' }) => {
  * 전체 화면 로딩 오버레이
  * 페이지 전환이나 세션 복원 중에 사용합니다.
  */
-export const FullPageSpinner = () => (
-  <div className="flex items-center justify-center min-h-screen bg-night">
-    <div className="flex flex-col items-center gap-4">
-      <Spinner size="lg" />
-      <p className="text-muted text-sm animate-pulse">Loading...</p>
+export const FullPageSpinner = () => {
+  const { t } = useTranslation();
+  return (
+    <div className="flex items-center justify-center min-h-screen bg-night">
+      <div className="flex flex-col items-center gap-4">
+        <Spinner size="lg" />
+        <p className="text-muted text-sm animate-pulse">{t('common.loading.fallback')}</p>
+      </div>
     </div>
-  </div>
-);
+  );
+};
 
 /**
  * 보호된 페이지 청크를 불러오는 동안 표시하는 본문 영역 로딩 UI
  */
-export const RouteContentSpinner = () => (
-  <div className="flex items-center justify-center min-h-[50vh]">
-    <div className="flex flex-col items-center gap-3">
-      <Spinner size="md" />
-      <p className="text-muted text-sm animate-pulse">페이지를 불러오는 중...</p>
+export const RouteContentSpinner = () => {
+  const { t } = useTranslation();
+  return (
+    <div className="flex items-center justify-center min-h-[50vh]">
+      <div className="flex flex-col items-center gap-3">
+        <Spinner size="md" />
+        <p className="text-muted text-sm animate-pulse">{t('common.loading.route')}</p>
+      </div>
     </div>
-  </div>
-);
+  );
+};
 
 export default Spinner;

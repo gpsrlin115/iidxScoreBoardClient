@@ -3,6 +3,9 @@
   "private": true,
   "version": "0.0.0",
   "type": "module",
+  "engines": {
+    "node": "^22.23.5 || ^24.22.3 || >=26.13.1"
+  },
   "scripts": {
     "dev": "vite",
     "dev:radar": "VITE_ENABLE_NOTE_RADAR=1 VITE_NOTE_RADAR_MOCK=1 VITE_API_BASE_URL=/api vite --host 127.0.0.1",
@@ -12,6 +15,7 @@
     "lint": "eslint .",
     "preview": "vite preview",
     "test": "node --test",
+    "i18n:check": "node scripts/check-i18n-keys.mjs",
     "perf": "node scripts/perf-lighthouse.mjs",
     "perf:login": "node scripts/perf-lighthouse.mjs login"
   },
@@ -19,31 +23,34 @@
     "@dnd-kit/core": "^6.3.1",
     "@dnd-kit/sortable": "^10.0.0",
     "@dnd-kit/utilities": "^3.2.2",
-    "axios": "^1.20.0",
+    "axios": "^1.21.1",
     "clsx": "^2.1.0",
     "date-fns": "^4.4.0",
     "html-to-image": "^1.11.13",
-    "mediabunny": "1.62.1",
+    "i18next": "^26.5.11",
+    "i18next-browser-languagedetector": "^8.2.3",
+    "mediabunny": "1.65.2",
     "react": "^19.3.1",
     "react-dom": "^19.3.1",
     "react-hot-toast": "^2.6.1",
+    "react-i18next": "^17.1.9",
     "react-icons": "^5.7.0",
-    "react-router-dom": "^7.18.4",
+    "react-router-dom": "^7.18.5",
     "tesseract.js": "^7.0.0",
-    "zustand": "^5.0.16"
+    "zustand": "^5.1.0"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.5",
-    "@tailwindcss/vite": "^4.3.3",
+    "@tailwindcss/vite": "^4.3.5",
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",
-    "@vitejs/plugin-react": "^6.1.2",
+    "@vitejs/plugin-react": "^6.3.0",
     "eslint": "^9.39.1",
     "eslint-plugin-react": "^7.37.5",
     "eslint-plugin-react-hooks": "^7.1.1",
     "eslint-plugin-react-refresh": "^0.5.7",
-    "globals": "^17.13.0",
-    "jsdom": "^30.1.3",
-    "vite": "^8.3.5"
+    "globals": "^17.14.0",
+    "jsdom": "^31.0.1",
+    "vite": "^8.3.8"
   }
 }

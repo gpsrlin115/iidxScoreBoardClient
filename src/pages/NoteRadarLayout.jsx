@@ -5,8 +5,10 @@ import { useNoteRadar } from '../features/noteRadar/useNoteRadar';
 import { ImportControl } from '../features/noteRadar/import/ImportControl';
 import { dateLabel } from '../features/noteRadar/model';
 import { RadarButton, RadarError } from '../features/noteRadar/RadarUi';
+import { useLocale } from '../i18n/useLocale.js';
 
 function RadarShell() {
+  useLocale();
   const { summary, loading, error, reload } = useNoteRadar();
   const [showImport, setShowImport] = useState(false);
   const location = useLocation();

@@ -1,3 +1,4 @@
+import { useLocale } from '../../i18n/useLocale.js';
 import { categoryLabel, dateLabel, decimal, finiteNumber, scoreRate, signed } from './model.js';
 import { RadarButton } from './RadarUi';
 
@@ -5,6 +6,7 @@ const basisLabel = (basis) => ({ SIMILAR_PLAYERS: '비슷한 사용자의 기록
 const rate = (ex, notes) => scoreRate(ex, notes) == null ? '확인 필요' : `${decimal(scoreRate(ex, notes))}%`;
 
 export default function RadarSong({ song, onSelect, exploration = false, hasGoal = false, category }) {
+  useLocale();
   return <article className="min-w-0 rounded border border-line bg-surface p-4">
     <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_150px_130px] lg:items-center">
       <div className="min-w-0"><h3 className="break-words text-base font-medium text-ink">{song.title}</h3><p className="mt-1 text-xs text-muted">SP {song.chartType} · ☆{song.level}</p></div>

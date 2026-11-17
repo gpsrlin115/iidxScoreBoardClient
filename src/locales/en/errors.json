@@ -1,0 +1,19 @@
+{
+  "status": {
+    "badRequest": "Please check your request and try again.",
+    "sessionExpired": "Your session has expired. Please log in again.",
+    "forbidden": "You don't have permission to access this page.",
+    "notFound": "The requested information could not be found.",
+    "conflict": "This data already exists.",
+    "payloadTooLarge": "The file is too large.",
+    "unsupportedMediaType": "This file type is not supported.",
+    "unprocessable": "Please check your input.",
+    "tooManyRequests": "Too many requests. Please try again in a moment.",
+    "serverError": "A problem occurred on the server.",
+    "unavailable": "Can't reach the server right now. Please try again in a moment."
+  },
+  "network": "Can't connect to the server. Please check your network connection.",
+  "timeout": "The request timed out. Please try again.",
+  "unknown": "An unknown error occurred.",
+  "server": {}
+}
