@@ -1,4 +1,5 @@
 import { toAppError } from './httpError.js';
+import { formatNumber } from '../i18n/format.js';
 
 // Every time in the request budget response is a UTC instant ("...Z").
 const OFFSET = /(?:Z|[+-]\d{2}:\d{2})$/;
@@ -41,7 +42,7 @@ export function formatRemaining(untilIso, nowMs = Date.now()) {
 }
 
 export function usageText(used, budget) {
-  const show = (value) => (Number.isFinite(value) ? value.toLocaleString('ko-KR') : '-');
+  const show = (value) => (Number.isFinite(value) ? formatNumber(value) : '-');
   return `${show(used)} / ${show(budget)}`;
 }
 

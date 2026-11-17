@@ -1,20 +1,13 @@
 import { CLEAR_TYPE_LABELS, normalizeClearType } from '../../../utils/clearTypes';
+import { formatDateTime as formatLocaleDateTime, formatNumber as formatLocaleNumber } from '../../../i18n/format.js';
 
 export const formatNumber = (value) => (
-  Number.isFinite(value) ? value.toLocaleString('ko-KR') : '-'
+  Number.isFinite(value) ? formatLocaleNumber(value) : '-'
 );
 
-export const formatDateTime = (value) => {
-  if (!value) return '-';
-
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return '-';
-
-  return new Intl.DateTimeFormat('ko-KR', {
-    dateStyle: 'medium',
-    timeStyle: 'short',
-  }).format(date);
-};
+export const formatDateTime = (value) => (
+  value ? (formatLocaleDateTime(value) ?? '-') : '-'
+);
 
 export const formatClearType = (value) => {
   const normalized = normalizeClearType(value);

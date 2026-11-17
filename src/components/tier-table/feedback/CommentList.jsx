@@ -1,5 +1,6 @@
 import { formatDistanceToNow } from 'date-fns';
-import { ko } from 'date-fns/locale';
+import { dateFnsLocale } from '../../../i18n/dateFnsLocale.js';
+import { useLocale } from '../../../i18n/useLocale.js';
 import { FiMinus, FiThumbsDown, FiThumbsUp, FiTrash2 } from 'react-icons/fi';
 import Spinner from '../../common/Spinner';
 import Button from '../../common/Button';
@@ -36,6 +37,7 @@ const VoteBadge = ({ value, isStale }) => {
 // vote" styling `comment.authorVoteStale` would never have implied here in
 // the first place.
 const CommentItem = ({ comment, isMine, myVote, myVoteStale, onRemove }) => {
+  useLocale();
   const badgeValue = isMine ? myVote : comment.authorVote;
   const badgeStale = isMine ? myVoteStale : comment.authorVoteStale;
 
@@ -50,7 +52,7 @@ const CommentItem = ({ comment, isMine, myVote, myVoteStale, onRemove }) => {
             title={formatDateTime(comment.createdAt)}
             className="text-faint2"
           >
-            {formatDistanceToNow(new Date(comment.createdAt), { addSuffix: true, locale: ko })}
+            {formatDistanceToNow(new Date(comment.createdAt), { addSuffix: true, locale: dateFnsLocale() })}
           </time>
         </div>
 

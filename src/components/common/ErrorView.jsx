@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { FiRefreshCw, FiHome } from 'react-icons/fi';
 import Button from './Button';
 import { getErrorPreset } from './errorPresets';
@@ -55,6 +56,7 @@ const ErrorView = ({
   onRetry,
   showHomeLink = true,
 }) => {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const { pathname } = useLocation();
 
@@ -139,7 +141,7 @@ const ErrorView = ({
             {onRetry && (
               <Button variant="primary" size="sm" onClick={onRetry}>
                 <FiRefreshCw size={14} />
-                다시 시도
+                {t('common.errorView.retry')}
               </Button>
             )}
             {showHomeLink && (
@@ -149,7 +151,7 @@ const ErrorView = ({
                 onClick={goHome}
               >
                 <FiHome size={14} />
-                홈으로
+                {t('common.errorView.home')}
               </Button>
             )}
           </div>

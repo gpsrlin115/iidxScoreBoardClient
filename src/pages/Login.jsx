@@ -1,11 +1,13 @@
 import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import toast from 'react-hot-toast';
+import { useTranslation } from 'react-i18next';
 import { authApi } from '../api/auth';
 import FieldLabel from '../components/auth/FieldLabel';
 import LoginArtwork from '../components/auth/LoginArtwork';
 import Starfield from '../components/background/Starfield';
 import MonoButton from '../components/common/MonoButton';
+import LanguageSelect from '../components/common/LanguageSelect';
 import { useAuthStore } from '../store/authStore';
 import { toAppError } from '../utils/httpError';
 import GoogleEntry from '../components/auth/GoogleEntry';
@@ -19,6 +21,7 @@ const INPUT_CLASS =
   'focus:outline-none focus:border-accent';
 
 const Login = () => {
+  const { t } = useTranslation();
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -38,10 +41,10 @@ const Login = () => {
       // store synchronously on render, so navigating first would still
       // find no user and bounce straight back to /login.
       setUser(user);
-      toast.success('로그인 성공! 환영합니다 🎵');
+      toast.success(t('auth.login.success'));
       navigate('/');
     } catch (err) {
-      const message = toAppError(err, { fallback: '아이디 또는 비밀번호를 확인해주세요.' }).message;
+      const message = toAppError(err, { fallback: t('auth.login.failure') }).message;
       toast.error(message);
     } finally {
       setIsSubmitting(false);
@@ -53,6 +56,7 @@ const Login = () => {
       {/* No flare source outside the app shell, so this stays non-flareable. */}
       <Starfield litRatio={0.5} />
       <LoginArtwork />
+      <LanguageSelect className="absolute right-4 top-4 z-[2] sm:right-8 sm:top-6" />
 
       <main className="relative z-[1] w-full max-w-[1180px] mx-auto px-6 py-12 sm:px-14">
         <div className="max-w-[400px]">
@@ -71,7 +75,7 @@ const Login = () => {
           <form onSubmit={handleSubmit} className="flex flex-col gap-6">
             <div>
               <FieldLabel htmlFor="username" caption="username">
-                아이디
+                {t('auth.login.username')}
               </FieldLabel>
               <input
                 id="username"
@@ -87,7 +91,7 @@ const Login = () => {
 
             <div>
               <FieldLabel htmlFor="password" caption="password">
-                비밀번호
+                {t('auth.login.password')}
               </FieldLabel>
               <input
                 id="password"
@@ -108,18 +112,18 @@ const Login = () => {
               trailing={<span>→</span>}
               className="mt-2"
             >
-              {isSubmitting ? '로그인 중...' : '로그인'}
+              {isSubmitting ? t('auth.login.submitting') : t('auth.login.submit')}
             </MonoButton>
           </form>
           <GoogleEntry disabled={isSubmitting} onBusyChange={setGoogleBusy} />
 
           <div className="mt-6 flex items-center gap-4 text-[12.5px]">
             <Link to="/find-account" className="text-faint hover:text-ink transition-colors">
-              아이디 / 비밀번호 찾기
+              {t('auth.login.findAccount')}
             </Link>
             <span className="text-dim">·</span>
             <Link to="/signup" className="text-accent hover:text-ink transition-colors">
-              회원가입
+              {t('auth.login.signup')}
             </Link>
           </div>
         </div>
