@@ -3,7 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import { useTranslation } from 'react-i18next';
 import { authApi } from '../api/auth';
-import { toAppError } from '../utils/httpError';
+import { signupErrorMessage } from '../utils/signupError';
 import Starfield from '../components/background/Starfield';
 import FieldLabel from '../components/auth/FieldLabel';
 import LoginArtwork from '../components/auth/LoginArtwork';
@@ -159,8 +159,7 @@ const Signup = () => {
       toast.success(t('auth.signup.success'));
       navigate('/login');
     } catch (err) {
-      const message = toAppError(err, { fallback: t('auth.signup.failure') }).message;
-      toast.error(message);
+      toast.error(signupErrorMessage(err));
     } finally {
       setIsSubmitting(false);
     }
