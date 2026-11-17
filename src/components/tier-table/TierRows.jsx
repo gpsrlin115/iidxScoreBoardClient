@@ -18,14 +18,14 @@ const TierRows = ({ tiers, dense, readOnly = false, exportImage = false }) => {
 
   useEffect(() => {
     const table = tableRef.current;
-    if (!table || exportImage) return undefined;
+    if (!table) return undefined;
 
     let frame;
     let active = true;
     const measure = () => {
       if (!active) return;
       const labels = table.querySelectorAll('[data-tier-song-label]');
-      if (!window.matchMedia('(min-width: 768px)').matches) {
+      if (!exportImage && !window.matchMedia('(min-width: 768px)').matches) {
         labels.forEach((label) => label.style.removeProperty('font-size'));
         return;
       }
@@ -97,7 +97,12 @@ const TierRows = ({ tiers, dense, readOnly = false, exportImage = false }) => {
             onMouseEnter={readOnly ? undefined : flareSky}
           >
             <div className={readOnly ? 'self-start' : 'sticky top-16 self-start'}>
-              <div className="font-num text-[19px] font-semibold text-ink">{tier}</div>
+              <div
+                className="font-num text-[19px] font-semibold text-ink"
+                style={exportImage ? { fontFamily: "'Space Grotesk', 'IBM Plex Sans JP', 'Gothic A1', sans-serif" } : undefined}
+              >
+                {tier}
+              </div>
               <div className="font-num tnum text-[12px] text-muted">
                 {clearedCount}/{songs.length} · {pct}%
               </div>

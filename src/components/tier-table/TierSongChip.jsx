@@ -28,15 +28,22 @@ const TierSongChip = ({ song, dense = false, interactive = false, exportImage = 
           'transition-transform duration-[160ms] hover:-translate-y-px',
           'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent',
         ],
-        dense
+        !exportImage && (dense
           ? 'max-w-[158px] px-[5px] py-[2px] text-[10.5px]'
-          : 'max-w-[210px] px-2 py-1 text-[12px]',
-        !exportImage && [
-          'md:inline-flex md:w-[min(210px,100%)] md:max-w-full md:shrink-0 md:items-center md:justify-center md:text-center md:h-[var(--tier-chip-height,auto)]',
-          dense
-            ? 'md:px-[7px] md:py-[2.8px] md:text-[14.7px]'
-            : 'md:px-[11.2px] md:py-[5.6px] md:text-[16.8px]',
-        ]
+          : 'max-w-[210px] px-2 py-1 text-[12px]'),
+        exportImage
+          ? [
+              'inline-flex w-[210px] max-w-full shrink-0 items-center justify-center text-center h-[var(--tier-chip-height,auto)]',
+              dense
+                ? 'px-[7px] py-[2.8px] text-[14.7px]'
+                : 'px-[11.2px] py-[5.6px] text-[16.8px]',
+            ]
+          : [
+              'md:inline-flex md:w-[min(210px,100%)] md:max-w-full md:shrink-0 md:items-center md:justify-center md:text-center md:h-[var(--tier-chip-height,auto)]',
+              dense
+                ? 'md:px-[7px] md:py-[2.8px] md:text-[14.7px]'
+                : 'md:px-[11.2px] md:py-[5.6px] md:text-[16.8px]',
+            ]
       )}
       style={{
         fontFamily: "'IBM Plex Sans JP', 'Gothic A1', sans-serif",
@@ -54,11 +61,13 @@ const TierSongChip = ({ song, dense = false, interactive = false, exportImage = 
         data-tier-song-label
         className={clsx(
           'block',
-          !exportImage && 'overflow-hidden text-ellipsis md:w-full md:shrink-0 md:overflow-visible',
+          exportImage
+            ? 'w-full shrink-0'
+            : 'overflow-hidden text-ellipsis md:w-full md:shrink-0 md:overflow-visible',
           // Keep the visible difficulty shorthand out of the accessible name.
           isLeggendaria && [
             "after:font-mono after:text-[8.5px] after:opacity-70 after:content-['_L']",
-            !exportImage && 'md:after:text-[11.9px]',
+            exportImage ? 'after:text-[11.9px]' : 'md:after:text-[11.9px]',
           ]
         )}
       >

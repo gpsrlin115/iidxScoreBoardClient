@@ -15,7 +15,10 @@ const TierShareCard = ({ username, level, playStyle, mode, tiers, generatedAt })
           <p className="font-mono text-[10px] uppercase tracking-[.24em] text-label">
             iidx score board · tier table
           </p>
-          <h1 className="mt-2 font-num text-[28px] font-semibold tracking-[-.015em] text-ink">
+          <h1
+            className="mt-2 font-num text-[28px] font-semibold tracking-[-.015em] text-ink"
+            style={{ fontFamily: "'Space Grotesk', 'IBM Plex Sans JP', 'Gothic A1', sans-serif" }}
+          >
             {username} · {'☆'}{level} {playStyle}
           </h1>
         </div>

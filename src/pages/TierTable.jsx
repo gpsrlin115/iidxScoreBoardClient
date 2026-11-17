@@ -1,3 +1,4 @@
+import { getTierImageFontCss } from '../utils/tierImageFont';
 import { useEffect, useRef, useState } from 'react';
 import { toBlob } from 'html-to-image';
 import toast from 'react-hot-toast';
@@ -38,10 +39,12 @@ const TierTable = () => {
         if (cancelled || !exportRef.current) return;
 
         const node = exportRef.current;
+        const fontEmbedCSS = await getTierImageFontCss(node);
+        if (cancelled || !exportRef.current) return;
         const blob = await toBlob(node, {
           backgroundColor: '#050813',
           pixelRatio: 1,
-          skipFonts: true,
+          fontEmbedCSS,
           width: node.scrollWidth,
           height: node.scrollHeight,
         });
