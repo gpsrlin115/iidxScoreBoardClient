@@ -27,7 +27,7 @@ const TierShareCard = ({ username, level, playStyle, mode, tiers, generatedAt })
         </div>
       </div>
 
-      <TierRows tiers={tiers} dense={mode === 'dense'} readOnly />
+      <TierRows tiers={tiers} dense={mode === 'dense'} readOnly exportImage />
       <TierLegend className="mt-6" />
 
       <footer className="mt-5 flex justify-between font-mono text-[9px] uppercase tracking-[.15em] text-dim">

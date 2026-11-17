@@ -1,3 +1,4 @@
+import { useEffect, useRef } from 'react';
 import StackedBar from '../common/StackedBar';
 import SongTile from './SongTile';
 import TierSongChip from './TierSongChip';
@@ -12,9 +13,71 @@ import { flareSky } from '../background/starfieldBus';
  * column settles directly under the sticky top bar. Changing TopBar's
  * height without updating this offset reopens a gap or overlap here.
  */
-const TierRows = ({ tiers, dense, readOnly = false }) => {
+const TierRows = ({ tiers, dense, readOnly = false, exportImage = false }) => {
+  const tableRef = useRef(null);
+
+  useEffect(() => {
+    const table = tableRef.current;
+    if (!table || exportImage) return undefined;
+
+    let frame;
+    let active = true;
+    const measure = () => {
+      if (!active) return;
+      const labels = table.querySelectorAll('[data-tier-song-label]');
+      if (!window.matchMedia('(min-width: 768px)').matches) {
+        labels.forEach((label) => label.style.removeProperty('font-size'));
+        return;
+      }
+      let maxHeight = 0;
+      labels.forEach((label) => {
+        const chip = label.parentElement;
+        const style = window.getComputedStyle(chip);
+        const fontSize = parseFloat(style.fontSize);
+        const maxTextHeight = fontSize * 1.35 * 2 + 0.5;
+        label.style.removeProperty('font-size');
+
+        if (label.getBoundingClientRect().height > maxTextHeight) {
+          let lower = Math.min(10, fontSize);
+          let upper = fontSize;
+          for (let i = 0; i < 6; i += 1) {
+            const candidate = (lower + upper) / 2;
+            label.style.fontSize = `${candidate}px`;
+            if (label.getBoundingClientRect().height > maxTextHeight) upper = candidate;
+            else lower = candidate;
+          }
+          label.style.fontSize = `${lower}px`;
+        }
+
+        const height = label.getBoundingClientRect().height
+          + parseFloat(style.paddingTop) + parseFloat(style.paddingBottom)
+          + parseFloat(style.borderTopWidth) + parseFloat(style.borderBottomWidth);
+        maxHeight = Math.max(maxHeight, height);
+      });
+      if (maxHeight) table.style.setProperty('--tier-chip-height', `${Math.ceil(maxHeight)}px`);
+    };
+    const scheduleMeasure = () => {
+      cancelAnimationFrame(frame);
+      frame = requestAnimationFrame(measure);
+    };
+    const observer = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(scheduleMeasure);
+    observer?.observe(table);
+    window.addEventListener('resize', scheduleMeasure);
+    document.fonts?.addEventListener('loadingdone', scheduleMeasure);
+    document.fonts?.ready.then(scheduleMeasure);
+    scheduleMeasure();
+
+    return () => {
+      active = false;
+      cancelAnimationFrame(frame);
+      observer?.disconnect();
+      window.removeEventListener('resize', scheduleMeasure);
+      document.fonts?.removeEventListener('loadingdone', scheduleMeasure);
+    };
+  }, [tiers, dense, exportImage]);
+
   return (
-    <div>
+    <div ref={tableRef}>
       {tiers.map(({ tier, songs }) => {
         const clearedCount = songs.filter((song) => isClearTypeCleared(song.clearType)).length;
         const pct = songs.length > 0 ? Math.round((clearedCount / songs.length) * 100) : 0;
@@ -48,6 +111,7 @@ const TierRows = ({ tiers, dense, readOnly = false }) => {
                     key={`${song.title}-${song.difficulty ?? index}`}
                     song={song}
                     dense={dense}
+                    exportImage={exportImage}
                   />
                 ) : (
                   <SongTile

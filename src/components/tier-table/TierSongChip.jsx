@@ -8,7 +8,7 @@ import {
 import { getDifficultyDisplay } from '../../utils/difficulty';
 
 /** Pure clear-lamp chip used by both interactive and shared tier tables. */
-const TierSongChip = ({ song, dense = false, interactive = false, ...props }) => {
+const TierSongChip = ({ song, dense = false, interactive = false, exportImage = false, ...props }) => {
   const clearType = normalizeClearType(song.clearType) ?? 'NO_PLAY';
   const palette = CLEAR_PALETTE[clearType] ?? CLEAR_PALETTE.NO_PLAY;
   const songTitle = song.title;
@@ -20,24 +20,27 @@ const TierSongChip = ({ song, dense = false, interactive = false, ...props }) =>
     <Component
       {...(interactive ? { type: 'button' } : {})}
       className={clsx(
-        'inline-block overflow-hidden text-ellipsis whitespace-nowrap leading-[1.35]',
+        'inline-block leading-[1.35]',
+        exportImage
+          ? 'whitespace-normal [overflow-wrap:anywhere]'
+          : 'overflow-hidden text-ellipsis whitespace-nowrap md:whitespace-normal md:[overflow-wrap:anywhere]',
         interactive && [
           'transition-transform duration-[160ms] hover:-translate-y-px',
           'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent',
         ],
-        // LEGGENDARIA's " L" marker is CSS-generated, not a text node. It is
-        // shorthand only -- screen readers get "LEGGENDARIA" from SongTile's
-        // aria-label or the sr-only text below -- and as real text inside
-        // the button it failed Lighthouse's label-in-name audit (the visible
-        // "L" is not in the aria-label). aria-hidden does not help there: the
-        // audit compares against the visible text regardless.
-        isLeggendaria &&
-          "after:font-mono after:text-[8.5px] after:opacity-70 after:content-['_L']",
         dense
           ? 'max-w-[158px] px-[5px] py-[2px] text-[10.5px]'
-          : 'max-w-[210px] px-2 py-1 text-[12px]'
+          : 'max-w-[210px] px-2 py-1 text-[12px]',
+        !exportImage && [
+          'md:inline-flex md:w-[min(210px,100%)] md:max-w-full md:shrink-0 md:items-center md:justify-center md:text-center md:h-[var(--tier-chip-height,auto)]',
+          dense
+            ? 'md:px-[7px] md:py-[2.8px] md:text-[14.7px]'
+            : 'md:px-[11.2px] md:py-[5.6px] md:text-[16.8px]',
+        ]
       )}
       style={{
+        fontFamily: "'IBM Plex Sans JP', 'Gothic A1', sans-serif",
+        fontWeight: 400,
         background: palette.bg,
         color: palette.fg,
         border: `1px solid ${palette.bd}`,
@@ -47,7 +50,20 @@ const TierSongChip = ({ song, dense = false, interactive = false, ...props }) =>
       title={`${songTitle} · ${CLEAR_TYPE_LABELS[clearType]}`}
       {...props}
     >
-      {songTitle}
+      <span
+        data-tier-song-label
+        className={clsx(
+          'block',
+          !exportImage && 'overflow-hidden text-ellipsis md:w-full md:shrink-0 md:overflow-visible',
+          // Keep the visible difficulty shorthand out of the accessible name.
+          isLeggendaria && [
+            "after:font-mono after:text-[8.5px] after:opacity-70 after:content-['_L']",
+            !exportImage && 'md:after:text-[11.9px]',
+          ]
+        )}
+      >
+        {songTitle}
+      </span>
       {/*
         The interactive chip is named by SongTile's aria-label, so this text is
         the read-only chip's only accessible name. It reads the same full chart
