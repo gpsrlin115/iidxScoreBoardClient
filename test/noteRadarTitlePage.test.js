@@ -57,7 +57,8 @@ const text = () => container.textContent;
 test('default URL requests the next title only', async () => {
   await mount('/note-radar/categories/NOTES');
   assert.deepEqual(queries, [{ goalTitle: 'DIAMOND' }]);
-  assert.match(text(), /칭호 하한이든 다른 수치든 그 값까지의 다곡 계획을 계산합니다/);
+  assert.match(text(), /어떤 곡을 EX 몇 점까지 올리면 되는지 여러 곡을 묶어 계획으로 보여 줍니다/);
+  assert.doesNotMatch(text(), /다곡/);
   assert.doesNotMatch(text(), /기존 상승량 추천/);
 });
 
