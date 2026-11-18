@@ -10,6 +10,9 @@ import { describeMatch, selectionAfterRematch } from '../features/layoutAnalysis
 import { resetAnalysisArtifacts } from '../features/layoutAnalysis/sessionReset';
 import { extractionProblem } from '../features/layoutAnalysis/observedNotes';
 import { startAnalysis } from '../features/layoutAnalysis/analysisRun';
+import { useCandidateSearch } from '../features/layoutAnalysis/useCandidateSearch';
+import { describeOcr } from '../features/layoutAnalysis/ocrStatus';
+import AnalysisStatus from '../components/layout-analysis/AnalysisStatus';
 import ResultPanel from '../components/layout-analysis/ResultPanel';
 import MediaSourcePanel from '../components/layout-analysis/MediaSourcePanel';
 import GeometryFields from '../components/layout-analysis/GeometryFields';
@@ -24,12 +27,11 @@ const MIN_ANALYSIS_SECONDS = 15;
 const LayoutAnalysis = () => {
   const runRef = useRef(null);
 
-  const [ocr, setOcr] = useState({ titles: [], difficulties: [] });
+  const [ocr, setOcr] = useState({ titles: [], difficulties: [], artists: [] });
   const [search, setSearch] = useState('');
   const [manualDifficulty, setManualDifficulty] = useState('');
-  const [candidates, setCandidates] = useState([]);
-  const [selected, setSelected] = useState(null);
   const [status, setStatus] = useState('로컬 MP4 파일 또는 YouTube 링크를 준비하세요.');
+  const { candidates, selected, setCandidates, setSelected, findCandidates: searchCandidates } = useCandidateSearch({ setStatus });
   const [progress, setProgress] = useState(0);
   const [running, setRunning] = useState(false);
   const [recognizing, setRecognizing] = useState(false);
@@ -44,11 +46,11 @@ const LayoutAnalysis = () => {
     () => {
       resetAnalysisArtifacts({ setResult, setCandidates, setSelected, setKeptNotes });
       setProgress(0);
-      setOcr({ titles: [], difficulties: [] });
+      setOcr({ titles: [], difficulties: [], artists: [] });
       setManualDifficulty('');
       setActionNotice('');
     },
-    [],
+    [setCandidates, setSelected],
   );
 
   const stopRun = useCallback(() => {
@@ -95,11 +97,9 @@ const LayoutAnalysis = () => {
       if (!current()) return;
       setOcr(value);
       if (!search.trim() && value.titles[0]) setSearch(value.titles[0]);
-      setStatus(value.titles.length
-        ? `읽은 곡명 후보: ${value.titles.slice(0, 3).join(' / ')}${value.difficulties.length ? ` · 난이도 ${value.difficulties.join(', ')}` : ''}`
-        : value.raw?.some(Boolean) ? '글자는 읽었지만 제목을 확인하지 못했습니다. OCR 원문을 확인하거나 곡명을 직접 검색하세요.'
-          : '문자를 읽지 못했습니다. 곡명을 직접 검색하세요.');
-      if (!value.titles.length) setActionNotice('곡·난이도 OCR: 제목을 확인하지 못했습니다. 아래 OCR 원문을 확인하세요.');
+      const artist = value.artists?.at(-1);
+      setStatus(describeOcr(value));
+      if (!value.titles.length && !artist) setActionNotice('곡·난이도 OCR: 제목을 확인하지 못했습니다. 아래 OCR 원문을 확인하세요.');
     } catch (error) {
       if (current()) { setStatus(errorMessage(error)); setActionNotice(`곡·난이도 OCR: ${errorMessage(error)}`); }
     } finally {
@@ -108,20 +108,10 @@ const LayoutAnalysis = () => {
     }
   };
 
-  const findCandidates = async () => {
-    try {
-      setStatus('ScoreBoard 곡 목록에서 후보를 찾는 중입니다…');
-      const response = await layoutAnalysisApi.findCandidates({
-        videoId: mode === 'youtube' ? youtube?.videoId : null, query: search, titles: ocr.titles,
-        difficulties: ocr.difficulties, difficulty: manualDifficulty || null,
-      });
-      setCandidates(response.candidates || []);
-      setSelected(null);
-      setStatus(response.candidates?.length ? '정확한 곡과 채보를 선택하세요.' : response.warnings?.[0] || '후보를 찾지 못했습니다.');
-    } catch (error) {
-      setStatus(errorMessage(error));
-    }
-  };
+  const findCandidates = () => searchCandidates({
+    videoId: mode === 'youtube' ? youtube?.videoId : null, query: search, titles: ocr.titles,
+    difficulties: ocr.difficulties, artists: ocr.artists, difficulty: manualDifficulty || null,
+  });
 
   const analyze = async () => {
     const video = activeVideo();
@@ -269,7 +259,7 @@ const LayoutAnalysis = () => {
         ))}</div>}
 
         <div className="flex items-center gap-3 border border-line bg-panel p-4">
-          <div className="min-w-0 flex-1"><strong className="block text-sm text-ink">{status}</strong><progress className="mt-2 h-1.5 w-full accent-accent" value={progress} max="100" /></div>
+          <AnalysisStatus status={status} progress={progress} />
           {running ? <button className={buttonClass} type="button" onClick={cancel}>취소</button> : <button className={clsx(buttonClass, 'border-accent text-accent')} type="button" onClick={analyze} disabled={!mediaReady || !candidateKey(selected) || !geometry || geometry.source === 'browser-auto-fallback' || busy}>30초 분석</button>}
         </div>
 
