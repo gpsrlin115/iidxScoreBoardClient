@@ -4,6 +4,7 @@ import SongTile from './SongTile';
 import TierSongChip from './TierSongChip';
 import { buildClearStack, isClearTypeCleared } from '../../utils/clearTypes';
 import { flareSky } from '../background/starfieldBus';
+import { measureTierSongLabels } from '../../utils/tierSongLayout';
 
 /**
  * One row per tier: a sticky left-hand label/stats column next to the
@@ -18,43 +19,12 @@ const TierRows = ({ tiers, dense, readOnly = false, exportImage = false }) => {
 
   useEffect(() => {
     const table = tableRef.current;
-    if (!table) return undefined;
+    if (exportImage || !table) return undefined;
 
     let frame;
     let active = true;
     const measure = () => {
-      if (!active) return;
-      const labels = table.querySelectorAll('[data-tier-song-label]');
-      if (!exportImage && !window.matchMedia('(min-width: 768px)').matches) {
-        labels.forEach((label) => label.style.removeProperty('font-size'));
-        return;
-      }
-      let maxHeight = 0;
-      labels.forEach((label) => {
-        const chip = label.parentElement;
-        const style = window.getComputedStyle(chip);
-        const fontSize = parseFloat(style.fontSize);
-        const maxTextHeight = fontSize * 1.35 * 2 + 0.5;
-        label.style.removeProperty('font-size');
-
-        if (label.getBoundingClientRect().height > maxTextHeight) {
-          let lower = Math.min(10, fontSize);
-          let upper = fontSize;
-          for (let i = 0; i < 6; i += 1) {
-            const candidate = (lower + upper) / 2;
-            label.style.fontSize = `${candidate}px`;
-            if (label.getBoundingClientRect().height > maxTextHeight) upper = candidate;
-            else lower = candidate;
-          }
-          label.style.fontSize = `${lower}px`;
-        }
-
-        const height = label.getBoundingClientRect().height
-          + parseFloat(style.paddingTop) + parseFloat(style.paddingBottom)
-          + parseFloat(style.borderTopWidth) + parseFloat(style.borderBottomWidth);
-        maxHeight = Math.max(maxHeight, height);
-      });
-      if (maxHeight) table.style.setProperty('--tier-chip-height', `${Math.ceil(maxHeight)}px`);
+      if (active) measureTierSongLabels(table, window.matchMedia('(min-width: 768px)').matches);
     };
     const scheduleMeasure = () => {
       cancelAnimationFrame(frame);
@@ -77,7 +47,7 @@ const TierRows = ({ tiers, dense, readOnly = false, exportImage = false }) => {
   }, [tiers, dense, exportImage]);
 
   return (
-    <div ref={tableRef}>
+    <div ref={tableRef} data-tier-rows={exportImage || undefined}>
       {tiers.map(({ tier, songs }) => {
         const clearedCount = songs.filter((song) => isClearTypeCleared(song.clearType)).length;
         const pct = songs.length > 0 ? Math.round((clearedCount / songs.length) * 100) : 0;
@@ -99,7 +69,7 @@ const TierRows = ({ tiers, dense, readOnly = false, exportImage = false }) => {
             <div className={readOnly ? 'self-start' : 'sticky top-16 self-start'}>
               <div
                 className="font-num text-[19px] font-semibold text-ink"
-                style={exportImage ? { fontFamily: "'Space Grotesk', 'IBM Plex Sans JP', 'Gothic A1', sans-serif" } : undefined}
+                style={exportImage ? { fontFamily: "var(--tier-export-font, 'Space Grotesk', 'IBM Plex Sans JP', 'Gothic A1', sans-serif)" } : undefined}
               >
                 {tier}
               </div>

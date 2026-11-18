@@ -1,4 +1,3 @@
-import { getTierImageFontCss } from '../utils/tierImageFont';
 import { useEffect, useRef, useState } from 'react';
 import { toBlob } from 'html-to-image';
 import toast from 'react-hot-toast';
@@ -14,6 +13,8 @@ import ErrorView from '../components/common/ErrorView';
 import Tag from '../components/common/Tag';
 import { isClearTypeCleared } from '../utils/clearTypes';
 import { buildTierImageFilename } from '../utils/tierShare';
+import { getTierImageFontCss } from '../utils/tierImageFont';
+import { measureTierSongLabels } from '../utils/tierSongLayout';
 
 const TierTable = () => {
   const level = useScopeStore((state) => state.level);
@@ -29,25 +30,25 @@ const TierTable = () => {
   }, [level, playStyle, fetchTierData]);
 
   useEffect(() => {
-    if (!capture || !exportRef.current) return undefined;
-    let cancelled = false;
+    const node = exportRef.current;
+    if (!capture || !node) return undefined;
+    const controller = new AbortController();
 
     const runCapture = async () => {
       try {
-        await document.fonts?.ready;
-        await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
-        if (cancelled || !exportRef.current) return;
+        const fontEmbedCSS = await getTierImageFontCss(node, controller.signal);
+        if (controller.signal.aborted) return;
 
-        const node = exportRef.current;
-        const fontEmbedCSS = await getTierImageFontCss(node);
-        if (cancelled || !exportRef.current) return;
+        if (fontEmbedCSS === null) node.setAttribute('data-tier-export-system-fonts', '');
+        measureTierSongLabels(node.querySelector('[data-tier-rows]'), true);
         const blob = await toBlob(node, {
           backgroundColor: '#050813',
           pixelRatio: 1,
-          fontEmbedCSS,
+          ...(fontEmbedCSS === null ? { skipFonts: true } : { fontEmbedCSS }),
           width: node.scrollWidth,
           height: node.scrollHeight,
         });
+        if (controller.signal.aborted) return;
         if (!blob) throw new Error('PNG blob was empty');
 
         const objectUrl = URL.createObjectURL(blob);
@@ -60,17 +61,16 @@ const TierTable = () => {
         window.setTimeout(() => URL.revokeObjectURL(objectUrl), 1000);
         toast.success('서열표 PNG를 저장했습니다.');
       } catch (error) {
+        if (controller.signal.aborted) return;
         console.error('Failed to export tier table PNG', error);
         toast.error('서열표 PNG를 만들지 못했습니다.');
       } finally {
-        if (!cancelled) setCapture(null);
+        if (!controller.signal.aborted) setCapture(null);
       }
     };
 
     runCapture();
-    return () => {
-      cancelled = true;
-    };
+    return () => controller.abort();
   }, [capture]);
 
   const totalSongs = enrichedTierData.reduce((acc, tierObj) => acc + tierObj.songs.length, 0);

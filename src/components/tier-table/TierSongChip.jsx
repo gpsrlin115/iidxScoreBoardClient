@@ -46,7 +46,7 @@ const TierSongChip = ({ song, dense = false, interactive = false, exportImage = 
             ]
       )}
       style={{
-        fontFamily: "'IBM Plex Sans JP', 'Gothic A1', sans-serif",
+        fontFamily: "var(--tier-export-font, 'IBM Plex Sans JP', 'Gothic A1', sans-serif)",
         fontWeight: 400,
         background: palette.bg,
         color: palette.fg,
@@ -58,7 +58,7 @@ const TierSongChip = ({ song, dense = false, interactive = false, exportImage = 
       {...props}
     >
       <span
-        data-tier-song-label
+        data-tier-song-label={isLeggendaria ? 'leggendaria' : ''}
         className={clsx(
           'block',
           exportImage

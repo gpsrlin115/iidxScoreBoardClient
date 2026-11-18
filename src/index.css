@@ -4,6 +4,13 @@
   font-family: 'Google Sans', 'Gothic A1', sans-serif;
 }
 
+[data-tier-export-system-fonts] {
+  --font-num: sans-serif;
+  --font-mono: monospace;
+  --tier-export-font: sans-serif;
+  font-family: sans-serif;
+}
+
 @theme {
   /* Night sky palette */
   --color-night: #050813;

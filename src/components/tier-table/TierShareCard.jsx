@@ -17,7 +17,7 @@ const TierShareCard = ({ username, level, playStyle, mode, tiers, generatedAt })
           </p>
           <h1
             className="mt-2 font-num text-[28px] font-semibold tracking-[-.015em] text-ink"
-            style={{ fontFamily: "'Space Grotesk', 'IBM Plex Sans JP', 'Gothic A1', sans-serif" }}
+            style={{ fontFamily: "var(--tier-export-font, 'Space Grotesk', 'IBM Plex Sans JP', 'Gothic A1', sans-serif)" }}
           >
             {username} · {'☆'}{level} {playStyle}
           </h1>
