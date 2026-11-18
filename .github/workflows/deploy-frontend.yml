@@ -138,10 +138,14 @@ jobs:
 
           expected_font="$(find dist/assets -maxdepth 1 -type f -name 'ibm-plex-sans-jp-*.woff2' -print -quit)"
           test -s "$expected_font"
+          downloaded_font="$(mktemp)"
+          trap 'rm -f -- "$downloaded_font"' EXIT
           curl --fail --silent --show-error \
             --connect-timeout 10 --max-time 30 \
             --retry 5 --retry-all-errors --retry-delay 3 \
-            "https://iidxtier.page/${expected_font#dist/}" | cmp "$expected_font" -
+            --output "$downloaded_font" \
+            "https://iidxtier.page/${expected_font#dist/}"
+          cmp "$expected_font" "$downloaded_font"
 
       - name: Remove SSH key
         if: always()
