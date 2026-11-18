@@ -61,6 +61,16 @@ const teapotStatus = () => {
   };
 };
 
+// All supported browsers use WOFF2. Keep the duplicate WOFF files out of the bundle.
+const fontsourceWoff2 = () => ({
+  name: 'fontsource-woff2',
+  enforce: 'pre',
+  transform(css, id) {
+    if (!/\/node_modules\/@fontsource\/[^/]+\/\d+\.css$/.test(id)) return undefined;
+    return css.replace(/,\s*url\(\.\/files\/[^)]+\.woff\)\s*format\('woff'\)/g, '');
+  },
+});
+
 // https://vite.dev/config/
 export default defineConfig(({ command, mode, isPreview }) => {
   const env = loadEnv(mode, process.cwd(), 'VITE_');
@@ -69,7 +79,7 @@ export default defineConfig(({ command, mode, isPreview }) => {
     throw new Error('VITE_NOTE_RADAR_MOCK=1 is only supported by the Vite development server. Disable mock mode before build or preview.');
   }
   return {
-    plugins: [react(), tailwindcss(), teapotStatus(), ...(mock ? [createNoteRadarMockProxyGuard()] : [])],
+    plugins: [react(), fontsourceWoff2(), tailwindcss(), teapotStatus(), ...(mock ? [createNoteRadarMockProxyGuard()] : [])],
     // Vite 8 raised the default 'baseline-widely-available' target to Chrome/Edge 111,
     // Firefox 114 and Safari 16.4. Keep the Vite 7 baseline so the upgrade does not
     // quietly drop browsers the app supports today.
