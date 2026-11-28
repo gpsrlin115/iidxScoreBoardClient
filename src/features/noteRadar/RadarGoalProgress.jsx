@@ -1,3 +1,4 @@
+import { useLocale } from '../../i18n/useLocale.js';
 import { dateLabel, decimal, finiteNumber } from './model.js';
 import { isTitleCapable, titleName } from './titles.js';
 import { labelFor } from './titleLabels.js';
@@ -35,6 +36,7 @@ function Row({ label, children }) {
 }
 
 export default function RadarGoalProgress({ request, category, data = null, importedAt, catalogAvailable = true, onRequestImport }) {
+  useLocale();
   const goal = data?.goal ?? null;
   const target = request.kind === 'TITLE' ? request.value : request.kind === 'VALUE' ? request.goal : null;
   const timestamp = dateLabel(data?.importedAt ?? importedAt);
