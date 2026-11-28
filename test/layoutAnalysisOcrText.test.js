@@ -1,6 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { extractChartText, titleCandidates } from '../src/features/layoutAnalysis/ocrText.js';
+import {
+  extractChartText, isShortCapitalTitle, lookalikeTitles, titleCandidates,
+} from '../src/features/layoutAnalysis/ocrText.js';
 
 /** One recognised line, as tesseract reports it with per-word confidence. */
 const line = (text, confidence, words) => ({
@@ -64,6 +66,20 @@ test('a symbol the recogniser read as another script is also offered removed', (
   ]);
 
   assert.ok(candidates.includes('Close the World feat.a ru'), candidates.join(' | '));
+});
+
+test('look-alike spellings of a short title follow the readings, fewest swaps first', () => {
+  assert.deepEqual(lookalikeTitles('RS'), ['R5']);
+  assert.deepEqual(lookalikeTitles('G2'), ['GZ', '62', '6Z']);
+  assert.deepEqual(lookalikeTitles('MVP'), []);
+  assert.equal(isShortCapitalTitle('B.O.D.Y.'), true);
+  assert.equal(isShortCapitalTitle('Mel'), false);
+  assert.equal(isShortCapitalTitle('i rr'), false);
+  assert.equal(isShortCapitalTitle('2002'), false);
+
+  // A long reading keeps its place; the guessed spelling only fills what is left.
+  const candidates = titleCandidates([line('Nemophila', 80, [['Nemophila', 80]]), line('RS', 80, [['RS', 80]])]);
+  assert.deepEqual(candidates, ['Nemophila', 'RS', 'R5']);
 });
 
 test('a Japanese title split into single characters is left alone', () => {
